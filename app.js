@@ -111,7 +111,12 @@
         <label for="pw" class="sm mut">Գաղտնաբառ</label>
         <input id="pw" class="in" type="password" autocomplete="current-password" placeholder="••••••••">
         <button class="btn y" id="login">Մտնել</button>
-        <button class="btn o" id="send">Առանց գաղտնաբառի՝ հղում փոստով</button>
+        <button class="btn o" id="send">Առանց գաղտնաբառի՝ կոդ փոստով</button>
+        <div id="otpbox" style="display:none;flex-direction:column;gap:8px">
+          <label for="otp" class="sm mut">Կոդը նամակից (6 նիշ)</label>
+          <input id="otp" class="in" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+          <button class="btn" id="verify">Մտնել կոդով</button>
+        </div>
         <div id="msg" class="sm mut"></div>
       </div>
       <p>Գաղտնաբառը դրվում է հավելվածի Կարգավորումներում՝ առաջին մուտքից հետո։ Փոստով հղումը բացիր հենց այս հեռախոսում։</p>
@@ -136,7 +141,17 @@
       try { localStorage.setItem('hw_email', v); } catch (e) {}
       const { error } = await sb.auth.signInWithOtp({ email: v, options: { emailRedirectTo: location.origin + location.pathname } });
       btn.disabled = false;
-      msg.textContent = error ? ('Սխալ՝ ' + errText(error.message)) : 'Ուղարկված է։ Ստուգիր փոստը (նաև «Spam»-ը) և սեղմիր հղումը։ Ժամում առավելագույնը 2 նամակ է ուղարկվում։';
+      if (error) { msg.textContent = 'Սխալ՝ ' + errText(error.message); return; }
+      msg.textContent = 'Ուղարկված է։ Նամակում կա 6-նիշ կոդ, գրիր այստեղ։ Ժամում առավելագույնը 2 նամակ է ուղարկվում։';
+      document.getElementById('otpbox').style.display = 'flex';
+    };
+    document.getElementById('verify').onclick = async () => {
+      const v = email.value.trim().toLowerCase(), code = document.getElementById('otp').value.trim(), vb = document.getElementById('verify');
+      if (code.length < 6) { msg.textContent = 'Գրիր 6-նիշ կոդը։'; return; }
+      vb.disabled = true; msg.textContent = 'Ստուգվում է…';
+      const { error } = await sb.auth.verifyOtp({ email: v, token: code, type: 'email' });
+      vb.disabled = false;
+      if (error) msg.textContent = 'Սխալ՝ ' + (error.message.includes('expired') || error.message.includes('invalid') ? 'կոդը սխալ է կամ ժամկետն անցել է' : errText(error.message));
     };
   }
 
