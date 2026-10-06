@@ -1,5 +1,5 @@
 // HayWay — service worker. Ցանցը առաջինն է, պահուստը՝ միայն երբ ցանց չկա։
-const VERSION = 'hw-v1';
+const VERSION = 'hw-v3';
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {
