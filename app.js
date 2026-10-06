@@ -107,14 +107,28 @@
       <div class="logo">${I.logo}<div><h1>HayWay</h1><p>Տիրոջ հավելված</p></div></div>
       <div class="box">
         <label for="email" class="sm mut">Էլ. փոստ</label>
-        <input id="email" class="in" type="email" inputmode="email" autocomplete="email" placeholder="name@gmail.com">
-        <button class="btn y" id="send">Ուղարկել մուտքի հղումը</button>
+        <input id="email" class="in" type="email" inputmode="email" autocomplete="username" placeholder="name@gmail.com">
+        <label for="pw" class="sm mut">Գաղտնաբառ</label>
+        <input id="pw" class="in" type="password" autocomplete="current-password" placeholder="••••••••">
+        <button class="btn y" id="login">Մտնել</button>
+        <button class="btn o" id="send">Առանց գաղտնաբառի՝ հղում փոստով</button>
         <div id="msg" class="sm mut"></div>
       </div>
-      <p>Հղումը կգա փոստով։ Բացիր այն հենց այս հեռախոսում, և հավելվածը կբացվի առանց գաղտնաբառի։</p>
+      <p>Գաղտնաբառը դրվում է հավելվածի Կարգավորումներում՝ առաջին մուտքից հետո։ Փոստով հղումը բացիր հենց այս հեռախոսում։</p>
     </div>`;
-    const email = document.getElementById('email'), msg = document.getElementById('msg'), btn = document.getElementById('send');
+    const email = document.getElementById('email'), pw = document.getElementById('pw'), msg = document.getElementById('msg'), btn = document.getElementById('send'), lb = document.getElementById('login');
     try { email.value = localStorage.getItem('hw_email') || ''; } catch (e) {}
+    const errText = (m) => m.includes('Signups not allowed') ? 'այս փոստը մուտքի ցուցակում չէ' : m.includes('Invalid login') ? 'սխալ փոստ կամ գաղտնաբառ' : m.includes('rate limit') ? 'շատ փորձ, սպասիր մեկ ժամ կամ մտիր գաղտնաբառով' : m;
+    lb.onclick = async () => {
+      const v = email.value.trim().toLowerCase();
+      if (!v || !pw.value) { msg.textContent = 'Գրիր փոստը և գաղտնաբառը։'; return; }
+      lb.disabled = true; msg.textContent = 'Մտնում ենք…';
+      try { localStorage.setItem('hw_email', v); } catch (e) {}
+      const { error } = await sb.auth.signInWithPassword({ email: v, password: pw.value });
+      lb.disabled = false;
+      if (error) msg.textContent = 'Սխալ՝ ' + errText(error.message);
+    };
+    pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') lb.click(); });
     btn.onclick = async () => {
       const v = email.value.trim().toLowerCase();
       if (!v) { msg.textContent = 'Գրիր փոստը։'; return; }
@@ -122,7 +136,7 @@
       try { localStorage.setItem('hw_email', v); } catch (e) {}
       const { error } = await sb.auth.signInWithOtp({ email: v, options: { emailRedirectTo: location.origin + location.pathname } });
       btn.disabled = false;
-      msg.textContent = error ? ('Սխալ՝ ' + (error.message.includes('Signups not allowed') ? 'այս փոստը մուտքի ցուցակում չէ' : error.message)) : 'Ուղարկված է։ Ստուգիր փոստը (նաև «Spam»-ը) և սեղմիր հղումը։';
+      msg.textContent = error ? ('Սխալ՝ ' + errText(error.message)) : 'Ուղարկված է։ Ստուգիր փոստը (նաև «Spam»-ը) և սեղմիր հղումը։ Ժամում առավելագույնը 2 նամակ է ուղարկվում։';
     };
   }
 
@@ -408,12 +422,27 @@
         ${(logs || []).map((l) => `<div class="tl"><span class="mut" style="font-size:12.5px;font-weight:700;width:70px;flex-shrink:0">${new Date(l.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Yerevan' })}</span><div><div style="font-size:13px;font-weight:700">${esc(l.agent)} · ${esc(l.action)}</div><div class="sm mut">${esc(l.action === 'sync' ? `պատվեր +${l.details?.orders?.n ?? 0}, գործարք +${l.details?.transactions?.n ?? 0}, ${Math.round((l.details?.ms || 0) / 1000)} վրկ` : JSON.stringify(l.details || {}).slice(0, 90))}</div></div></div>`).join('')}
       </section>
       <section class="card">
+        <h2 class="ttl">Գաղտնաբառ</h2>
+        <span class="sm mut">Դիր գաղտնաբառ, որ հավելվածը բացվի առանց փոստի հղման (առնվազն 8 նիշ)։</span>
+        <input id="newpw" class="in" type="password" autocomplete="new-password" placeholder="Նոր գաղտնաբառ">
+        <button class="btn" id="setpw">Պահել գաղտնաբառը</button>
+        <span id="pwmsg" class="sm mut"></span>
+      </section>
+      <section class="card">
         <span class="sm mut">Մուտք՝ ${esc(session?.user?.email || '')}</span>
         <button class="btn o" id="signout">Դուրս գալ</button>
-        <span class="sm mut" style="text-align:center">HayWay տիրոջ հավելված · տարբերակ 0.1</span>
+        <span class="sm mut" style="text-align:center">HayWay տիրոջ հավելված · տարբերակ 0.2</span>
       </section>
     </main>`, 'settings', { pending: h.tasks_pending });
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
+    document.getElementById('setpw').onclick = async () => {
+      const p = document.getElementById('newpw').value, m = document.getElementById('pwmsg');
+      if (p.length < 8) { m.textContent = 'Առնվազն 8 նիշ։'; return; }
+      m.textContent = 'Պահվում է…';
+      const { error } = await sb.auth.updateUser({ password: p });
+      m.textContent = error ? 'Սխալ՝ ' + error.message : 'Պահված է։ Հաջորդ անգամ մտիր փոստով և այս գաղտնաբառով։';
+      if (!error) document.getElementById('newpw').value = '';
+    };
     wire();
   });
 
