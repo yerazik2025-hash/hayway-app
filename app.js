@@ -433,6 +433,7 @@
   }));
 
   // ───────── Սկիզբ ─────────
+  window.HW = { sb, rpc, render, invalidate, cache };
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   render();
 })();

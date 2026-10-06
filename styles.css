@@ -66,7 +66,7 @@ button { font: inherit; }
 .tabs { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 4px; background: var(--line); padding: 4px; border-radius: 24px; }
 .tab { min-height: 44px; border: 0; border-radius: 20px; background: transparent; color: var(--n); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .tab.on { background: var(--night); color: var(--yellow); }
-.qa { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 16px; min-height: 78px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: 12px; font-weight: 700; text-align: center; }
+.qa { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 16px; min-height: 78px; padding: 8px 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: 11px; font-weight: 700; text-align: center; line-height: 1.15; overflow: hidden; }
 .qi { width: 36px; height: 36px; border-radius: 18px; background: var(--night); color: var(--yellow); display: flex; align-items: center; justify-content: center; }
 .qb { position: absolute; top: 6px; right: 8px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #A83726; color: #fff; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .sec { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-decoration: none; min-height: 130px; }
