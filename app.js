@@ -111,7 +111,7 @@
         <label for="pw" class="sm mut">Գաղտնաբառ</label>
         <input id="pw" class="in" type="password" autocomplete="current-password" placeholder="••••••••">
         <button class="btn y" id="login">Մտնել</button>
-        <button class="btn o" id="send">Առանց գաղտնաբառի՝ կոդ փոստով</button>
+        <button class="btn o" id="send">Առանց գաղտնաբառի՝ հղում փոստով</button>
         <div id="otpbox" style="display:none;flex-direction:column;gap:8px">
           <label for="otp" class="sm mut">Կոդը նամակից (6 նիշ)</label>
           <input id="otp" class="in" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
@@ -142,8 +142,7 @@
       const { error } = await sb.auth.signInWithOtp({ email: v, options: { emailRedirectTo: location.origin + location.pathname } });
       btn.disabled = false;
       if (error) { msg.textContent = 'Սխալ՝ ' + errText(error.message); return; }
-      msg.textContent = 'Ուղարկված է։ Նամակում կա 6-նիշ կոդ, գրիր այստեղ։ Ժամում առավելագույնը 2 նամակ է ուղարկվում։';
-      document.getElementById('otpbox').style.display = 'flex';
+      msg.textContent = 'Ուղարկված է։ Բացիր նամակի հղումը հենց այս հեռախոսում՝ Safari-ում։ Ժամում առավելագույնը 2 նամակ է ուղարկվում։';
     };
     document.getElementById('verify').onclick = async () => {
       const v = email.value.trim().toLowerCase(), code = document.getElementById('otp').value.trim(), vb = document.getElementById('verify');
