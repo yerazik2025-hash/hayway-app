@@ -1,0 +1,2 @@
+// Ստեղծվում է ինքնաբերաբար (scripts\app-deploy.ps1)։ anon բանալին հրապարակային է, տվյալները պաշտպանված են մուտքով և RLS-ով։
+window.GARIK_CONFIG = { url: 'https://bxuxlcradyqtqxtjtsel.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4dXhsY3JhZHlxdHF4dGp0c2VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyOTU4ODEsImV4cCI6MjEwNjg3MTg4MX0.HqI0HDAHoXvRsW--i-Gj2QmXAMjnr5ntK-IzGUA4YXs' };

@@ -1,0 +1,97 @@
+/* HayWay տիրոջ հավելված — ոճերը (էկրանների v2-ի գույներով) */
+:root {
+  --night: #161616; --night2: #2A2A2A; --yellow: #FCE000; --yellow2: #FFE94D; --yellow-soft: #FFF6BF;
+  --paper: #F5F4F2; --card: #FFFFFF; --line: #E6E3DE; --line2: #EFEDE9; --ink: #21201F; --mut: #5E5B57; --mut2: #BDBAB4;
+  --red-bg: #F8E1DD; --red: #8E2C1E; --amb-bg: #FBEFD9; --amb: #7A4808; --grn-bg: #E3F0E8; --grn: #1F5139; --n-bg: #ECEAE6; --n: #4A4743;
+  --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--night); }
+body { font-family: 'Noto Sans Armenian', 'Noto Sans', system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+button { font: inherit; }
+.app { min-height: 100%; display: flex; flex-direction: column; background: var(--paper); max-width: 520px; margin: 0 auto; }
+.loading { padding: 40px 16px; text-align: center; color: var(--mut); }
+
+/* Վերնագիր */
+.hdr { position: sticky; top: 0; z-index: 5; padding: calc(8px + var(--safe-top)) 14px 8px; min-height: 64px; background: var(--night); color: #fff; display: flex; align-items: center; gap: 10px; }
+.hdr h1 { margin: 0; font-size: 19px; font-weight: 700; }
+.hdr .sub { font-size: 12px; color: var(--mut2); display: flex; align-items: center; gap: 6px; }
+.hdr .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.back { width: 44px; height: 44px; margin-left: -8px; display: flex; align-items: center; justify-content: center; color: #fff; border-radius: 22px; text-decoration: none; flex-shrink: 0; background: transparent; border: 0; }
+.back:active { color: var(--yellow); }
+.tile { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: var(--ink); flex-shrink: 0; }
+.dot { width: 8px; height: 8px; border-radius: 4px; display: inline-block; flex-shrink: 0; }
+.hbtn { position: relative; width: 44px; height: 44px; border-radius: 22px; background: var(--night2); color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 0; }
+
+/* Բովանդակություն */
+.main { flex: 1; padding: 12px 14px calc(96px + var(--safe-bottom)); display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.card.y { background: var(--yellow-soft); border-color: transparent; }
+.card.a { background: var(--amb-bg); border-color: transparent; }
+.ttl { margin: 0; font-size: 14px; font-weight: 700; }
+.mut { color: var(--mut); }
+.sm { font-size: 12.5px; line-height: 1.45; }
+.num { font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.big { font-family: 'Handjet', 'Noto Sans', sans-serif; font-size: 56px; font-weight: 700; line-height: .85; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.row { display: flex; align-items: center; gap: 8px; }
+.between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.r { background: var(--red-bg); color: var(--red); } .pill.a { background: var(--amb-bg); color: var(--amb); }
+.pill.g { background: var(--grn-bg); color: var(--grn); } .pill.n { background: var(--n-bg); color: var(--n); } .pill.k { background: var(--night); color: var(--yellow); }
+.up { color: var(--grn); font-weight: 700; } .down { color: var(--red); font-weight: 700; }
+.bar { height: 8px; border-radius: 4px; background: var(--n-bg); overflow: hidden; display: flex; }
+.bar > span { display: block; height: 100%; background: var(--ink); border-radius: 4px; }
+.bar.led { background: var(--night2); height: 10px; border-radius: 5px; } .bar.led > span { background: var(--yellow); }
+.hr { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 12.5px; min-height: 24px; }
+.hr > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ln { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line2); font-size: 13.5px; }
+.ln > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ln:first-of-type { border-top: 0; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 22px; background: var(--night); color: #fff; font-size: 13.5px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; }
+.btn.y { background: var(--yellow); color: var(--night); } .btn.o { background: transparent; color: var(--ink); border: 1.5px solid #CFCBC4; }
+.btn:disabled { opacity: .5; }
+.lst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line2); }
+.li:first-child { border-top: 0; }
+.av { width: 38px; height: 38px; border-radius: 19px; background: var(--n-bg); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--n); flex-shrink: 0; }
+.call { width: 44px; height: 44px; border-radius: 22px; background: var(--paper); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--ink); flex-shrink: 0; text-decoration: none; }
+.call:active { background: var(--yellow); }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { min-height: 40px; padding: 0 13px; border-radius: 20px; border: 1.5px solid #CFCBC4; background: var(--card); color: var(--ink); font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.chip.on { background: var(--night); border-color: var(--night); color: var(--yellow); }
+.tabs { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 4px; background: var(--line); padding: 4px; border-radius: 24px; }
+.tab { min-height: 44px; border: 0; border-radius: 20px; background: transparent; color: var(--n); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.tab.on { background: var(--night); color: var(--yellow); }
+.qa { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 16px; min-height: 78px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: 12px; font-weight: 700; text-align: center; }
+.qi { width: 36px; height: 36px; border-radius: 18px; background: var(--night); color: var(--yellow); display: flex; align-items: center; justify-content: center; }
+.qb { position: absolute; top: 6px; right: 8px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #A83726; color: #fff; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.sec { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-decoration: none; min-height: 130px; }
+.sec .nm { font-size: 15px; font-weight: 700; } .sec .mt { font-size: 12.5px; color: var(--mut); } .sec .ag { font-size: 11.5px; color: var(--mut); margin-top: 2px; }
+.sec.wide { grid-column: 1 / -1; min-height: 0; }
+.cols { display: grid; gap: 5px; align-items: end; height: 84px; }
+.col1 { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--mut); }
+.col1 > span:first-child { width: 100%; border-radius: 4px 4px 2px 2px; background: var(--ink); min-height: 2px; }
+.col1.today > span:first-child { background: var(--mut2); }
+.tl { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line2); }
+svg.i { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.err { background: var(--red-bg); color: var(--red); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+.empty { color: var(--mut); font-size: 13px; padding: 8px 0; }
+input.in { width: 100%; height: 48px; border-radius: 14px; border: 1.5px solid #CFCBC4; padding: 0 14px; font: inherit; font-size: 15px; background: #fff; color: var(--ink); }
+
+/* Ներքևի ընտրացանկ */
+.nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 6; max-width: 520px; margin: 0 auto; height: calc(76px + var(--safe-bottom)); padding: 0 6px calc(10px + var(--safe-bottom)); background: var(--night); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; }
+.nv { display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: var(--mut2); font-size: 10.5px; font-weight: 600; padding-bottom: 6px; }
+.nv.on { color: var(--yellow); }
+.fab { width: 56px; height: 56px; margin-top: -26px; border-radius: 28px; background: var(--yellow); color: var(--night); display: flex; align-items: center; justify-content: center; border: 4px solid var(--night); }
+.badge { position: absolute; top: -5px; right: -9px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--yellow); color: var(--night); font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+
+/* Մուտք */
+.login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 24px 20px; gap: 14px; background: var(--night); color: #fff; }
+.login .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.login h1 { margin: 0; font-size: 26px; font-weight: 800; }
+.login p { margin: 0; color: var(--mut2); font-size: 14px; line-height: 1.5; }
+.login .box { background: var(--card); color: var(--ink); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
