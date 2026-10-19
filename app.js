@@ -157,6 +157,9 @@
     return `<p class="meta" id="${id}-cap">${cap0}</p><div class="chart" id="${id}">${cols}</div><div class="chart-x">${xs}</div>`;
   }
 
+  // Fleet-ը 11–17.10-ի գործարքները չտվեց. այդ օրերի գումարները մոտավոր են (db\0005_tx_gap.sql)
+  const estNote = (notes, days) => { const e = ((notes && notes.estimated_days) || []).filter((d) => d > new Date(Date.now() + 4 * 3600e3 - days * 86400e3).toISOString().slice(0, 10)); return e.length ? `≈ Եկամուտը `+dmy(e[0])+`–`+dmy(e[e.length - 1])+`-ի համար մոտավոր է. Fleet-ը այդ օրերի գործարքները չտվեց։` : ''; };
+
   // ───────── Երթուղավորում ─────────
   const routes = {};
   function route(path, fn) { routes[path] = fn; }
@@ -232,45 +235,44 @@
     };
   }
 
-  // ───────── Գլխավոր ─────────
+  // ───────── Գլխավոր (պարզ. այսօր անել · 4 թիվ · 1000-ի նպատակը) ─────────
   route('/', async () => {
     lastTab = 'home';
-    const h = await rpc('app_home');
-    pendingCount = h.tasks_pending || 0;
-    const w = h.week, p = h.prev_week, g = h.gold;
-    const active = h.active_30d || 0, net = (w.new || 0) - (w.churn || 0);
-    const cr = pct(w.cancelled_driver, w.orders + w.cancelled);
-    const att = [];
-    if (h.tasks_pending) att.push(cell({ href: '#/tasks', icon: I.tasks, color: 'k', t: `${h.tasks_pending} առաջարկ սպասում է քեզ`, bold: true, s: 'Գործակալների այսօրվա առաջարկները' }));
-    if (w.churn > w.new) att.push(cell({ href: '#/drivers/churned', icon: I.users, color: 'r', t: `Գնաց ${w.churn}, եկավ ${w.new} վարորդ`, s: `Այս շաբաթ զուտ՝ ${net}` }));
-    if (h.debt.drivers) att.push(cell({ href: '#/drivers/debt', icon: I.money, color: 'o', t: `${h.debt.drivers} վարորդ պարտքով`, s: `Ընդհանուր՝ ${short(Math.abs(h.debt.total))}` }));
-    att.push(cell({ href: '#/quality', icon: I.quality, color: 'p', t: `Վարորդների չեղարկում՝ ${cr}%`, s: 'Այս շաբաթ, բոլոր պատվերներից' }));
-
-    const sc = mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">·</span> <span class="mut3">թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
-      ${sec('Այսօր քո ուշադրությանը', group(att, 'ic'))}
-      ${sec('Այս շաբաթ', `<div class="kpis">
-        ${kpi('Հիմա գծում', `${fmt(h.online.total)}`, `${fmt(h.online.on_order)} պատվերի վրա`, '#/drivers/active')}
-        ${kpi('Պատվերներ', fmt(w.orders), delta(w.orders, p.orders))}
-        ${kpi('Շրջանառություն', short(w.gmv), delta(w.gmv, p.gmv), '#/finance')}
-        ${kpi('Պարկի եկամուտ', short(w.commission), delta(w.commission, p.commission), '#/finance')}
-      </div>`, { foot: 'Վերջին 7 օրը՝ նախորդ 7 օրվա համեմատ։' })}
-      ${sec('Արագ գործողություններ', `<div class="qa">
-        <a href="#/contact"><span class="q">${I.chat}</span><span>Գրել վարորդներին</span></a>
-        <a href="#/tasks"><span class="q">${I.tasks.replace(/width="26" height="26"/, 'width="20" height="20"')}</span>${h.tasks_pending ? `<span class="badge">${h.tasks_pending}</span>` : ''}<span>Հաստատել</span></a>
-        <a href="#/drivers/risk"><span class="q">${I.call}</span><span>Ում զանգել</span></a>
-        <a href="#/marketing"><span class="q">${I.mega}</span><span>Գովազդ</span></a>
-        <a href="#/terms"><span class="q">${I.trophy}</span><span>Մրցույթ</span></a>
-        <a href="#/finance"><span class="q">${I.money}</span><span>Վճարումներ</span></a>
-      </div>`)}
-      ${sec('1000 ակտիվ վարորդ', `<a class="card" href="#/drivers/active">
-        <div class="hero"><span class="n">${fmt(active)}</span><span class="u">/ 1000 · ${Math.round(active / 10)}%</span></div>
+    const [h, notes, tr] = await Promise.all([
+      rpc('app_home'), rpc('app_notes'),
+      sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
+    ]);
+    const tasks = tr.data || [];
+    pendingCount = tasks.length;
+    const w = h.week;
+    // Համեմատում ենք միայն լրիվ օրերը (առանց այսօրվա). վերջին 7-ը՝ նախորդ 7-ի հետ
+    const full = (h.days || []).filter((d) => d.day < today());
+    const sum = (a, k) => a.reduce((s, d) => s + (+d[k] || 0), 0);
+    const cw = full.slice(-7), pw = full.slice(-14, -7);
+    const W7 = { orders: sum(cw, 'orders'), gmv: sum(cw, 'gmv'), commission: sum(cw, 'commission') };
+    const P7 = { orders: sum(pw, 'orders'), gmv: sum(pw, 'gmv'), commission: sum(pw, 'commission') };
+    const todayRow = (h.days || []).find((d) => d.day === today()) || {};
+    const fresh = notes && notes.drivers_synced_at && (Date.now() - new Date(notes.drivers_synced_at)) < 3 * 3600e3;
+    const active = h.active_30d || 0;
+    const vsWeek = (cur, prev) => { if (!prev) return ''; const d = Math.round((cur - prev) / prev * 100); if (!d) return '<span class="delta mut">նույնը, ինչ նախորդ 7 օրը</span>'; return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '▲' : '▼'}${NB}${Math.abs(d)}%</span> <span class="mut">նախորդ 7 օրից</span>`; };
+    const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
+    if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
+    if (!tasks.length) todo.push(cell({ icon: I.tasks, color: 'g', t: 'Այսօր նոր գործ չկա', s: 'Գործակալները ստուգում են ամեն առավոտ 08:30-ին' }));
+    mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">· թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
+      ${sec('Այսօր անել', group(todo, 'ic'))}
+      ${sec('Վերջին 7 օր', `<div class="kpis">
+        ${fresh ? kpi('Հիմա աշխատում են', fmt(h.online.total), `${fmt(h.online.on_order)}-ը պատվերի վրա`, '#/drivers/active')
+                : kpi('Այսօր աշխատել են', fmt(todayRow.active || 0), 'վարորդ՝ գոնե մեկ պատվերով', '#/drivers/active')}
+        ${kpi('Պատվերներ', fmt(W7.orders), vsWeek(W7.orders, P7.orders))}
+        ${kpi('Ընդհանուր գումար', short(W7.gmv), vsWeek(W7.gmv, P7.gmv), '#/finance')}
+        ${kpi('Պարկի եկամուտ', short(W7.commission), vsWeek(W7.commission, P7.commission), '#/finance')}
+      </div>`, { foot: ('Լրիվ օրեր՝ առանց այսօրվա, համեմատած դրանից առաջվա 7 օրվա հետ։ ' + estNote(notes, 15)).trim() })}
+      ${sec('Նպատակ՝ 1000 վարորդ', `<a class="card" href="#/drivers/active">
+        <div class="hero"><span class="n">${fmt(active)}</span><span class="u">աշխատող վարորդ</span></div>
         <div class="prog y"><span style="width:${Math.min(100, active / 10)}%"></span></div>
-        <div class="row wrap"><span class="tag pos">+${w.new} նոր</span><span class="tag neg">−${w.churn} հեռացած</span><span class="tag ${net >= 0 ? 'pos' : 'neg'}">զուտ ${net >= 0 ? '+' : '−'}${Math.abs(net)}</span></div>
-        <p class="meta">Yandex-ի Ոսկի մակարդակ՝ ${g.new_50} / 80 նորեկ 50 պատվերով այս ամիս (նորեկ՝ ${g.new_month})։</p>
-      </a>`, { foot: 'Ակտիվ՝ վերջին 30 օրում գոնե մեկ ավարտված պատվեր։' })}
-      ${sec('Պատվերներ ըստ օրերի', `<div class="card">${barChart('ch-orders', h.days, 'orders', (v) => fmt(v), 'պատվեր')}</div>`, { foot: 'Սեղմիր սյունակին՝ օրվա թիվը տեսնելու համար։' })}
+        <p class="meta">Այս շաբաթ եկավ <b class="pos">${w.new}</b>, գնաց <b class="neg">${w.churn}</b>։</p>
+      </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ Բաժիններում։' })}
     `));
-    return sc;
   });
 
   // ───────── Բաժիններ ─────────
@@ -301,7 +303,7 @@
   });
 
   // ───────── Վարորդներ ─────────
-  const SEGS = [['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Վտանգի գոտում'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
+  const SEGS = [['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
   const SEG_DESC = {
     active: 'Վերջին 30 օրում գոնե մեկ ավարտված պատվեր։ Դասավորված են այս շաբաթվա պատվերներով։',
     top: '30 վարորդ՝ ամենաշատ պատվերով վերջին 30 օրում։ Կոմիսիան փոխելուց առաջ նրանց զանգում ենք անձամբ։',
@@ -378,16 +380,19 @@
   // ───────── Ֆինանսներ ─────────
   route('/finance', async () => {
     lastTab = 'sections';
-    const [h, f] = await Promise.all([rpc('app_home'), rpc('app_finance')]);
+    const [h, f, notes] = await Promise.all([rpc('app_home'), rpc('app_finance'), rpc('app_notes')]);
     pendingCount = h.tasks_pending || 0;
-    const w = f.week, p = f.prev_week, m = f.month, b = f.balances;
+    const m = f.month, b = f.balances;
+    const fd = (f.days || []).filter((d) => d.day < today());
+    const sm = (a, k) => a.reduce((s, d) => s + (+d[k] || 0), 0);
+    const w = { gmv: sm(fd.slice(-7), 'gmv'), commission: sm(fd.slice(-7), 'commission') }, p = { gmv: sm(fd.slice(-14, -7), 'gmv'), commission: sm(fd.slice(-14, -7), 'commission') };
     const tops = (f.topups_by_provider || []);
     const kv = (t, v, s) => cell({ t, s, v, strong: true });
     mount({ title: 'Ֆինանսներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot ok"></span>Ֆինանսիստ · Fleet-ի գործարքներից' }, page(`
-      ${sec('Այս շաբաթ', `<div class="kpis">
+      ${sec('Վերջին 7 օր', `<div class="kpis">
         ${kpi('Շրջանառություն', short(w.gmv), delta(w.gmv, p.gmv))}
         ${kpi('Պարկի եկամուտ', short(w.commission), delta(w.commission, p.commission))}
-      </div>`, { foot: 'Նախորդ 7 օրվա համեմատ։' })}
+      </div>`, { foot: ('Լրիվ օրեր՝ առանց այսօրվա, նախորդ 7 օրվա համեմատ։ ' + estNote(notes, 15)).trim() })}
       ${sec('Եկամուտ ըստ օրերի', `<div class="card">${barChart('ch-comm', f.days, 'commission', (v) => amd(Math.round(v)), '')}</div>`)}
       ${sec('Վերջին 30 օր', group([
         kv('Շրջանառություն', short(m.gmv)),
@@ -396,11 +401,11 @@
         kv('Վճարումներ վարորդներին', short(m.payouts)),
         kv('Լիցքավորումներ', short(m.topups)),
         kv('Մեկ ակտիվ վարորդից', amd(Math.round(m.active ? m.commission / m.active : 0))),
-      ]))}
+      ]), { foot: estNote(notes, 30) })}
       ${sec('Հաշվեկշիռներ հիմա', group([
         kv('Վարորդների դրական հաշվեկշիռ', short(b.positive)),
         cell({ href: '#/drivers/debt', t: 'Պարտք', s: `${b.negative_drivers} վարորդ`, v: `<span class="neg">${short(b.negative)}</span>`, strong: true }),
-      ]))}
+      ]), { foot: driversLine(notes) })}
       ${sec('Լիցքավորումներ ըստ ծառայության', tops.length ? group(tops.map((t) => cell({ t: esc(t.provider), s: `${fmt(t.count)} գործարք`, v: short(t.sum), strong: true, extra: `<div class="mbar"><span style="width:${pct(t.sum, m.topups)}%"></span></div>` }))) : '<div class="group"><p class="none">Տվյալ չկա</p></div>', { foot: 'Վերջին 30 օրը։' })}
     `));
   });
@@ -455,8 +460,8 @@
         ${t.why ? `<p class="why">${esc(t.why)}</p><button class="more" data-more>Ավելին</button>` : ''}
         ${p.segment ? `<button class="btn sm" data-list style="align-self:flex-start">${I.users} Ցուցակը${p.n ? (p.n > 25 ? ' · առաջին 25-ը' : ` · ${p.n}`) : ''}</button><div class="list" data-drivers style="display:none"></div>` : ''}
         ${decided
-          ? `<div class="between"><span class="tag ${t.status === 'approved' ? 'pos' : 'n'}">${t.status === 'approved' ? 'Հաստատված' : 'Մերժված'} · ${dmy(t.decided_at)}</span><button class="btn plain" data-act="undo">Չեղարկել</button></div>`
-          : `<div class="btns"><button class="btn" data-act="reject">Մերժել</button><button class="btn pri" data-act="approve">Հաստատել</button></div>`}
+          ? `<div class="between"><span class="tag ${t.status === 'approved' ? 'pos' : 'n'}">${t.status === 'approved' ? (t.kind === 'call' ? 'Կզանգենք' : 'Հաստատված') : (t.kind === 'call' ? 'Պետք չէ' : 'Մերժված')} · ${dmy(t.decided_at)}</span><button class="btn plain" data-act="undo">Չեղարկել</button></div>`
+          : `<div class="btns"><button class="btn" data-act="reject">${t.kind === 'call' ? 'Պետք չէ' : 'Մերժել'}</button><button class="btn pri" data-act="approve">${t.kind === 'call' ? 'Կզանգենք' : 'Հաստատել'}</button></div>`}
       </article>`;
     };
     const list = view === 'done' ? done : pending;
@@ -567,10 +572,12 @@
     if (l.action === 'agents_on') return ['Գործակալները միացվեցին', ''];
     return [`${l.agent} · ${l.action}`, ''];
   };
+  // Վարորդների ցուցակի (հաշվեկշիռ, գծում լինել) թարմությունը. Fleet-ը երբեմն մերժում է այդ հարցումը
+  const driversLine = (n) => { if (!n) return ''; const ok = n.drivers_synced_at; if (n.drivers_error && (!ok || new Date(n.drivers_error.at) > new Date(ok))) return `Պատվերները թարմ են։ Վարորդների ցուցակը Fleet-ը ժամանակավորապես չի տալիս${ok ? `, վերջինը՝ ${ago(ok)}` : ''}։`; return ok ? `Վարորդների ցուցակը՝ ${ago(ok)}` : ''; };
   route('/settings', async () => {
     lastTab = 'settings';
-    const [h, st, logsR, usersR, agR, sessR] = await Promise.all([
-      rpc('app_home'), garikState(),
+    const [h, st, notes, logsR, usersR, agR, sessR] = await Promise.all([
+      rpc('app_home'), garikState(), rpc('app_notes'),
       sb.from('agent_log').select('at,agent,action,details').order('id', { ascending: false }).limit(10),
       sb.from('app_users').select('email,role,name'),
       sb.from('sync_state').select('value').eq('key', 'agents').maybeSingle(),
@@ -585,7 +592,7 @@
       ${sec('Գործակալներ', group([cell({ icon: I.star, color: 'k', t: 'Ավտոմատ առաջարկներ', s: 'Ամեն առավոտ 08:30', trail: `<label class="sw"><input type="checkbox" id="agents" ${agentsOn ? 'checked' : ''} aria-label="Գործակալները միացված են"><span></span></label>` })], 'ic'),
         { foot: 'Պահպանող, Որակի վերահսկիչ և Ֆինանսիստ առաջարկներ են դնում Գործերում և ոչինչ չեն անում առանց քո հաստատման։ Անջատելուց հետո Fleet-ի թարմացումը շարունակվում է։' })}
       ${sec('Միացումներ', group([
-        cell({ icon: I.car, color: 'y', t: 'Yandex Fleet · տաքսի', v: `<span class="tag pos">${ago(h.last_sync)}</span>` }),
+        cell({ icon: I.car, color: 'y', t: 'Yandex Fleet · տաքսի', s: driversLine(notes), v: `<span class="tag pos">${ago(h.last_sync)}</span>` }),
         cell({ icon: I.box, color: 't', t: 'Yandex Fleet · Delivery', v: '<span class="tag warn">մուտք չկա</span>' }),
         cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', v: st.key ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">բանալի չկա</span>' }),
         cell({ icon: I.chat, color: 'g', t: 'WhatsApp բոտ', v: '<span class="tag pos">աշխատում է</span>' }),
@@ -600,7 +607,7 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.4` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.5` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
     document.getElementById('agents').onchange = async (e) => {
