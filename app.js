@@ -278,11 +278,13 @@
   // ───────── Բաժիններ ─────────
   route('/sections', async () => {
     lastTab = 'sections';
-    const h = await rpc('app_home');
+    const [h, lr] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle()]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     const soon = '<span class="tag n">շուտով</span>';
-    mount({ title: 'Բաժիններ', tab: 'sections', sub: '9 բաժին · 6-ը կենդանի տվյալներով' }, page(`
+    const la = lr.data;
+    const laTag = !la ? '' : la.status === 'off' ? '<span class="tag neg">կանգնած</span>' : la.status === 'warn' ? '<span class="tag warn">ուշանում է</span>' : '';
+    mount({ title: 'Բաժիններ', tab: 'sections', sub: '10 բաժին · 7-ը կենդանի տվյալներով' }, page(`
       ${sec('Վարորդներ և որակ', group([
         cell({ href: '#/drivers', icon: I.users, color: 'y', t: 'Վարորդներ', s: `${fmt(h.active_30d)} ակտիվ · շաբաթ՝ +${w.new} / −${w.churn}` }),
         cell({ href: '#/quality', icon: I.quality, color: 'p', t: 'Որակ', s: `${pct(w.orders, w.orders + w.cancelled)}% պատվեր ավարտվում է` }),
@@ -293,6 +295,7 @@
       ], 'ic'))}
       ${sec('Աճ', group([
         cell({ href: '#/growth', icon: I.userplus, color: 'y', t: 'Նոր վարորդներ', s: `30 օրում՝ +${fmt(h.month.new)} · գրանցումից մինչև 50-րդ պատվեր` }),
+        cell({ href: '#/listam', icon: I.mega, color: 'r', t: 'list.am', s: 'Նամակներ, թարմացում, փաթեթ, հայտեր, մրցակիցներ', trail: laTag }),
         cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ, մրցակիցներ', trail: soon }),
         cell({ href: '#/leads', icon: I.userplus, color: 'b', t: 'Հայտեր', s: 'Հայտից մինչև 50-րդ պատվեր', trail: soon }),
         cell({ href: '#/contact', icon: I.chat, color: 's', t: 'Կապ', s: 'Հայտարարություններ և նամակներ', trail: soon }),
@@ -348,8 +351,90 @@
     `));
   });
 
+  // ───────── list.am վահանակ (list գործակալի բոլոր գործընթացները) ─────────
+  // Տվյալները՝ channels.id='listam', լցնում է scripts\listam-import.ps1-ը Կոմպ 1-ից ժամը մեկ
+  // (աղբյուրը Կոմպ 2-ի list գործակալի ֆայլերն են)։
+  const daysAgo = (iso) => iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : null;
+  const dmyhm = (iso) => iso ? `${dmy(iso)} ${hm(iso)}` : '—';
+  route('/listam', async () => {
+    lastTab = 'sections';
+    const [h, cr] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary,metrics,updated_at').eq('id', 'listam').maybeSingle()]);
+    pendingCount = h.tasks_pending || 0;
+    const c = cr.data;
+    if (!c) {
+      mount({ title: 'list.am', tab: 'sections', back: ['#/sections', 'Բաժիններ'] }, page(emptyState(I.mega, 'Տվյալ դեռ չկա', 'Ցուցանիշները լցնում է Կոմպ 1-ը ժամը մեկ։')));
+      return;
+    }
+    const M = c.metrics || {}, hl = M.health || {}, rf = M.refresh || {}, ad = M.ads || {}, ib = M.inbox || {}, mk = M.market || {}, ld = M.leads || {};
+    const off = c.status === 'off', stopD = daysAgo(hl.data_at);
+    // Գործընթաց. թարմ է, եթե վերջին աշխատանքը ավելի նոր է, քան սահմանը (ժամերով)
+    const proc = (icon, color, t, every, at, limitH) => {
+      const fresh = at && (Date.now() - new Date(at)) < limitH * 3600e3;
+      const d = daysAgo(at);
+      return cell({ icon, color, t, s: `${every} · վերջինը՝ ${dmyhm(at)}`, v: fresh ? '<span class="tag pos">աշխատում է</span>' : `<span class="tag neg">${d === null ? 'տվյալ չկա' : d + NB + 'օր'}</span>` });
+    };
+    // Փաթեթ. մնացածը, ժամկետը, ինչքան կայրվի
+    const left = rf.package_left, total = rf.package_total || 500, until = rf.package_until;
+    const dLeft = until ? Math.max(0, Math.ceil((new Date(until) - Date.now()) / 864e5)) : null;
+    const need = dLeft !== null ? (rf.ads_per_day || 17) * dLeft : null;
+    const burn = off ? left : (need !== null && left != null ? Math.max(0, left - need) : null);
+    const pkNote = left == null ? '' : off
+      ? `Գործակալը կանգնած է, թարմացումները չեն ծախսվում. <b class="neg">${fmt(left)}-ը կայրվի ${dmy(until)}-ին</b>, եթե մինչ այդ չաշխատի։`
+      : burn > 0 ? `Օրական ${rf.ads_per_day || 17}-ով մինչև ${dmy(until)} կծախսվի ${fmt(need)}, կմնա ${fmt(burn)}։` : `Կբավականացնի մինչև ${dmy(until)}։`;
+    // Գովազդներ. վերջին երկու պահի տարբերությունը
+    const sn = ad.snapshots || [], s1 = sn[sn.length - 1] || {}, s0 = sn[sn.length - 2] || {};
+    const plus = (a, b) => (a != null && b != null) ? `+${fmt(a - b)} ${dmy(s0.day)}-ից` : '';
+    const lg = ib.lang || {};
+    const fn = ld.funnel || {}, bs = ld.by_status || {};
+    const posAll = mk.positions || [];
+    const posRows = posAll.slice().reverse().map((p) => cell({ t: dmy(p.day), s: p.in200 ? `Առաջին 100-ում՝ ${p.in100} · լավագույնը՝ #${p.best}` : 'Առաջին 200-ում չկանք', v: fmt(p.in200), strong: true }));
+    const lastPos = posAll[posAll.length - 1] || {};
+    const sub = off ? `<span class="dot bad"></span>Գործակալը կանգնած է ${stopD}${NB}օր` : '<span class="dot ok"></span>list գործակալ · Կոմպ 2';
+    mount({ title: 'list.am', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(`
+      ${off ? sec('', `<div class="err"><b>Գործակալը ${dmy(hl.data_at)}-ից չի աշխատում</b><p>Նամակներին և դիմորդներին չի պատասխանվում, գովազդները չեն բարձրանում, մրցակիցները չեն ստուգվում։ Պատճառը՝ Կոմպ 2-ը (նոութբուքը) կապ չունի. պետք է միացնել այն և բացել Chrome-ը։</p></div>`) : ''}
+      ${sec('Գործընթացներ', group([
+        proc(I.chat, 'b', 'Նամակներ և դիմորդներ', 'ամեն 10 րոպե', ib.last_at, 2),
+        proc(I.refresh, 'g', 'Գովազդների թարմացում', 'օրը 6 անգամ', rf.last_at, 13),
+        proc(I.trophy, 'o', 'Մրցակիցների ստուգում', 'ամեն օր 09:00', mk.generated, 26),
+        proc(I.userplus, 'p', 'Հայտերի աղյուսակ', 'ամեն օր', ld.updated_at, 26),
+      ], 'ic'), { foot: `Աջում՝ քանի օր է գործընթացը կանգնած։ Վահանակը թարմացվում է ժամը մեկ, վերջինը՝ ${ago(c.updated_at)}։` })}
+      ${left != null ? sec('Թարմացման փաթեթ', `<div class="card">
+        <div class="hero"><span class="n">${fmt(left)}</span><span class="u">/ ${fmt(total)} թարմացում մնաց</span></div>
+        <div class="prog y"><span style="width:${Math.min(100, pct(left, total))}%"></span></div>
+        <p class="meta">Ժամկետը՝ ${dmy(until)}${dLeft !== null ? ` (${dLeft}${NB}օր)` : ''}։ ${pkNote}</p>
+      </div>`, { foot: ad.wallet ? `Դրամապանակ՝ ${amd(ad.wallet)} (փաթեթը գնելուց հետո)։` : '' }) : ''}
+      ${sec('Հայտեր list.am-ից', group([
+        cell({ t: 'Գրեցին վերջին 30 օրում', v: fmt(fn.leads30), strong: true, s: fn.day ? `7 օրում՝ ${fmt(fn.leads7)}` : '' }),
+        cell({ t: 'Հեռախոս տվեցին', v: fmt(bs.phone || 0), strong: true, s: 'Սպասում են զանգի' }),
+        cell({ t: 'Գրանցվեցին Fleet-ում', v: fmt(fn.registered30 != null ? fn.registered30 : (bs.registered || 0)), strong: true, s: '30 օրում' }),
+        cell({ t: 'Կորած', v: fmt(bs.lost || 0), strong: true, s: `Ընդամենը ${fmt(ld.total)} հայտից` }),
+      ]), { foot: `hayter գործակալի աղյուսակից, թարմացվել է ${dmyhm(ld.updated_at)}։` })}
+      ${sec('Նամակներ', `<div class="kpis">
+        ${kpi('Պատասխան 7 օրում', fmt(ib.d7), '')}
+        ${kpi('Պատասխան 30 օրում', fmt(ib.d30), '')}
+      </div>` + group([
+        cell({ t: 'Հարց քեզ', s: 'Պատասխանը գիտի միայն տերը. վճար, վարձակալություն, բնակարան և այլն', v: fmt(ib.open_questions), strong: true }),
+        cell({ t: 'Դիմորդներ', s: 'Աշխատանքի հայտ list.am-ով', v: fmt(ib.applicants), strong: true }),
+        cell({ t: 'Նամակագրություններ', s: `Անգլ.՝ ${fmt(lg.en || 0)} · ռուս.՝ ${fmt(lg.ru || 0)} · հայ.՝ ${fmt(lg.hy || 0)}`, v: fmt(ib.threads), strong: true }),
+        cell({ t: 'Թեժ հայտեր', s: 'Պատրաստ են գրանցվելու', v: fmt(ib.hot), strong: true }),
+      ]), { foot: `Վերջին պատասխանը՝ ${dmyhm(ib.last_at)}։` })}
+      ${sec('Գովազդներ', `<div class="kpis">
+        ${kpi('Դիտում', fmt(s1.views), plus(s1.views, s0.views))}
+        ${kpi('Զանգի սեղմում', fmt(s1.phone), plus(s1.phone, s0.phone))}
+      </div>` + group([
+        cell({ t: 'Ակտիվ գովազդ', s: ad.valid_to ? `Գործում են մինչև ${esc(ad.valid_to)}` : '', v: fmt(ad.live), strong: true }),
+      ]), { foot: `Բոլոր գովազդների գումարը, ${dmy(s1.day)}-ի դրությամբ։${s0.applicants != null ? ` Դիմորդներ՝ ${fmt(s0.applicants)} (${dmy(s0.day)})։` : ''}` })}
+      ${sec('Մրցակիցներ', `<div class="kpis">
+        ${kpi('Yandex-ի գովազդ', fmt(mk.yandex_ads), `${fmt(mk.sellers)} վաճառողից`)}
+        ${kpi('Մեր լավագույն տեղը', lastPos.best ? '#' + lastPos.best : '—', `${fmt(lastPos.in100)}-ը առաջին 100-ում`)}
+      </div>` + group([
+        cell({ t: 'Թոփ-ում են', s: `Մրցակիցներ՝ ${fmt(mk.rival_top)}, մենք՝ ${fmt(mk.our_top)}`, v: fmt(mk.rival_top), strong: true }),
+      ].concat(posRows)), { foot: `Ըստ օրերի՝ մեր գովազդների տեղը list.am-ի ցուցակում, աջում՝ քանիսն են առաջին 200-ում։ Ստուգումը՝ ${dmyhm(mk.generated)}։` })}
+    `));
+  });
+
   // ───────── Վարորդներ ─────────
-  const SEGS =[['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
+  const SEGS = [['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
   const SEG_DESC = {
     active: 'Վերջին 30 օրում գոնե մեկ ավարտված պատվեր։ Դասավորված են այս շաբաթվա պատվերներով։',
     top: '30 վարորդ՝ ամենաշատ պատվերով վերջին 30 օրում։ Կոմիսիան փոխելուց առաջ նրանց զանգում ենք անձամբ։',
@@ -653,7 +738,7 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.6` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.7` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
     document.getElementById('agents').onchange = async (e) => {

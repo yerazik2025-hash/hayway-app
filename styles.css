@@ -68,7 +68,8 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: rou
 .lt h1 { font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .lt .st { margin-top: 4px; font-size: 15px; color: var(--text2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .dot { width: 8px; height: 8px; border-radius: 4px; display: inline-block; flex-shrink: 0; background: var(--text3); }
-.dot.ok { background: #34C759; } .dot.wait { background: #FF9F0A; } .dot.off { background: var(--text3); }
+.dot.ok { background: #34C759; } .dot.wait { background: #FF9F0A; } .dot.off { background: var(--text3); } .dot.bad { background: var(--neg); }
+.err b { font-weight: 700; } .err p { margin-top: 6px; font-size: 13px; line-height: 1.45; }
 
 /* ───────── Ներքևի տող ───────── */
 .tabbar { flex-shrink: 0; height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b); display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
