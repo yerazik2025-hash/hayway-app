@@ -280,3 +280,5 @@ body.kb .composer { padding-bottom: 8px; }
   .lt h1 { font-size: 28px; }
 }
 @media (max-width: 359px) { .tab span:last-child { overflow: visible; text-overflow: clip; } }
+/* 320px. «Կարգավորում»-ը 3px-ով դուրս էր գալիս էկրանից */
+@media (max-width: 339px) { .tab { font-size: 9px; letter-spacing: -.045em; } }

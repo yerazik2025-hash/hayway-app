@@ -282,7 +282,7 @@
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     const soon = '<span class="tag n">շուտով</span>';
-    mount({ title: 'Բաժիններ', tab: 'sections', sub: '8 բաժին · 5-ը կենդանի տվյալներով' }, page(`
+    mount({ title: 'Բաժիններ', tab: 'sections', sub: '9 բաժին · 6-ը կենդանի տվյալներով' }, page(`
       ${sec('Վարորդներ և որակ', group([
         cell({ href: '#/drivers', icon: I.users, color: 'y', t: 'Վարորդներ', s: `${fmt(h.active_30d)} ակտիվ · շաբաթ՝ +${w.new} / −${w.churn}` }),
         cell({ href: '#/quality', icon: I.quality, color: 'p', t: 'Որակ', s: `${pct(w.orders, w.orders + w.cancelled)}% պատվեր ավարտվում է` }),
@@ -292,6 +292,7 @@
         cell({ href: '#/finance', icon: I.money, color: 'g', t: 'Ֆինանսներ', s: `Եկամուտ՝ ${short(w.commission)} այս շաբաթ` }),
       ], 'ic'))}
       ${sec('Աճ', group([
+        cell({ href: '#/growth', icon: I.userplus, color: 'y', t: 'Նոր վարորդներ', s: `30 օրում՝ +${fmt(h.month.new)} · գրանցումից մինչև 50-րդ պատվեր` }),
         cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ, մրցակիցներ', trail: soon }),
         cell({ href: '#/leads', icon: I.userplus, color: 'b', t: 'Հայտեր', s: 'Հայտից մինչև 50-րդ պատվեր', trail: soon }),
         cell({ href: '#/contact', icon: I.chat, color: 's', t: 'Կապ', s: 'Հայտարարություններ և նամակներ', trail: soon }),
@@ -302,8 +303,53 @@
     `));
   });
 
+  // ───────── Նոր վարորդներ (ձագար. գրանցում → առաջին պատվեր → 10 → 50 → աշխատում է) ─────────
+  route('/growth', async () => {
+    lastTab = 'sections';
+    const [h, f] = await Promise.all([rpc('app_home'), rpc('app_funnel')]);
+    pendingCount = h.tasks_pending || 0;
+    const m = f.m30 || {}, R = m.registered || 0, p30 = f.prev30 || {};
+    const bar = (n, base) => `<div class="mbar"><span style="width:${base ? Math.min(100, pct(n, base)) : 0}%"></span></div>`;
+    const step = (t, n, first) => cell({ t, s: (R && !first) ? `${pct(n, R)}% գրանցվածներից` : '', v: fmt(n), strong: true, extra: bar(n, R) });
+    const plus6 = (iso) => new Date(new Date(iso + 'T12:00:00Z').getTime() + 6 * 864e5).toISOString().slice(0, 10);
+    const thisWeek = (f.weeks || [])[0] && f.weeks[0].wk;
+    const weeks = (f.weeks || []).map((w) => cell({
+      t: w.wk === thisWeek ? 'Այս շաբաթ' : `${dmy(w.wk)}–${dmy(plus6(w.wk))}`,
+      s: w.registered ? `${w.first} առաջին պատվեր · ${w.o50} հասավ 50-ի` : 'Գրանցում չկա',
+      v: fmt(w.registered), strong: true, extra: bar(w.first, w.registered),
+    }));
+    const stalled = (f.stalled || []).map((d) => cell({
+      lead: `<span class="av">${esc(initials(d.first_name, d.last_name))}</span>`,
+      t: `<span class="nm"><span class="t b">${esc(name(d))}</span><span class="tag warn">${d.idle_days}${NB}օր կանգնած</span></span>`,
+      s: esc(`${d.orders_total} պատվեր · գրանցվել է ${dmy(d.hire_date)}`), trail: callBtn(d),
+    }));
+    const days1 = m.days_to_first ? String(Math.round(m.days_to_first * 10) / 10).replace('.', ',') : null;
+    const syncAge = f.drivers_synced_at ? Date.now() - new Date(f.drivers_synced_at) : Infinity;
+    const staleNote = syncAge > 6 * 3600e3 ? `Վարորդների ցուցակը թարմացվել է ${ago(f.drivers_synced_at)}. վերջին օրերի գրանցվածները կարող են դեռ չերևալ։` : '';
+    mount({ title: 'Նոր վարորդներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot ok"></span>Fleet-ի գրանցումներից և պատվերներից' }, page(`
+      ${sec('', `<div class="card">
+        <div class="hero"><span class="n">${fmt(R)}</span><span class="u">նոր վարորդ վերջին 30 օրում</span></div>
+        <p class="meta">Նախորդ 30 օրում՝ ${fmt(p30.registered)}, որից առաջին պատվեր արեց ${pct(p30.first, p30.registered)}%-ը։${days1 ? ` Առաջին պատվերը՝ միջինում գրանցումից ${days1} օր հետո։` : ''}</p>
+      </div>`, { foot: staleNote })}
+      ${sec('Ինչ եղավ նրանց հետ', group([
+        step('Գրանցվեցին', R, true),
+        step('Արեցին առաջին պատվերը', m.first || 0),
+        step('Հասան 10 պատվերի', m.o10 || 0),
+        step('Հասան 50 պատվերի', m.o50 || 0),
+        step('Այս շաբաթ աշխատել են', m.active7 || 0),
+      ]), { foot: 'Վերջին օրերի գրանցվածները դեռ չեն հասցրել 50 պատվերի, դա նորմալ է։' })}
+      ${sec('Ըստ շաբաթների', group(weeks), { foot: 'Աջում՝ տվյալ շաբաթ գրանցվածների քանակը, գիծը՝ քանիսն արեցին առաջին պատվերը։' })}
+      ${sec('Ում զանգել', group([
+        cell({ href: '#/drivers/new', icon: I.userplus, color: 'o', t: 'Գրանցվել են, պատվեր չկա', s: 'Վերջին 30 օրում', v: fmt(f.zero), strong: true }),
+        cell({ href: '#/quality', icon: I.trophy, color: 'y', t: 'Yandex-ի Ոսկու համար', s: 'Այս ամիս 50 պատվերի հասած նորեկներ', v: `${fmt(h.gold.new_50)}${NB}/${NB}80`, strong: true }),
+      ], 'ic'))}
+      ${sec(`Սկսեցին, բայց կանգնեցին · ${fmt(f.stalled_total)}`, stalled.length ? group(stalled, 'avs') : '<div class="group"><p class="none">Այդպիսիք հիմա չկան։</p></div>',
+        { foot: 'Վերջին 8 շաբաթում գրանցված, 1–49 պատվեր, վերջինը 3–30 օր առաջ։ Զանգը հիմա ամենաշատն է օգնում։' })}
+    `));
+  });
+
   // ───────── Վարորդներ ─────────
-  const SEGS = [['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
+  const SEGS =[['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
   const SEG_DESC = {
     active: 'Վերջին 30 օրում գոնե մեկ ավարտված պատվեր։ Դասավորված են այս շաբաթվա պատվերներով։',
     top: '30 վարորդ՝ ամենաշատ պատվերով վերջին 30 օրում։ Կոմիսիան փոխելուց առաջ նրանց զանգում ենք անձամբ։',
@@ -607,7 +653,7 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.5` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.6` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
     document.getElementById('agents').onchange = async (e) => {
