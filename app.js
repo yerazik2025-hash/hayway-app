@@ -369,9 +369,10 @@
     const off = c.status === 'off', stopD = daysAgo(hl.data_at);
     // Գործընթաց. թարմ է, եթե վերջին աշխատանքը ավելի նոր է, քան սահմանը (ժամերով)
     const proc = (icon, color, t, every, at, limitH) => {
-      const fresh = at && (Date.now() - new Date(at)) < limitH * 3600e3;
-      const d = daysAgo(at);
-      return cell({ icon, color, t, s: `${every} · վերջինը՝ ${dmyhm(at)}`, v: fresh ? '<span class="tag pos">աշխատում է</span>' : `<span class="tag neg">${d === null ? 'տվյալ չկա' : d + NB + 'օր'}</span>` });
+      const ms = at ? Date.now() - new Date(at) : null;
+      const fresh = ms !== null && ms < limitH * 3600e3;
+      const late = ms === null ? 'տվյալ չկա' : ms < 864e5 ? Math.floor(ms / 3600e3) + NB + 'ժ' : Math.floor(ms / 864e5) + NB + 'օր';
+      return cell({ icon, color, t, s: `${every} · վերջինը՝ ${dmyhm(at)}`, v: fresh ? '<span class="tag pos">աշխատում է</span>' : `<span class="tag neg">${late}</span>` });
     };
     // Փաթեթ. մնացածը, ժամկետը, ինչքան կայրվի
     const left = rf.package_left, total = rf.package_total || 500, until = rf.package_until;
@@ -738,7 +739,7 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.7` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.7.1` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
     document.getElementById('agents').onchange = async (e) => {
