@@ -238,9 +238,10 @@
   // ───────── Գլխավոր (պարզ. այսօր անել · 4 թիվ · 1000-ի նպատակը) ─────────
   route('/', async () => {
     lastTab = 'home';
-    const [h, notes, tr] = await Promise.all([
+    const [h, notes, tr, qs] = await Promise.all([
       rpc('app_home'), rpc('app_notes'),
       sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
+      rpc('app_questions').catch(() => null),
     ]);
     const tasks = tr.data || [];
     pendingCount = tasks.length;
@@ -258,7 +259,9 @@
     const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
     if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
     if (!tasks.length) todo.push(cell({ icon: I.tasks, color: 'g', t: 'Այսօր նոր գործ չկա', s: 'Գործակալները ստուգում են ամեն առավոտ 08:30-ին' }));
+    const hasQ = qs && qs.open && qs.open.length;
     mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">· թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
+      ${hasQ ? '<section class="sec" id="qa"></section>' : ''}
       ${sec('Այսօր անել', group(todo, 'ic'))}
       ${sec('Վերջին 7 օր', `<div class="kpis">
         ${fresh ? kpi('Հիմա աշխատում են', fmt(h.online.total), `${fmt(h.online.on_order)}-ը պատվերի վրա`, '#/drivers/active')
@@ -273,7 +276,60 @@
         <p class="meta">Այս շաբաթ եկավ <b class="pos">${w.new}</b>, գնաց <b class="neg">${w.churn}</b>։</p>
       </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ Բաժիններում։' })}
     `));
+    if (hasQ) questionCard(document.getElementById('qa'), qs);
   });
+
+  // ───────── «Հարց ձեզ» (db\0009_owner_questions.sql). մեկ հարց միանգամից, կոճակներով ─────────
+  const OTHER = 'Ուրիշ';
+  function questionCard(el, qs) {
+    const st = { open: qs.open.slice(), total: qs.total, answered: qs.answered, sel: [], busy: false, done: false };
+    const draw = () => {
+      if (st.done) {
+        el.innerHTML = `<div class="card qcard qdone"><span class="qok">${sv(26, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</span>
+          <h3>Շնորհակալություն</h3><p class="meta">Պատասխանները ստացանք։ Նոր հարց լինի՝ կհայտնվի այստեղ։</p></div>`;
+        return;
+      }
+      const q = st.open[0], n = st.answered + 1;
+      const opts = q.options.map((o, i) => `<button type="button" class="qopt ${st.sel.includes(o) ? 'on' : ''}" data-i="${i}"><span>${esc(o)}</span><span class="qmark"></span></button>`).join('');
+      const needText = q.allow_text && st.sel.includes(OTHER);
+      el.innerHTML = `<div class="sec-h"><h2>Հարց ձեզ</h2><span class="a mut3">${n}${NB}/${NB}${st.total}</span></div>
+        <div class="card qcard">
+          <div class="qprog"><span style="width:${Math.round(st.answered / st.total * 100)}%"></span></div>
+          <h3>${esc(q.question)}</h3>
+          ${q.hint ? `<p class="meta">${esc(q.hint)}</p>` : ''}
+          <div class="qopts ${q.multi ? 'multi' : ''}">${opts}</div>
+          ${needText ? '<textarea class="in qtext" id="qtext" rows="2" placeholder="Գրեք կարճ"></textarea>' : ''}
+          ${q.multi || needText ? `<button type="button" class="btn pri full" id="qsend" ${st.sel.length ? '' : 'disabled'}>Ուղարկել</button>` : ''}
+          <p class="msgline" id="qmsg"></p>
+        </div>`;
+      el.querySelectorAll('.qopt').forEach((b) => b.onclick = () => {
+        if (st.busy) return;
+        const o = q.options[+b.dataset.i];
+        if (q.multi) { st.sel = st.sel.includes(o) ? st.sel.filter((x) => x !== o) : st.sel.concat(o); draw(); if (o === OTHER && st.sel.includes(OTHER)) { const t = document.getElementById('qtext'); if (t) t.focus(); } return; }
+        st.sel = [o];
+        if (q.allow_text && o === OTHER) { draw(); return; }
+        b.classList.add('on');
+        send(q);
+      });
+      const sb2 = document.getElementById('qsend');
+      if (sb2) sb2.onclick = () => send(q);
+    };
+    async function send(q) {
+      const t = document.getElementById('qtext');
+      const txt = t ? t.value.trim() : '';
+      if (q.allow_text && st.sel.includes(OTHER) && !txt) { document.getElementById('qmsg').textContent = 'Գրեք, թե ինչ առաջարկ է գործում։'; return; }
+      st.busy = true;
+      el.querySelectorAll('button').forEach((b) => b.disabled = true);
+      const { error } = await sb.rpc('app_question_answer', { q_id: q.id, ans: st.sel, txt: txt || null });
+      st.busy = false;
+      if (error) { el.querySelectorAll('button').forEach((b) => b.disabled = false); document.getElementById('qmsg').textContent = 'Չուղարկվեց, փորձեք նորից։'; return; }
+      for (const k in cache) if (k.startsWith('app_questions')) delete cache[k];
+      st.open.shift(); st.answered++; st.sel = [];
+      if (!st.open.length) st.done = true;
+      setTimeout(draw, 220);
+    }
+    draw();
+  }
 
   // ───────── Բաժիններ ─────────
   route('/sections', async () => {
