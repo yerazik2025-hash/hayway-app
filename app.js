@@ -684,10 +684,8 @@
   });
 
   // ───────── Գարիկ (զրույց) ─────────
-  // Զրույցը պահվում է միայն այս հեռախոսում (localStorage), սերվերում՝ agent_log-ի գրանցումը։
-  const CHAT_KEY = 'hw_chat';
-  const loadChat = () => { try { return JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); } catch (e) { return []; } };
-  const saveChat = (m) => { try { localStorage.setItem(CHAT_KEY, JSON.stringify(m.slice(-40))); } catch (e) {} };
+  // 2026-11-03. Զրույցը պահվում է բազայում (assistant_msgs, db\0010_assistant.sql)։ Առանց API բանալու (mode «pc») պատասխանում է
+  // HayWay-ի համակարգչում տիրոջ Claude-ը (scripts\assistant-run.ps1)՝ 1–2 րոպեում. հավելվածը այդ ընթացքում ամեն 5 վրկ նայում է app_assistant()-ին։
   let garikStatus = null;
   async function garikCall(method, body) {
     const session = (await sb.auth.getSession()).data.session;
@@ -701,48 +699,78 @@
     try { garikStatus = await garikCall('GET'); } catch (e) { garikStatus = { ok: false, key: false }; }
     return garikStatus;
   }
+  async function assistantNow() { const { data, error } = await sb.rpc('app_assistant'); if (error) throw new Error(error.message); return data || { msgs: [] }; }
+  // Պատասխանողը միացա՞ծ է. HayWay-ի համակարգիչը սրտի զարկ է տալիս ամեն րոպե
+  const runnerOn = (r) => Boolean(r && r.seen_at && Date.now() - new Date(r.seen_at) < 4 * 60000 && r.claude !== false);
+  let chatPoll = null;
   const QS = ['Ում զանգենք այսօր', 'Ինչ կա Գործերում', 'Ինչպես հասնել Ոսկու մակարդակի', 'Ինչպես անցավ այս շաբաթը', 'Ով է ամենաշատը չեղարկում'];
   route('/garik', async () => {
     lastTab = 'garik';
-    const [h, st] = await Promise.all([rpc('app_home'), garikState()]);
+    clearTimeout(chatPoll);
+    try { localStorage.removeItem('hw_chat'); } catch (e) {}
+    const [h, st, as] = await Promise.all([rpc('app_home'), garikState(), assistantNow()]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
-    const msgs = loadChat();
-    const hello = `Բարև։ Այս շաբաթ՝ ${fmt(w.orders)} պատվեր և ${short(w.commission)} պարկի եկամուտ։ Եկավ ${w.new}, գնաց ${w.churn} վարորդ, հիմա գծում է ${h.online.total}-ը։${h.tasks_pending ? `\nԳործերում ${h.tasks_pending} առաջարկ սպասում է քեզ։` : ''}${st.key ? '' : '\n\nԶրույցը կմիանա, երբ Claude-ի բանալին դրվի։'}`;
-    const bubble = (m) => `<div class="msg ${m.role === 'user' ? 'me' : 'ai'}">${esc(m.content)}</div>`;
+    const pc = st.mode === 'pc', on = !pc || runnerOn(as.runner);
+    const offNote = !st.ok ? '\n\nԳարիկը հիմա կապ չունի, փորձիր մի քիչ հետո։'
+      : (on ? '' : `\n\nՊատասխանողը (HayWay-ի համակարգիչը) հիմա անջատված է${as.runner && as.runner.seen_at ? `, վերջին անգամ՝ ${ago(as.runner.seen_at)}` : ''}։ Հարցդ կպահվի, պատասխանը կգա, երբ այն միանա։`);
+    const hello = `Բարև։ Այս շաբաթ՝ ${fmt(w.orders)} պատվեր և ${short(w.commission)} պարկի եկամուտ։ Եկավ ${w.new}, գնաց ${w.churn} վարորդ, հիմա գծում է ${h.online.total}-ը։${h.tasks_pending ? `\nԳործերում ${h.tasks_pending} առաջարկ սպասում է քեզ։` : ''}${offNote}`;
+    const bubble = (cls, text, note) => `<div class="msg ${cls}">${esc(text)}${note ? `<span class="note">${esc(note)}</span>` : ''}</div>`;
+    const waitText = on ? 'Գարիկը նայում է թվերին… պատասխանը՝ 1–2 րոպեում' : 'Հարցը պահված է։ Պատասխանը կգա, երբ HayWay-ի համակարգիչը միանա';
+    const waiting = (m) => m.status === 'pending' || m.status === 'working';
+    const thread = (list) => list.map((m) => bubble('me', m.q) + (waiting(m) ? bubble('ai typing', waitText)
+      : bubble('ai', m.a || 'Պատասխան չկա։', m.proposed && m.proposed.length ? `Գործերում նոր առաջարկ՝ «${m.proposed.join('», «')}»` : ''))).join('');
     const sugg = `<div class="sugg" id="sugg">${QS.map((q) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
+    let msgs = as.msgs || [];
     const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true,
       right: `<button class="ibtn" id="clear" aria-label="Մաքրել զրույցը">${I.trash}</button>`,
-      after: `<div class="composer"><textarea id="q" rows="1" placeholder="${st.key ? 'Հարցրու Գարիկին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button></div>` },
-      `<div class="chat" id="chat">${bubble({ role: 'assistant', content: hello })}${msgs.map(bubble).join('')}${msgs.length ? '' : sugg}<div id="typing" class="msg ai typing" style="display:none">Գարիկը նայում է թվերին…</div></div>`);
-    const q = document.getElementById('q'), send = document.getElementById('send'), typing = document.getElementById('typing');
+      after: `<div class="composer"><textarea id="q" rows="1" placeholder="${st.ok ? 'Հարցրու Գարիկին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button></div>` },
+      `<div class="chat" id="chat">${bubble('ai', hello)}<div class="chat" id="thread" style="padding:0">${thread(msgs)}</div>${msgs.length ? '' : sugg}</div>`);
+    const q = document.getElementById('q'), send = document.getElementById('send'), threadEl = document.getElementById('thread');
     const down = () => { sc.scrollTop = sc.scrollHeight; };
-    const add = (m) => { typing.insertAdjacentHTML('beforebegin', bubble(m)); down(); };
-    const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(132, q.scrollHeight) + 'px'; send.disabled = !q.value.trim() || busy; };
+    const paint = () => { threadEl.innerHTML = thread(msgs); down(); };
+    const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(132, q.scrollHeight) + 'px'; send.disabled = !q.value.trim() || busy || !st.ok; };
     let busy = false;
+    // Պատասխանի սպասում. երբ սպասվող հարց կա և մենք դեռ այս էկրանում ենք
+    const poll = () => {
+      clearTimeout(chatPoll);
+      if (!msgs.some(waiting)) return;
+      chatPoll = setTimeout(async () => {
+        if ((location.hash || '#/') !== '#/garik') return;
+        try {
+          const wasWaiting = new Set(msgs.filter(waiting).map((m) => m.id));
+          msgs = (await assistantNow()).msgs || [];
+          const fresh = msgs.filter((m) => wasWaiting.has(m.id) && !waiting(m));
+          const n = fresh.reduce((s, m) => s + ((m.proposed && m.proposed.length) || 0), 0);
+          if (n) { invalidate(); pendingCount += n; }
+          if (fresh.length) paint();
+        } catch (e) {}
+        poll();
+      }, 5000);
+    };
     down();
+    poll();
     async function ask(text) {
-      text = String(text || '').trim(); if (!text || busy) return;
+      text = String(text || '').trim(); if (!text || busy || !st.ok) return;
       busy = true; q.value = ''; grow();
       const s = document.getElementById('sugg'); if (s) s.remove();
-      const m = loadChat(); add({ role: 'user', content: text }); m.push({ role: 'user', content: text }); saveChat(m);
-      typing.style.display = ''; down();
-      let ans;
+      msgs = [...msgs, { id: 0, q: text, status: 'pending' }]; paint();
+      let extra = null;
       try {
-        const r = await garikCall('POST', { question: text, history: m.slice(-13, -1) });
-        ans = r.answer || 'Պատասխան չկա։';
-        if (r.proposed && r.proposed.length) { ans += `\n\nԳործերում նոր առաջարկ՝ «${r.proposed.join('», «')}»։`; invalidate(); pendingCount += r.proposed.length; }
-      } catch (e) { ans = 'Կապի սխալ՝ ' + e.message; }
-      typing.style.display = 'none';
-      add({ role: 'assistant', content: ans }); m.push({ role: 'assistant', content: ans }); saveChat(m);
-      busy = false; grow();
+        const r = await garikCall('POST', { question: text });
+        if (!r.queued && r.error) extra = { id: 0, q: text, a: r.answer || 'Սխալ եղավ։', status: 'error' };
+        if (r.proposed && r.proposed.length) { invalidate(); pendingCount += r.proposed.length; }
+        msgs = (await assistantNow()).msgs || [];
+      } catch (e) { msgs = msgs.slice(0, -1); extra = { id: 0, q: text, a: 'Կապի սխալ՝ ' + e.message, status: 'error' }; }
+      if (extra) msgs = [...msgs, extra];
+      paint(); busy = false; grow(); poll();
     }
     q.addEventListener('input', grow);
     send.onclick = () => ask(q.value);
     q.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
     q.addEventListener('focus', () => setTimeout(down, 300));
     app.querySelectorAll('#sugg button').forEach((c) => c.onclick = () => ask(c.dataset.q));
-    document.getElementById('clear').onclick = () => { if (confirm('Մաքրե՞լ զրույցը այս հեռախոսում։')) { saveChat([]); render(); } };
+    document.getElementById('clear').onclick = async () => { if (confirm('Մաքրե՞լ զրույցը։')) { clearTimeout(chatPoll); await sb.rpc('app_assistant_clear'); render(); } };
   });
 
   // ───────── Կարգավորումներ ─────────
@@ -764,12 +792,13 @@
   const driversLine = (n) => { if (!n) return ''; const ok = n.drivers_synced_at; if (n.drivers_error && (!ok || new Date(n.drivers_error.at) > new Date(ok))) return `Պատվերները թարմ են։ Վարորդների ցուցակը Fleet-ը ժամանակավորապես չի տալիս${ok ? `, վերջինը՝ ${ago(ok)}` : ''}։`; return ok ? `Վարորդների ցուցակը՝ ${ago(ok)}` : ''; };
   route('/settings', async () => {
     lastTab = 'settings';
-    const [h, st, notes, logsR, usersR, agR, sessR] = await Promise.all([
+    const [h, st, notes, logsR, usersR, agR, sessR, asR] = await Promise.all([
       rpc('app_home'), garikState(), rpc('app_notes'),
       sb.from('agent_log').select('at,agent,action,details').order('id', { ascending: false }).limit(10),
       sb.from('app_users').select('email,role,name'),
       sb.from('sync_state').select('value').eq('key', 'agents').maybeSingle(),
       sb.auth.getSession(),
+      assistantNow().catch(() => null),
     ]);
     pendingCount = h.tasks_pending || 0;
     const agentsOn = !(agR.data && agR.data.value && agR.data.value.enabled === false);
@@ -782,7 +811,9 @@
       ${sec('Միացումներ', group([
         cell({ icon: I.car, color: 'y', t: 'Yandex Fleet · տաքսի', s: driversLine(notes), v: `<span class="tag pos">${ago(h.last_sync)}</span>` }),
         cell({ icon: I.box, color: 't', t: 'Yandex Fleet · Delivery', v: '<span class="tag warn">մուտք չկա</span>' }),
-        cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', v: st.key ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">բանալի չկա</span>' }),
+        cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', s: st.mode === 'pc' ? `Ձեր Claude-ով, HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
+          v: !st.ok ? '<span class="tag warn">կապ չկա</span>' : st.mode !== 'pc' ? '<span class="tag pos">միացված</span>'
+            : runnerOn(asR && asR.runner) ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">անջատված</span>' }),
         cell({ icon: I.chat, color: 'g', t: 'WhatsApp բոտ', v: '<span class="tag pos">աշխատում է</span>' }),
         cell({ icon: I.mega, color: 'o', t: 'list.am', v: '<span class="tag n">Կոմպ 2-ում</span>' }),
         cell({ icon: I.money, color: 'b', t: 'PrimeBridge', v: '<span class="tag n">շուտով</span>' }),
@@ -795,7 +826,7 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.7.1` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.9` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
     document.getElementById('agents').onchange = async (e) => {
