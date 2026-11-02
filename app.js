@@ -238,10 +238,11 @@
   // ───────── Գլխավոր (պարզ. այսօր անել · 4 թիվ · 1000-ի նպատակը) ─────────
   route('/', async () => {
     lastTab = 'home';
-    const [h, notes, tr, qs] = await Promise.all([
+    const [h, notes, tr, qs, nts] = await Promise.all([
       rpc('app_home'), rpc('app_notes'),
       sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
       rpc('app_questions').catch(() => null),
+      sb.rpc('app_notices').then((r) => r.data || [], () => []),
     ]);
     const tasks = tr.data || [];
     pendingCount = tasks.length;
@@ -260,7 +261,11 @@
     if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
     if (!tasks.length) todo.push(cell({ icon: I.tasks, color: 'g', t: 'Այսօր նոր գործ չկա', s: 'Գործակալները ստուգում են ամեն առավոտ 08:30-ին' }));
     const hasQ = qs && qs.open && qs.open.length;
+    // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
+    const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
+        <p>${esc(n.text)}</p><button type="button" class="btn sm gray" data-seen="${n.id}">Լավ</button></div>`).join('')}</div>`) : '';
     mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">· թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
+      ${notice}
       ${hasQ ? '<section class="sec" id="qa"></section>' : ''}
       ${sec('Այսօր անել', group(todo, 'ic'))}
       ${sec('Վերջին 7 օր', `<div class="kpis">
@@ -277,6 +282,13 @@
       </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ Բաժիններում։' })}
     `));
     if (hasQ) questionCard(document.getElementById('qa'), qs);
+    app.querySelectorAll('[data-seen]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      await sb.rpc('app_notice_seen', { p_id: +b.dataset.seen });
+      const row = b.closest('.nrow'), list = row.parentElement;
+      row.remove();
+      if (!list.children.length) list.closest('.sec').remove();
+    });
   });
 
   // ───────── «Հարց ձեզ» (db\0009_owner_questions.sql). մեկ հարց միանգամից, կոճակներով ─────────
@@ -700,6 +712,22 @@
     return garikStatus;
   }
   async function assistantNow() { const { data, error } = await sb.rpc('app_assistant'); if (error) throw new Error(error.message); return data || { msgs: [] }; }
+  // Excel (CSV, Excel-ը բացում է). հեռախոսները գալիս են միայն այս սարքին, Claude-ին չեն գնում
+  async function downloadRows(id, title) {
+    const { data, error } = await sb.rpc('app_action_rows', { p_id: id });
+    if (error) throw new Error(error.message);
+    const cols = [['first_name', 'Անուն'], ['last_name', 'Ազգանուն'], ['phones', 'Հեռախոս'], ['orders_30d', 'Պատվեր 30 օր'], ['orders_7d', 'Պատվեր 7 օր'],
+      ['idle_days', 'Օր առանց պատվերի'], ['balance', 'Հաշվեկշիռ ֏'], ['hire_date', 'Գրանցվել'], ['rule_name', 'Պայման'], ['car', 'Մեքենա']];
+    const val = (d, k) => k === 'phones' ? (d.phones || []).join(', ') : k === 'idle_days' ? (d.idle_days == null ? '' : Math.floor(d.idle_days))
+      : k === 'car' ? [d.car_brand, d.car_model, d.car_year].filter(Boolean).join(' ') : (d[k] ?? '');
+    const csvCell = (v) => { const s = String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const lines = [cols.map((c) => c[1]).join(';')].concat((data || []).map((d) => cols.map((c) => csvCell(val(d, c[0]))).join(';')));
+    const url = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `HayWay — ${String(title).slice(0, 40).replace(/[\\/:*?"<>|]/g, '')} ${today()}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
   // Պատասխանողը միացա՞ծ է. HayWay-ի համակարգիչը սրտի զարկ է տալիս ամեն րոպե
   const runnerOn = (r) => Boolean(r && r.seen_at && Date.now() - new Date(r.seen_at) < 4 * 60000 && r.claude !== false);
   let chatPoll = null;
@@ -718,8 +746,35 @@
     const bubble = (cls, text, note) => `<div class="msg ${cls}">${esc(text)}${note ? `<span class="note">${esc(note)}</span>` : ''}</div>`;
     const waitText = on ? 'Գարիկը նայում է թվերին… պատասխանը՝ 1–2 րոպեում' : 'Հարցը պահված է։ Պատասխանը կգա, երբ HayWay-ի համակարգիչը միանա';
     const waiting = (m) => m.status === 'pending' || m.status === 'working';
-    const thread = (list) => list.map((m) => bubble('me', m.q) + (waiting(m) ? bubble('ai typing', waitText)
-      : bubble('ai', m.a || 'Պատասխան չկա։', m.proposed && m.proposed.length ? `Գործերում նոր առաջարկ՝ «${m.proposed.join('», «')}»` : ''))).join('');
+    // «Կատարե՞մ» քարտերը (db\0011). կատարում է միայն բազայի կոդը՝ տիրոջ «Այո»-ից հետո
+    const dayHm = (iso) => new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Yerevan' }).replace(',', '');
+    const actDone = (a) => {
+      const r = a.result || {};
+      switch (a.type) {
+        case 'task_decide': return r.decision === 'reject' ? 'Մերժված է' : 'Հաստատված է';
+        case 'call_list': return `${fmt(r.n || 0)} վարորդ՝ Գործերում`;
+        case 'export': return `${fmt(r.n || 0)} վարորդ`;
+        case 'remind': return `Կհիշեցնեմ ${r.at ? dayHm(r.at) : ''}`;
+        case 'watch': return `Հսկում եմ${r.now != null ? ` (հիմա՝ ${fmt(r.now)})` : ''}`;
+        case 'remember': return 'Հիշեցի';
+        default: return 'Արված է';
+      }
+    };
+    const actCard = (a) => {
+      let foot = '';
+      if (a.status === 'proposed') foot = `<div class="act-b"><button type="button" class="btn pri sm" data-yes="${a.id}">Այո, արա</button><button type="button" class="btn sm gray" data-no="${a.id}">Ոչ</button></div>`;
+      else if (a.status === 'done') foot = `<div class="act-s"><span class="pos">✓ ${esc(actDone(a))}</span>
+          ${a.type === 'export' || a.type === 'call_list' ? `<button type="button" class="btn plain sm" data-xls="${a.id}">Excel</button>` : ''}
+          ${a.type === 'call_list' ? '<a class="btn plain sm" href="#/tasks">Գործեր</a>' : ''}
+          ${a.type !== 'export' ? `<button type="button" class="btn plain sm" data-undo="${a.id}">Հետ բերել</button>` : ''}</div>`;
+      else foot = `<div class="act-s"><span class="${a.status === 'failed' ? 'neg' : 'mut'}">${esc({ rejected: 'Չեղարկված', undone: 'Հետ է բերված', expired: 'Ժամկետն անցել է',
+        failed: 'Չստացվեց' + (a.result && a.result.error ? '՝ ' + a.result.error : '') }[a.status] || a.status)}</span></div>`;
+      return `<div class="act ${a.status}"><span class="act-h">${a.status === 'proposed' ? 'Կատարե՞մ' : 'Գործողություն'}</span><p class="act-t">${esc(a.summary)}</p>${foot}</div>`;
+    };
+    const thread = (list) => list.map((m) => (m.kind === 'notice' ? `<div class="msg ai notice"><span class="note-h">Հիշեցում · ${dayHm(m.answered_at || m.at)}</span>${esc(m.a)}</div>`
+      : bubble('me', m.q) + (waiting(m) ? bubble('ai typing', waitText)
+      : bubble('ai', m.a || 'Պատասխան չկա։', m.proposed && m.proposed.length ? `Գործերում նոր առաջարկ՝ «${m.proposed.join('», «')}»` : '')
+        + (m.actions || []).map(actCard).join('')))).join('');
     const sugg = `<div class="sugg" id="sugg">${QS.map((q) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
     let msgs = as.msgs || [];
     const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true,
@@ -731,6 +786,25 @@
     const paint = () => { threadEl.innerHTML = thread(msgs); down(); };
     const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(132, q.scrollHeight) + 'px'; send.disabled = !q.value.trim() || busy || !st.ok; };
     let busy = false;
+    // Քարտերի կոճակները (մեկ ունկնդիր ամբողջ զրույցի համար, որ paint()-ից հետո էլ աշխատի)
+    const setAct = (a) => { msgs = msgs.map((m) => ({ ...m, actions: (m.actions || []).map((x) => x.id === a.id ? { ...x, status: a.status, result: a.result } : x) })); paint(); };
+    threadEl.addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-yes],button[data-no],button[data-undo],button[data-xls]');
+      if (!b || b.disabled) return;
+      const card = b.closest('.act');
+      card.querySelectorAll('button').forEach((x) => x.disabled = true);
+      try {
+        if (b.dataset.xls) { await downloadRows(+b.dataset.xls, card.querySelector('.act-t').textContent); card.querySelectorAll('button').forEach((x) => x.disabled = false); return; }
+        const { data, error } = b.dataset.undo ? await sb.rpc('app_action_undo', { p_id: +b.dataset.undo })
+          : await sb.rpc('app_action_decide', { p_id: +(b.dataset.yes || b.dataset.no), p_yes: !!b.dataset.yes });
+        if (error) throw new Error(error.message);
+        invalidate();
+        setAct(data);
+      } catch (err) {
+        card.querySelectorAll('button').forEach((x) => x.disabled = false);
+        alert('Չստացվեց՝ ' + err.message);
+      }
+    });
     // Պատասխանի սպասում. երբ սպասվող հարց կա և մենք դեռ այս էկրանում ենք
     const poll = () => {
       clearTimeout(chatPoll);
@@ -783,6 +857,8 @@
     if (l.agent === 'agents' && l.action === 'skipped') return ['Առավոտյան ստուգում', 'Բաց թողնվեց. գործակալներն անջատված են'];
     if (l.action === 'chat') return ['Գարիկ · զրույց', d.q || ''];
     if (l.agent === 'assistant') return ['Գարիկ · միացում', d.ok === true || d.code === 0 ? 'պատրաստ է' : 'դեռ չի միացել'];
+    if (l.action.startsWith('act_')) return [`Դու · ${{ act_done: 'Գարիկը արեց', act_reject: 'ասացիր «Ոչ»', act_failed: 'չստացվեց', act_undo: 'հետ բերեցիր' }[l.action] || l.action}`, d.title || ''];
+    if (l.action === 'notice') return ['Գարիկ · հիշեցում', ''];
     if (l.action === 'error') return [`${l.agent} · սխալ`, String(d.msg || '').slice(0, 90)];
     if (l.action.startsWith('task_')) return [`Դու · ${{ task_approve: 'հաստատեցիր', task_reject: 'մերժեցիր', task_undo: 'չեղարկեցիր' }[l.action] || l.action}`, d.title || ''];
     if (l.action === 'agents_off') return ['Գործակալները կանգնեցվեցին', ''];
@@ -793,13 +869,14 @@
   const driversLine = (n) => { if (!n) return ''; const ok = n.drivers_synced_at; if (n.drivers_error && (!ok || new Date(n.drivers_error.at) > new Date(ok))) return `Պատվերները թարմ են։ Վարորդների ցուցակը Fleet-ը ժամանակավորապես չի տալիս${ok ? `, վերջինը՝ ${ago(ok)}` : ''}։`; return ok ? `Վարորդների ցուցակը՝ ${ago(ok)}` : ''; };
   route('/settings', async () => {
     lastTab = 'settings';
-    const [h, st, notes, logsR, usersR, agR, sessR, asR] = await Promise.all([
+    const [h, st, notes, logsR, usersR, agR, sessR, asR, brain] = await Promise.all([
       rpc('app_home'), garikState(), rpc('app_notes'),
       sb.from('agent_log').select('at,agent,action,details').order('id', { ascending: false }).limit(10),
       sb.from('app_users').select('email,role,name'),
       sb.from('sync_state').select('value').eq('key', 'agents').maybeSingle(),
       sb.auth.getSession(),
       assistantNow().catch(() => null),
+      sb.rpc('app_brain').then((r) => r.data || [], () => []),
     ]);
     pendingCount = h.tasks_pending || 0;
     const agentsOn = !(agR.data && agR.data.value && agR.data.value.enabled === false);
@@ -819,6 +896,9 @@
         cell({ icon: I.mega, color: 'o', t: 'list.am', v: '<span class="tag n">Կոմպ 2-ում</span>' }),
         cell({ icon: I.money, color: 'b', t: 'PrimeBridge', v: '<span class="tag n">շուտով</span>' }),
       ], 'ic'))}
+      ${brain.length ? sec('Գարիկը հիշում է', group(brain.map((b) => cell({ t: esc(b.text), s: dmy(b.at),
+        trail: `<button type="button" class="btn plain sm" data-forget="${b.id}">Մոռանալ</button>` }))),
+        { foot: 'Ձեր ասածները, որ Գարիկը հաշվի է առնում ամեն պատասխանում։ Նորը՝ զրույցում գրեք «հիշիր, որ …»։' }) : ''}
       ${sec('Մուտք ունեն', group(users))}
       ${sec('Վերջին գործողությունները', group(logs.length ? logs : ['<p class="none">Դեռ ոչինչ</p>']))}
       ${sec('Գաղտնաբառ', `<div class="card">
@@ -827,9 +907,16 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.9` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.10` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
+    app.querySelectorAll('[data-forget]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Մոռանա՞լ սա։')) return;
+      b.disabled = true;
+      const { error } = await sb.rpc('app_brain_forget', { p_id: +b.dataset.forget });
+      if (error) { b.disabled = false; alert('Չստացվեց՝ ' + error.message); return; }
+      render();
+    });
     document.getElementById('agents').onchange = async (e) => {
       const want = e.target.checked;
       if (!want && !confirm('Կանգնեցնե՞լ բոլոր գործակալներին։ Նոր առաջարկներ չեն գրվի, մինչև նորից միացնես։')) { e.target.checked = true; return; }

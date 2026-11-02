@@ -249,6 +249,27 @@ a.kpi:active { background: var(--fill); }
 .msg.me { align-self: flex-end; background: var(--text); color: var(--bg); border-bottom-right-radius: 6px; }
 .msg.typing { color: var(--text3); }
 .msg .note { display: block; margin-top: 8px; font-size: 13px; color: var(--text2); }
+/* «Կատարե՞մ» քարտ (օգնականի ձեռքեր, v0.10) */
+.act { align-self: flex-start; width: 85%; max-width: 85%; min-width: 0; background: var(--surface); border-radius: 18px; border-bottom-left-radius: 6px; padding: 12px 14px;
+  box-shadow: var(--shadow), inset 3px 0 0 var(--brand); display: flex; flex-direction: column; gap: 8px; }
+.act.rejected, .act.undone, .act.expired { box-shadow: var(--shadow), inset 3px 0 0 var(--fill2); }
+.act.failed { box-shadow: var(--shadow), inset 3px 0 0 var(--neg); }
+.act-h { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: none; }
+.act-t { font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+.act-b { display: flex; gap: 8px; flex-wrap: wrap; }
+.act-b .btn { flex: 1 1 96px; min-height: 44px; font-weight: 600; }
+.act-s { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: 14px; min-width: 0; }
+.act-s .pos { color: var(--pos); font-weight: 600; } .act-s .neg { color: var(--neg); } .act-s .mut { color: var(--text2); }
+.act-s span { overflow-wrap: anywhere; min-width: 0; }
+.act-s .btn.plain { min-height: 36px; padding: 0 6px; font-size: 14px; }
+.btn.gray { background: var(--fill); color: var(--text); }
+.msg.notice { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--brand); }
+.msg.notice .note-h { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+.nlist { gap: 0; padding: 4px 16px; }
+.nrow { display: flex; align-items: center; gap: 12px; padding: 10px 0; min-width: 0; }
+.nrow + .nrow { box-shadow: 0 -.5px 0 var(--sep); }
+.nrow p { flex: 1; min-width: 0; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+.nrow .btn { flex-shrink: 0; }
 .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .sugg button { text-align: left; border: 0; background: var(--surface); border-radius: 12px; padding: 12px 14px; font-size: 15px; line-height: 1.35; color: var(--text); cursor: pointer; min-height: 48px; box-shadow: var(--shadow); overflow-wrap: anywhere; }
 .sugg button:active { background: var(--fill); }
