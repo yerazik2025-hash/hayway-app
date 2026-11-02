@@ -74,6 +74,7 @@
     send: sv(20, '<path d="M12 19V5M5 12l7-7 7 7"/>', ' style="stroke-width:2.4"'),
     trash: sv(22, '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
     car: sv(20, '<path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>'),
+    ai: sv(20, '<path d="M4 5h16v11H9l-5 4z"/><path d="m12 7.5 1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z"/>'),
     logo: '<svg width="44" height="44" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#111113"/><path d="M16 6.5c-4 0-7 3-7 6.8 0 4.9 7 12.2 7 12.2s7-7.3 7-12.2c0-3.8-3-6.8-7-6.8z" fill="#FCE000"/><circle cx="16" cy="13.2" r="2.9" fill="#111113"/></svg>',
   };
 
@@ -235,6 +236,23 @@
     };
   }
 
+  // ───────── Telegram-ի միացում (db\0013, բոտ owner-bot) ─────────
+  let tgState = {};
+  function bindTg() {
+    app.querySelectorAll('[data-tglink]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      const { data, error } = await sb.rpc('app_tg_link');
+      b.disabled = false;
+      if (error || !data || !data.url) { alert('Չստացվեց՝ ' + (error ? error.message : '')); return; }
+      window.open(data.url, '_blank');
+    });
+    app.querySelectorAll('[data-tgunlink]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Անջատե՞լ Telegram-ի ծանուցումները։')) return;
+      await sb.rpc('app_tg_unlink');
+      render();
+    });
+  }
+
   // ───────── Գլխավոր (պարզ. այսօր անել · 4 թիվ · 1000-ի նպատակը) ─────────
   route('/', async () => {
     lastTab = 'home';
@@ -243,7 +261,8 @@
       sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
       rpc('app_questions').catch(() => null),
       sb.rpc('app_notices').then((r) => r.data || [], () => []),
-    ]);
+      sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
+    ]).then((a) => { tgState = a[5]; return a; });
     const tasks = tr.data || [];
     pendingCount = tasks.length;
     const w = h.week;
@@ -264,8 +283,14 @@
     // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
     const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
         <p>${esc(n.text)}</p><button type="button" class="btn sm gray" data-seen="${n.id}">Լավ</button></div>`).join('')}</div>`) : '';
+    // Telegram-ի միացում (db\0013). մինչև տերը չմիացնի, Գլխավորում փոքր քարտ («Հետո»-ն թաքցնում է 7 օրով)
+    let tgLater = 0; try { tgLater = +localStorage.getItem('hw_tg_later') || 0; } catch (e) {}
+    const tgCard = tgState.username && !tgState.linked && Date.now() > tgLater ? sec('', `<div class="card tgcard">
+        <p><b>Գարիկի պատասխանները՝ Telegram-ում</b><br><span class="meta">Հիշեցումներն ու «Կատարե՞մ» քարտերը կգան Telegram-ում, «Այո»-ն կարող եք սեղմել հենց այնտեղ։</span></p>
+        <div class="act-b"><button type="button" class="btn pri sm" data-tglink>Միացնել Telegram-ը</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`) : '';
     mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">· թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
       ${notice}
+      ${tgCard}
       ${hasQ ? '<section class="sec" id="qa"></section>' : ''}
       ${sec('Այսօր անել', group(todo, 'ic'))}
       ${sec('Վերջին 7 օր', `<div class="kpis">
@@ -282,6 +307,9 @@
       </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ Բաժիններում։' })}
     `));
     if (hasQ) questionCard(document.getElementById('qa'), qs);
+    bindTg();
+    const later = app.querySelector('[data-tglater]');
+    if (later) later.onclick = () => { try { localStorage.setItem('hw_tg_later', String(Date.now() + 7 * 864e5)); } catch (e) {} later.closest('.sec').remove(); };
     app.querySelectorAll('[data-seen]').forEach((b) => b.onclick = async () => {
       b.disabled = true;
       await sb.rpc('app_notice_seen', { p_id: +b.dataset.seen });
@@ -346,13 +374,14 @@
   // ───────── Բաժիններ ─────────
   route('/sections', async () => {
     lastTab = 'sections';
-    const [h, lr] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle()]);
+    const [h, lr, geo] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle(), rpc('app_geo').catch(() => null)]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     const soon = '<span class="tag n">շուտով</span>';
     const la = lr.data;
     const laTag = !la ? '' : la.status === 'off' ? '<span class="tag neg">կանգնած</span>' : la.status === 'warn' ? '<span class="tag warn">ուշանում է</span>' : '';
-    mount({ title: 'Բաժիններ', tab: 'sections', sub: '10 բաժին · 7-ը կենդանի տվյալներով' }, page(`
+    const gl = geo && geo.last;
+    mount({ title: 'Բաժիններ', tab: 'sections', sub: '11 բաժին · 8-ը կենդանի տվյալներով' }, page(`
       ${sec('Վարորդներ և որակ', group([
         cell({ href: '#/drivers', icon: I.users, color: 'y', t: 'Վարորդներ', s: `${fmt(h.active_30d)} ակտիվ · շաբաթ՝ +${w.new} / −${w.churn}` }),
         cell({ href: '#/quality', icon: I.quality, color: 'p', t: 'Որակ', s: `${pct(w.orders, w.orders + w.cancelled)}% պատվեր ավարտվում է` }),
@@ -364,6 +393,7 @@
       ${sec('Աճ', group([
         cell({ href: '#/growth', icon: I.userplus, color: 'y', t: 'Նոր վարորդներ', s: `30 օրում՝ +${fmt(h.month.new)} · գրանցումից մինչև 50-րդ պատվեր` }),
         cell({ href: '#/listam', icon: I.mega, color: 'r', t: 'list.am', s: 'Նամակներ, թարմացում, փաթեթ, հայտեր, մրցակիցներ', trail: laTag }),
+        cell({ href: '#/geo', icon: I.ai, color: 'k', t: 'ChatGPT', s: gl ? `${fmt(gl.score)}% պատասխաններում HayWay-ը կա` : 'Երևո՞ւմ ենք, երբ վարորդը հարցնում է ChatGPT-ին' }),
         cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ, մրցակիցներ', trail: soon }),
         cell({ href: '#/leads', icon: I.userplus, color: 'b', t: 'Հայտեր', s: 'Հայտից մինչև 50-րդ պատվեր', trail: soon }),
         cell({ href: '#/contact', icon: I.chat, color: 's', t: 'Կապ', s: 'Հայտարարություններ և նամակներ', trail: soon }),
@@ -502,8 +532,93 @@
     `));
   });
 
+  // ───────── ChatGPT (AI տեսանելիություն) ─────────
+  // Տվյալները՝ app_geo() / app_geo_answers() (db\0012_geo.sql). լցնում է HayWay-ի համակարգչի «Garik-GEO» task-ը շաբաթը մեկ
+  // (scripts\geo-weekly.ps1). ChatGPT-ին հարցնում է առանց մուտքի՝ ինչպես աշխատանք փնտրող նոր վարորդը կամ առաքիչը։
+  const LANG = { hy: 'հայերեն', ru: 'ռուսերեն', en: 'անգլերեն', hi: 'հինդի', fa: 'պարսկերեն' };
+  const WHO = { driver: 'վարորդ', courier: 'առաքիչ', both: 'վարորդ և առաքիչ' };
+  const wkLabel = (wk) => {
+    const [y, n] = String(wk || '').split('-W').map(Number);
+    if (!y || !n) return '';
+    const j4 = Date.UTC(y, 0, 4), mon = j4 - ((new Date(j4).getUTCDay() + 6) % 7) * 864e5 + (n - 1) * 7 * 864e5;
+    const f = (t) => { const d = new Date(t); return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
+    return `${f(mon)}–${f(mon + 6 * 864e5)}`;
+  };
+  const place = (x) => 'տեղը՝' + NB + String(x).replace('.', ',');
+  route('/geo', async (qid) => {
+    lastTab = 'sections';
+    if (qid) return geoQuestion(qid);
+    const [h, g] = await Promise.all([rpc('app_home'), rpc('app_geo')]);
+    pendingCount = h.tasks_pending || 0;
+    const L = g.last, run = g.runner || {};
+    const runAge = run.seen_at ? Date.now() - new Date(run.seen_at) : Infinity;
+    const sub = !run.seen_at ? '<span class="dot wait"></span>Ստուգողը միանում է HayWay-ի համակարգչում'
+      : runAge < 3 * 864e5 ? '<span class="dot ok"></span>ChatGPT-ի ստուգում՝ շաբաթը մեկ'
+      : `<span class="dot bad"></span>Ստուգողը կանգնած է ${ago(run.seen_at)}`;
+    if (!L) {
+      mount({ title: 'ChatGPT', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(emptyState(I.ai, 'Առաջին ստուգումը դեռ չի եղել',
+        'Շաբաթը մեկ HayWay-ի համակարգիչը ChatGPT-ին տալիս է 20 հարց, որ տալիս են աշխատանք փնտրող վարորդներն ու առաքիչները, և այստեղ ցույց է տալիս՝ որտեղ ենք և որտեղ չկանք։')));
+      return;
+    }
+    const S = L.summary || {}, Q = S.queries || [], hist = g.history || [];
+    const prev = hist.length > 1 ? hist[hist.length - 2] : null;
+    const gen = Q.filter((q) => q.kind !== 'brand' && q.n);
+    const yes = gen.filter((q) => q.state === 'yes' || q.state === 'some'), no = gen.filter((q) => q.state === 'no');
+    const qs = (q) => `${LANG[q.lang] || q.lang} · ${WHO[q.who] || ''}`;
+    const ST = { doing: '<span class="tag info">աշխատում ենք</span>', todo: '<span class="tag n">հաջորդը</span>' };
+    const acts = (g.actions || []).map((a) => cell({ t: esc(a.title), s: esc([a.place, a.why].filter(Boolean).join(' · ')),
+      v: a.status === 'done' ? `<span class="tag pos">արված${a.done_at ? ' ' + dmy(a.done_at) : ''}</span>` : (ST[a.status] || '') }));
+    const mk = S.markets || {}, meta = S.markets_meta || {};
+    const mrows = Object.keys(meta).filter((k) => mk[k]).map((k) => cell({ t: `${meta[k].flag} ${esc(meta[k].name)}`, s: `${mk[k].hit} պատասխանում ${mk[k].n}-ից`,
+      v: `${fmt(mk[k].pct)}%`, strong: true, extra: `<div class="mbar"><span style="width:${mk[k].pct || 0}%"></span></div>` }));
+    const ours = (S.our_links || []).map((o) => esc(o.t || o.u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)));
+    mount({ title: 'ChatGPT', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(`
+      ${sec('', `<div class="card">
+        <div class="hero"><span class="n">${fmt(L.score)}%</span><span class="u">պատասխաններում ChatGPT-ն նշում է HayWay-ը</span></div>
+        <p class="meta">${prev ? `Անցյալ շաբաթ՝ ${fmt(prev.score)}%։` : 'Առաջին ստուգումն է. համեմատությունը՝ հաջորդ շաբաթից։'}${S.rank_avg ? ` Առաջարկվող պարկերի ցուցակում HayWay-ի միջին ${place(S.rank_avg)}։` : ''}</p>
+        ${L.note ? `<p class="meta"><b>${esc(L.note)}</b></p>` : ''}
+      </div><div class="kpis" style="margin-top:8px">
+        ${kpi('Հարցեր, որտեղ կանք', `${yes.length}${NB}/${NB}${gen.length}`, '')}
+        ${kpi('ChatGPT-ն մեզ ճանաչում է', `${fmt(L.brand)}%`, 'HayWay-ի մասին հարցերում')}
+      </div>`, { foot: `Ով է հարցնում՝ աշխատանք փնտրող վարորդ կամ առաքիչ։ Ամեն հարց տրվում է 3 անգամ, ChatGPT-ին առանց մուտքի։` })}
+      ${sec('Ինչի վրա ենք աշխատում', acts.length ? group(acts) : '<div class="group"><p class="none">Քայլերը կգրվեն ստուգումից հետո։</p></div>')}
+      ${no.length ? sec(`Որտեղ չկանք · ${no.length}`, group(no.map((q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
+        s: `${qs(q)}${q.rivals && q.rivals.length ? ' · փոխարենը՝ ' + q.rivals.slice(0, 3).map(esc).join(', ') : ''}`, v: '<span class="tag neg">չկանք</span>' }))),
+        { foot: 'Սեղմիր հարցի վրա՝ կարդալու, թե ChatGPT-ն ինչ է պատասխանում։' }) : ''}
+      ${sec(`Որտեղ կանք · ${yes.length}`, yes.length ? group(yes.map((q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
+        s: `${qs(q)} · ${q.hit}/${q.n} անգամ${q.rank ? ' · ' + place(q.rank) : ''}`,
+        v: q.state === 'yes' ? '<span class="tag pos">կանք</span>' : '<span class="tag warn">երբեմն</span>' }))) : '<div class="group"><p class="none">Դեռ ոչ մի հարցում։</p></div>')}
+      ${sec('Ըստ երկրի և լեզվի', group(mrows), { foot: 'Ռուսաստան, Հնդկաստան, Իրան՝ օտարերկրացի վարորդներն ու առաքիչները հարցնում են իրենց լեզվով։' })}
+      ${(S.rivals || []).length ? sec('Ում է ChatGPT-ն առաջարկում', group(S.rivals.slice(0, 6).map((r) => cell({ t: esc(r.name), s: `${r.n} պատասխանում`, v: `${fmt(r.pct)}%`, strong: true }))),
+        { foot: 'Այլ պարկեր, որ ChatGPT-ն նշում է նույն հարցերին։' }) : ''}
+      ${(S.sources || []).length ? sec('Որտեղից է ChatGPT-ն վերցնում', group(S.sources.slice(0, 8).map((s) => cell({ t: esc(s.domain), v: fmt(s.n), strong: true,
+        trail: s.ours ? '<span class="tag pos">մերն էլ կա</span>' : '' }))),
+        { foot: `ChatGPT-ն պատասխանը գրում է այս կայքերից։ Այստեղ լինել = ChatGPT-ում լինել։${ours.length ? ' Մեր էջերը՝ ' + ours.slice(0, 4).join(', ') + '։' : ''}` }) : ''}
+      ${hist.length > 1 ? sec('Ըստ շաբաթների', group(hist.slice().reverse().map((x) => cell({ t: wkLabel(x.week), s: `${x.answers} պատասխան`, v: `${fmt(x.score)}%`, strong: true })))) : ''}
+      <p class="sec-f">Վերջին ստուգումը՝ ${wkLabel(L.week)}, ${L.answers} պատասխան։</p>
+    `));
+  });
+
+  // Մեկ հարցի պատասխանները՝ ինչպես ChatGPT-ն է գրել
+  async function geoQuestion(id) {
+    const [h, rows] = await Promise.all([rpc('app_home'), rpc('app_geo_answers', { p_id: id })]);
+    pendingCount = h.tasks_pending || 0;
+    const r0 = rows[0] || {};
+    const cards = rows.filter((r) => r.ok).map((r) => sec(`Պատասխան ${r.rep}`, `<div class="card">
+        <div>${r.mentioned ? `<span class="tag pos">HayWay-ը կա${r.rank ? ' · ' + place(r.rank) : ''}</span>` : '<span class="tag neg">HayWay-ը չկա</span>'}${r.our_cited ? ' <span class="tag info">մեր էջը աղբյուր է</span>' : ''}</div>
+        <div class="ans clip" dir="auto">${esc(r.answer)}</div>
+        <button class="btn full ans-more" type="button">Կարդալ ամբողջը</button>
+        ${(r.sources || []).length ? `<p class="meta">Աղբյուրներ՝ ${r.sources.map(esc).join(', ')}</p>` : ''}
+      </div>`));
+    const sc = mount({ title: 'ChatGPT-ի պատասխանը', tab: 'sections', back: ['#/geo', 'ChatGPT'], sub: esc(`${LANG[r0.lang] || ''} · ${wkLabel(r0.week)}`) }, page(`
+      ${sec('Հարցը', `<div class="card"><h3 dir="auto">${esc(r0.q || id)}</h3></div>`)}
+      ${cards.join('') || sec('', '<div class="group"><p class="none">Պատասխան դեռ չկա։</p></div>')}
+    `));
+    sc.querySelectorAll('.ans-more').forEach((b) => b.onclick = () => { b.previousElementSibling.classList.remove('clip'); b.remove(); });
+  }
+
   // ───────── Վարորդներ ─────────
-  const SEGS = [['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
+  const SEGS =[['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
   const SEG_DESC = {
     active: 'Վերջին 30 օրում գոնե մեկ ավարտված պատվեր։ Դասավորված են այս շաբաթվա պատվերներով։',
     top: '30 վարորդ՝ ամենաշատ պատվերով վերջին 30 օրում։ Կոմիսիան փոխելուց առաջ նրանց զանգում ենք անձամբ։',
@@ -859,6 +974,9 @@
     if (l.agent === 'assistant') return ['Գարիկ · միացում', d.ok === true || d.code === 0 ? 'պատրաստ է' : 'դեռ չի միացել'];
     if (l.action.startsWith('act_')) return [`Դու · ${{ act_done: 'Գարիկը արեց', act_reject: 'ասացիր «Ոչ»', act_failed: 'չստացվեց', act_undo: 'հետ բերեցիր' }[l.action] || l.action}`, d.title || ''];
     if (l.action === 'notice') return ['Գարիկ · հիշեցում', ''];
+    if (l.action === 'tg_link') return ['Դու · միացրիր Telegram-ը', d.name || ''];
+    if (l.action === 'tg_unlink') return ['Դու · անջատեցիր Telegram-ը', ''];
+    if (l.agent === 'owner-bot' && l.action === 'flush') return ['Գարիկ · Telegram', `ուղարկվեց ${d.sent || 0} հաղորդագրություն`];
     if (l.action === 'error') return [`${l.agent} · սխալ`, String(d.msg || '').slice(0, 90)];
     if (l.action.startsWith('task_')) return [`Դու · ${{ task_approve: 'հաստատեցիր', task_reject: 'մերժեցիր', task_undo: 'չեղարկեցիր' }[l.action] || l.action}`, d.title || ''];
     if (l.action === 'agents_off') return ['Գործակալները կանգնեցվեցին', ''];
@@ -869,7 +987,7 @@
   const driversLine = (n) => { if (!n) return ''; const ok = n.drivers_synced_at; if (n.drivers_error && (!ok || new Date(n.drivers_error.at) > new Date(ok))) return `Պատվերները թարմ են։ Վարորդների ցուցակը Fleet-ը ժամանակավորապես չի տալիս${ok ? `, վերջինը՝ ${ago(ok)}` : ''}։`; return ok ? `Վարորդների ցուցակը՝ ${ago(ok)}` : ''; };
   route('/settings', async () => {
     lastTab = 'settings';
-    const [h, st, notes, logsR, usersR, agR, sessR, asR, brain] = await Promise.all([
+    const [h, st, notes, logsR, usersR, agR, sessR, asR, brain, tgS] = await Promise.all([
       rpc('app_home'), garikState(), rpc('app_notes'),
       sb.from('agent_log').select('at,agent,action,details').order('id', { ascending: false }).limit(10),
       sb.from('app_users').select('email,role,name'),
@@ -877,6 +995,7 @@
       sb.auth.getSession(),
       assistantNow().catch(() => null),
       sb.rpc('app_brain').then((r) => r.data || [], () => []),
+      sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
     ]);
     pendingCount = h.tasks_pending || 0;
     const agentsOn = !(agR.data && agR.data.value && agR.data.value.enabled === false);
@@ -892,6 +1011,9 @@
         cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', s: st.mode === 'pc' ? `Ձեր Claude-ով, HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
           v: !st.ok ? '<span class="tag warn">կապ չկա</span>' : st.mode !== 'pc' ? '<span class="tag pos">միացված</span>'
             : runnerOn(asR && asR.runner) ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">անջատված</span>' }),
+        ...(tgS.username ? [cell({ icon: I.chat, color: 'b', t: 'Telegram · Գարիկի ծանուցումներ',
+          s: tgS.linked ? `@${esc(tgS.username)}${tgS.name ? ' · ' + esc(tgS.name) : ''}` : 'Պատասխաններ, հիշեցումներ և «Այո/Ոչ» քարտեր',
+          trail: tgS.linked ? '<button type="button" class="btn plain sm" data-tgunlink>Անջատել</button>' : '<button type="button" class="btn pri sm" data-tglink>Միացնել</button>' })] : []),
         cell({ icon: I.chat, color: 'g', t: 'WhatsApp բոտ', v: '<span class="tag pos">աշխատում է</span>' }),
         cell({ icon: I.mega, color: 'o', t: 'list.am', v: '<span class="tag n">Կոմպ 2-ում</span>' }),
         cell({ icon: I.money, color: 'b', t: 'PrimeBridge', v: '<span class="tag n">շուտով</span>' }),
@@ -907,9 +1029,10 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.10` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.11` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
+    bindTg();
     app.querySelectorAll('[data-forget]').forEach((b) => b.onclick = async () => {
       if (!confirm('Մոռանա՞լ սա։')) return;
       b.disabled = true;
