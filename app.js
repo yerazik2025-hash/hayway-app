@@ -782,6 +782,7 @@
     if (l.agent === 'agents' && l.action === 'daily') return ['Առավոտյան ստուգում', `${Object.keys(d).length} խումբ ստուգվեց`];
     if (l.agent === 'agents' && l.action === 'skipped') return ['Առավոտյան ստուգում', 'Բաց թողնվեց. գործակալներն անջատված են'];
     if (l.action === 'chat') return ['Գարիկ · զրույց', d.q || ''];
+    if (l.agent === 'assistant') return ['Գարիկ · միացում', d.ok === true || d.code === 0 ? 'պատրաստ է' : 'դեռ չի միացել'];
     if (l.action === 'error') return [`${l.agent} · սխալ`, String(d.msg || '').slice(0, 90)];
     if (l.action.startsWith('task_')) return [`Դու · ${{ task_approve: 'հաստատեցիր', task_reject: 'մերժեցիր', task_undo: 'չեղարկեցիր' }[l.action] || l.action}`, d.title || ''];
     if (l.action === 'agents_off') return ['Գործակալները կանգնեցվեցին', ''];
