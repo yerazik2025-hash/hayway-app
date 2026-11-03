@@ -96,9 +96,11 @@
   // աջում՝ GTH կոճակը → Գարիկ (օգնականը)։ Աղյուսակով «Բոլորը»՝ վերևի կոճակով (#/sections)։
   // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
-  // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»
+  // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB)
   const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
-    ['finance', I.money, 'Ֆինանս'], ['tasks', I.tasks, 'Գործեր'], ['quality', I.quality, 'Որակ'], ['terms', I.percent, 'Պայմաններ']];
+    ['finance', I.money, 'Ֆինանս']];
+  // ներքևում չեղած էջերի «Հետ»-ը
+  const SUB = { quality: ['#/settings', 'Կարգավորում'], terms: ['#/settings', 'Կարգավորում'], tasks: ['#/garik', 'GTH'] };
   const hashParts = () => (location.hash || '#/').slice(1).split('?')[0].split('/');
   let chatBack = '#/';
   function tabbar() {
@@ -111,7 +113,8 @@
     const chat = o.tab === 'garik';
     let back = o.back;
     // Բաժինները բացվում են ներքևից կամ «Բոլորը»-ից. ներքևի բաժնում «Հետ» պետք չէ, մնացածում՝ «Բոլորը»
-    if (back && back[0] === '#/sections') { const [, s, arg] = hashParts(); back = DOCK.some((d) => d[0] === s) && !arg ? null : [back[0], 'Բոլորը']; }
+    if (back && back[0] === '#/sections') { const [, s, arg] = hashParts(); back = DOCK.some((d) => d[0] === s) && !arg ? null : SUB[s] && !arg ? SUB[s] : [back[0], 'Բոլորը']; }
+    if (!back && !chat && SUB[hashParts()[1]]) back = SUB[hashParts()[1]];
     const left = chat ? `<a class="backb" href="${chatBack}">${I.back}<span>Հետ</span></a>`
       : back ? `<a class="backb" href="${back[0]}">${I.back}<span>${esc(back[1])}</span></a>`
       : `<a class="brand" href="#/"><img src="icon.svg?v=9" width="36" height="36" alt=""><span><b>HayWay</b><small><i></i>${todayLong()}</small></span></a>`;
@@ -622,8 +625,6 @@
       ${grid('Վարորդներ', [
         gc('#/drivers', I.users, 'y', 'Վարորդներ', `${fmt(h.active_30d)} ակտիվ`),
         gc('#/growth', I.userplus, 'b', 'Նորեկներ', `+${fmt(h.month.new)} · 30 օր`),
-        gc('#/quality', I.quality, 'p', 'Որակ', `${pct(w.orders, w.orders + w.cancelled)}% ավարտված`),
-        gc('#/terms', I.percent, 'r', 'Պայմաններ', 'կոմիսիա, խմբեր'),
       ])}
       ${grid('Գումար', [
         gc('#/finance', I.money, 'g', 'Ֆինանս', `${short(w.commission)} · 7 օր`),
@@ -633,7 +634,6 @@
         gc('#/geo', I.ai, 't', 'ChatGPT', gl ? `${fmt(gl.score)}% երևում ենք` : 'չափում չկա'),
       ])}
       ${grid('Կառավարում', [
-        gc('#/tasks', I.tasks, 'y', 'Գործեր', pendingCount ? `${pendingCount} սպասում է` : 'ամեն ինչ որոշված', '', pendingCount),
         gc('#/garik', I.star, 'b', 'Գարիկ', 'GTH օգնական'),
         gc('#/settings', I.cfg, 's', 'Կարգավորում', 'միացումներ, մուտք'),
       ])}
@@ -1250,6 +1250,11 @@
     const logs = (logsR.data || []).map((l) => { const [t, s] = logText(l); const sameDay = new Date(l.at).toDateString() === new Date().toDateString(); return cell({ t: esc(t), s: esc(s), v: `<span class="mut3" style="font-size:13px">${sameDay ? hm(l.at) : dmy(l.at)}</span>` }); });
     const users = (usersR.data || []).map((u) => cell({ t: esc(u.email), v: `<span class="tag ${u.role === 'owner' ? 'k' : 'n'}">${u.role === 'owner' ? 'տեր' : 'դիսպետչեր'}</span>` }));
     mount({ title: 'Կարգավորումներ', tab: 'settings' }, page(`
+      ${sec('Այլ բաժիններ', group([
+        cell({ href: '#/tasks', icon: I.tasks, color: 'y', t: 'Գործեր', s: 'Գործակալների բոլոր առաջարկները', v: pendingCount ? `<span class="tag warn">${pendingCount}</span>` : '' }),
+        cell({ href: '#/quality', icon: I.quality, color: 'p', t: 'Որակ', s: 'Ավարտված և չեղարկված պատվերներ' }),
+        cell({ href: '#/terms', icon: I.percent, color: 'r', t: 'Պայմաններ', s: 'Կոմիսիայի խմբեր, հաշվիչ' }),
+      ], 'ic'), { foot: 'Ամեն օր պետք չեն, դրա համար ներքևում չեն։' })}
       ${sec('Գործակալներ', group([cell({ icon: I.star, color: 'k', t: 'Ավտոմատ առաջարկներ', s: 'Ամեն առավոտ 08:30', trail: `<label class="sw"><input type="checkbox" id="agents" ${agentsOn ? 'checked' : ''} aria-label="Գործակալները միացված են"><span></span></label>` })], 'ic'),
         { foot: 'Պահպանող, Որակի վերահսկիչ և Ֆինանսիստ առաջարկներ են դնում Գործերում և ոչինչ չեն անում առանց քո հաստատման։ Անջատելուց հետո Fleet-ի թարմացումը շարունակվում է։' })}
       ${sec('Միացումներ', group([
