@@ -92,16 +92,17 @@
   function invalidate() { for (const k in cache) delete cache[k]; }
 
   // ───────── Շրջանակ (ԿԱ 2-ի պատյան, 03.11.2026) ─────────
-  // Ներքևում՝ «Այսօր» + պարկի գլխավոր 3 բաժինը + «Բոլորը» (մնացածը՝ այնտեղ, խմբերով), աջում՝ GTH կոճակը → Գարիկ (օգնականը)։
+  // Ներքևում՝ պարկի ԲՈԼՈՐ բաժինները մեկ սահող շարքում (Գարիկ. «ինչպես իմ հավելվածինը»՝ gth.robi.am/v2, iOS 26-ի Telegram-ի պես),
+  // աջում՝ GTH կոճակը → Գարիկ (օգնականը)։ Աղյուսակով «Բոլորը»՝ վերևի կոճակով (#/sections)։
   // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
-  const DOCK = [['', I.home, 'Այսօր'], ['drivers', I.users, 'Վարորդ'], ['growth', I.userplus, 'Նորեկ'], ['finance', I.money, 'Ֆինանս'], ['sections', I.grid, 'Բոլորը']];
+  const DOCK = [['', I.home, 'Այսօր'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'], ['finance', I.money, 'Ֆինանս'], ['tasks', I.tasks, 'Գործեր'],
+    ['quality', I.quality, 'Որակ'], ['terms', I.percent, 'Պայմաններ'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT']];
   const hashParts = () => (location.hash || '#/').slice(1).split('?')[0].split('/');
   let chatBack = '#/';
   function tabbar() {
-    const s = hashParts()[1] || '', pinned = DOCK.some((d) => d[0] === s);
-    const on = (k) => k === s || (k === 'sections' && !pinned);
-    return `<nav class="dock"><div class="strip">${DOCK.map(([k, ic, l]) => `<a class="tab ${on(k) ? 'on' : ''}" href="#/${k}"><span class="ic">${ic}${!k && pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</span><span>${l}</span></a>`).join('')}</div>
+    const s = hashParts()[1] || '';
+    return `<nav class="dock"><div class="strip"><div class="track"><i class="glass" aria-hidden="true"></i>${DOCK.map(([k, ic, l]) => `<a class="tab${k === s ? ' on' : ''}" href="#/${k}" draggable="false"><span class="ic">${ic}${!k && pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</span><span>${l}</span></a>`).join('')}</div></div>
       <a class="gthb" href="#/garik" aria-label="Գարիկ՝ GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span></a></nav>`;
   }
   // o: { title, sub, tab, back:[href,label], right, compact, after }
@@ -113,7 +114,7 @@
     const left = chat ? `<a class="backb" href="${chatBack}">${I.back}<span>Հետ</span></a>`
       : back ? `<a class="backb" href="${back[0]}">${I.back}<span>${esc(back[1])}</span></a>`
       : `<a class="brand" href="#/"><img src="icon.svg?v=9" width="36" height="36" alt=""><span><b>HayWay</b><small><i></i>${todayLong()}</small></span></a>`;
-    const right = o.right !== undefined ? o.right : `<button class="ibtn" id="refresh" aria-label="Թարմացնել">${I.refresh}</button>`;
+    const right = o.right !== undefined ? o.right : `<a class="ibtn ${hashParts()[1] === 'sections' ? 'on' : ''}" href="#/sections" aria-label="Բոլոր բաժինները">${I.grid}</a><button class="ibtn" id="refresh" aria-label="Թարմացնել">${I.refresh}</button>`;
     const large = o.compact ? '' : `<header class="lt"><h1>${o.title}</h1>${o.sub ? `<div class="st">${o.sub}</div>` : ''}</header>`;
     const ct = chat ? `<img src="GTH-AGENCY-logo-SAFE.svg" width="40" height="21" alt="GTH logo"><span>${o.title}</span>` : o.title;
     return `<div class="top ${o.compact ? 'compact scrolled' : ''} ${back || chat ? '' : 'nb br'} ${chat ? 'chat-top' : ''}"><div class="top-in"><div class="l">${left}</div><div class="ct">${ct}</div><div class="r">${right}</div></div></div>
@@ -121,7 +122,9 @@
   }
   let lastPath = '';
   function mount(o, body) {
+    const keep = app.querySelector('.dock');
     app.innerHTML = frame(o, body);
+    placeDock(keep);
     app.classList.toggle('has-dock', o.tab !== 'garik');
     const sc = document.getElementById('sc'), top = app.querySelector('.top');
     // նոր էկրան բացելիս բլոկները մեղմ բարձրանում են (թարմացնելիս՝ ոչ)
@@ -144,6 +147,117 @@
   const group = (cells, cls = '') => `<div class="group ${cls}">${cells.join('')}</div>`;
   const kpi = (l, v, s, href) => `<${href ? `a href="${href}"` : 'div'} class="kpi"><span class="kpi-l">${l}</span><span class="kpi-v">${v}</span>${s ? `<span class="kpi-s">${s}</span>` : ''}</${href ? 'a' : 'div'}>`;
   const emptyState = (icon, h, p, btn) => `<div class="empty"><span class="ei">${icon}</span><h3>${h}</h3><p>${p}</p>${btn || ''}</div>`;
+
+  // ───────── Ներքևի շարքը (GTH-ի հավելվածից, 03.11). մատով սահեցնել → մնացած բաժինները; սեղմել → «ապակե» գնդիկը թռչում է ու մի պահ ուռչում;
+  // մատը պահել (260 մվ) ու տանել → գնդիկը մեծանում է, դառնում ապակի, գնում մատի հետևից (եզրին՝ շարքն էլ է սահում), բաց թողնելիս բացում է բաժինը ─────────
+  const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const G = { x: null, w: 0, block: 0 };
+  let dockSl = null;
+  // Շարքը էկրանից էկրան նույնն է մնում (keep), որ գնդիկի թռիչքն ու շարքի դիրքը չընդհատվեն. թարմանում են միայն «on»-ն ու թիվը
+  function placeDock(keep) {
+    const nd = app.querySelector('.dock');
+    if (!nd) return;
+    if (keep) {
+      nd.replaceWith(keep);
+      const fresh = [...nd.querySelectorAll('.tab')];
+      keep.querySelectorAll('.tab').forEach((t, i) => { t.classList.toggle('on', fresh[i].classList.contains('on')); t.querySelector('.ic').innerHTML = fresh[i].querySelector('.ic').innerHTML; });
+      const tr = keep.querySelector('.track'), on = tr.querySelector('.tab.on');
+      if (on) reveal(tr, on, true);
+      glassPlace(tr, on, true);
+      return;
+    }
+    const tr = nd.querySelector('.track'), on = tr.querySelector('.tab.on');
+    if (dockSl != null) tr.scrollLeft = dockSl;
+    if (on) reveal(tr, on, dockSl != null);
+    edges(tr); tr.addEventListener('scroll', () => { edges(tr); dockSl = tr.scrollLeft; }, { passive: true });
+    G.x = null; glassPlace(tr, on, false); glassDrag(tr);
+  }
+  // ընտրված բաժինը միշտ երևա (եթե շարքից դուրս է՝ սահում է դեպի այն)
+  function reveal(tr, t, smooth) {
+    const l = tr.scrollLeft, w = tr.clientWidth;
+    if (t.offsetLeft >= l + 4 && t.offsetLeft + t.offsetWidth <= l + w - 4) return;
+    tr.scrollTo({ left: t.offsetLeft - (w - t.offsetWidth) / 2, behavior: smooth && !calm() ? 'smooth' : 'auto' });
+  }
+  // եզրերի մարում՝ այն կողմում, որտեղ դեռ բաժին կա (հուշում է, որ կարելի է սահեցնել)
+  function edges(tr) {
+    tr.classList.toggle('fl', tr.scrollLeft > 2);
+    tr.classList.toggle('fr', tr.scrollLeft < tr.scrollWidth - tr.clientWidth - 2);
+  }
+  function glassPlace(tr, t, anim) {
+    const g = tr.querySelector('.glass');
+    if (!g) return;
+    if (!t) { g.style.opacity = '0'; G.x = null; return; }
+    const x = t.offsetLeft, w = t.offsetWidth;
+    if (anim && G.x != null && (G.x !== x || G.w !== w) && !calm()) {
+      g.classList.add('still'); g.style.setProperty('--x', G.x + 'px'); g.style.setProperty('--w', G.w + 'px');
+      void g.offsetWidth; g.classList.remove('still', 'hop'); void g.offsetWidth; g.classList.add('hop');
+    }
+    g.style.setProperty('--x', x + 'px'); g.style.setProperty('--w', w + 'px'); g.style.opacity = '';
+    G.x = x; G.w = w;
+  }
+  // iPhone-ում navigator.vibrate չկա. Safari 18+-ը «switch» վանդակը փոխելիս թեթև թրթռում է տալիս
+  function tick() {
+    try {
+      if (navigator.vibrate) return void navigator.vibrate(6);
+      const l = document.createElement('label'); l.ariaHidden = 'true'; l.style.display = 'none'; l.innerHTML = '<input type="checkbox" switch>';
+      document.head.appendChild(l); l.click(); l.remove();
+    } catch (e) {}
+  }
+  function glassDrag(tr) {
+    const g = tr.querySelector('.glass'), tabs = () => [...tr.querySelectorAll('.tab')];
+    const near = (cx) => tabs().reduce((b, t) => { const r = t.getBoundingClientRect(), k = Math.abs(cx - r.left - r.width / 2); return !b || k < b.k ? { t, k } : b; }, null).t;
+    let p = null;
+    const follow = (cx) => {
+      const ts = tabs(), a = ts[0], z = ts[ts.length - 1];
+      const x = Math.max(a.offsetLeft, Math.min(z.offsetLeft + z.offsetWidth - G.w, cx - tr.getBoundingClientRect().left + tr.scrollLeft - G.w / 2));
+      g.style.setProperty('--x', x + 'px'); G.x = x;
+      const h = near(cx);
+      if (h !== p.hov) { if (p.hov) p.hov.classList.remove('hov'); h.classList.add('hov'); p.hov = h; tick(); }
+    };
+    // գնդիկը եզրին պահելիս շարքը ինքն է սահում դեպի այդ կողմ
+    const edge = () => {
+      if (!p || !p.up) return;
+      const r = tr.getBoundingClientRect(), k = p.cx > r.right - 24 ? 1 : p.cx < r.left + 24 ? -1 : 0;
+      if (k) { tr.scrollLeft += k * 6; follow(p.cx); }
+      p.raf = requestAnimationFrame(edge);
+    };
+    const lift = () => {
+      if (!p || p.up) return;
+      if (G.x == null) { const t = near(p.cx); G.w = t.offsetWidth; g.classList.add('still'); g.style.setProperty('--w', G.w + 'px'); g.style.opacity = ''; void g.offsetWidth; g.classList.remove('still'); }
+      p.up = true; tr.classList.add('drag'); try { tr.setPointerCapture(p.id); } catch (e) {} follow(p.cx); edge();
+    };
+    tr.addEventListener('pointerdown', (e) => {
+      if (e.button > 0 || !e.isPrimary) return;
+      p = { id: e.pointerId, x0: e.clientX, y0: e.clientY, cx: e.clientX, up: false, hov: null, mouse: e.pointerType === 'mouse' };
+      p.t = p.mouse ? 0 : setTimeout(lift, 260);
+    });
+    tr.addEventListener('pointermove', (e) => {
+      if (!p || e.pointerId !== p.id) return;
+      p.cx = e.clientX;
+      if (p.up) return follow(e.clientX);
+      // մատը շուտ շարժվեց՝ սա սահեցնել է (շարքը սահում է), ոչ գնդիկը; մկնիկով քաշելը՝ գնդիկը
+      if (Math.abs(e.clientX - p.x0) > 8 || Math.abs(e.clientY - p.y0) > 8) { clearTimeout(p.t); if (p.mouse) lift(); else p = null; }
+    });
+    // գնդիկը բարձրացված է՝ շարքը մատի տակ չսահի
+    tr.addEventListener('touchmove', (e) => { if (p && p.up) e.preventDefault(); }, { passive: false });
+    const end = (ok) => (e) => {
+      if (!p || e.pointerId !== p.id) return;
+      clearTimeout(p.t); cancelAnimationFrame(p.raf); const q = p; p = null;
+      if (!q.up) return; // կարճ սեղմում՝ սովորական click
+      tr.classList.remove('drag'); tabs().forEach((t) => t.classList.remove('hov'));
+      const t = ok ? near(q.cx) : tr.querySelector('.tab.on');
+      G.block = Date.now(); glassPlace(tr, t, false);
+      if (ok && t && !t.classList.contains('on')) { tabs().forEach((x) => x.classList.toggle('on', x === t)); location.hash = t.getAttribute('href'); }
+    };
+    tr.addEventListener('pointerup', end(true));
+    tr.addEventListener('pointercancel', end(false));
+    tr.addEventListener('dragstart', (e) => e.preventDefault()); // հղումը որպես ֆայլ չքաշվի (թե չէ pointercancel)
+    // մատը բաց թողնելուց հետո զննիչի click-ը չկրկնի անցումը
+    tr.addEventListener('click', (e) => { if (Date.now() - G.block < 400) { e.preventDefault(); e.stopPropagation(); } }, true);
+    // սեղմելիս գնդիկը թռչում է անմիջապես, տվյալների բեռնմանը չսպասելով
+    tr.addEventListener('click', (e) => { const t = e.target.closest('.tab'); if (!t) return; tabs().forEach((x) => x.classList.toggle('on', x === t)); glassPlace(tr, t, true); });
+  }
+  addEventListener('resize', () => { const tr = app.querySelector('.track'); if (tr) { edges(tr); glassPlace(tr, tr.querySelector('.tab.on'), false); } });
 
   // Գլխավորի 14 օրը. սեղմել կամ մատը սահեցնել → ներքևում այդ օրը (սկզբում՝ վերջին լրիվ օրը)
   function bindDays(days) {

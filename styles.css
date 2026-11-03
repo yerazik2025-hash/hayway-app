@@ -22,8 +22,11 @@
   --vio: #B79CFF; --vio-bg: rgba(183,156,255,.14); --teal: #3FD0C9; --teal-bg: rgba(63,208,201,.13); --org: #FF9A5C; --org-bg: rgba(255,154,92,.14);
   --tone1: rgba(58,118,255,.42); --tone2: rgba(128,92,255,.32); --tone3: rgba(22,190,214,.22);
   --badge: #FF5A4E; --on-badge: #FFFFFF; --knob: #FFFFFF;
+  /* ապակե գնդիկը՝ մատը պահելիս (GTH-ի հավելվածից) */
+  --glass: rgba(255,255,255,.085);
+  --glass-edge: inset 0 0 0 1px rgba(255,255,255,.17), inset 0 1px 0 rgba(255,255,255,.34), inset 0 -1px 0 rgba(255,255,255,.08), 0 12px 28px -8px rgba(0,0,0,.75);
   --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
-  --top-h: 56px; --dock-h: 92px;
+  --top-h: 56px; --dock-h: 96px;
   --r: 22px; --r-sm: 14px;
   --font: 'Noto Sans Armenian', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Noto Sans', 'Segoe UI', system-ui, sans-serif;
   --ease: cubic-bezier(.2,0,0,1); --spring: cubic-bezier(.22,1,.36,1);
@@ -90,6 +93,7 @@ body.kb .app.has-dock .scroll { padding-bottom: 0; }
 .ibtn { width: 44px; height: 44px; border: 0; background: transparent; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: var(--text2); cursor: pointer; position: relative; transition: transform .35s var(--spring), background-color .2s; }
 .ibtn:active { background: var(--fill); transform: scale(.9); transition-duration: .08s; }
 .ibtn.spinning svg { animation: spin .8s linear infinite; }
+.ibtn.on { color: var(--acc); background: var(--acc-soft); }
 .backb { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 12px 0 4px; border: 0; border-radius: 22px; background: transparent; color: var(--acc); font-size: 17px; font-weight: 500; cursor: pointer; }
 .backb:active { background: var(--fill); }
 .backb svg { width: 24px; height: 24px; }
@@ -100,23 +104,46 @@ body.kb .app.has-dock .scroll { padding-bottom: 0; }
 .dot.ok { background: var(--pos); } .dot.wait { background: var(--warn); } .dot.off { background: var(--text3); } .dot.bad { background: var(--neg); }
 .err b { font-weight: 700; } .err p { margin-top: 6px; font-size: 13px; line-height: 1.45; }
 
-/* ───────── Ներքևը՝ բաժինների շարք + GTH կոճակ (ամուր մակերես, ոչ ապակի) ───────── */
+/* ───────── Ներքևը՝ պարկի ԲՈԼՈՐ բաժինները մեկ սահող շարքում + GTH կոճակ (GTH-ի հավելվածից, 03.11; iOS 26-ի Telegram-ի չափերով)
+   շարքը 64, կոճակը 80, գնդիկը 56, պատկերակը 28; 4-րդը կիսով է երևում՝ հուշում, որ սահում է. .track-ը վերև/ներքև 12px դուրս է գալիս,
+   որ մեծացած ապակե գնդիկը չկտրվի; եզրերի մարումը (fl/fr)՝ երբ այդ կողմում էլի բաժին կա ───────── */
 .dock { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; gap: 10px;
   padding: 18px 12px calc(10px + var(--safe-b)); background: linear-gradient(to top, var(--bg) 45%, transparent); pointer-events: none; }
 .dock > * { pointer-events: auto; }
 body.kb .dock { display: none; }
-.strip { flex: 1; min-width: 0; height: 62px; border-radius: 31px; padding: 4px; background: var(--surface2); box-shadow: var(--pop); display: flex; align-items: center; }
-.tab { flex: 1 1 0; min-width: 0; height: 54px; padding: 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  font-size: 11px; line-height: 14px; font-weight: 500; color: var(--text3); border-radius: 27px; white-space: nowrap; position: relative;
-  transition: color .2s, background-color .25s, transform .35s var(--spring); }
-.tab:active { transform: scale(.9); transition-duration: .08s; }
+.strip { flex: 1; min-width: 0; height: 64px; border-radius: 32px; background: var(--surface2); box-shadow: var(--pop); position: relative; }
+.track { position: relative; height: 88px; margin: -12px 0; padding: 12px 4px; display: flex; align-items: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  scroll-snap-type: x proximity; scroll-padding: 0 4px; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.track::-webkit-scrollbar { display: none; }
+.track.fl { -webkit-mask-image: linear-gradient(to right, transparent, var(--bg) 16px); mask-image: linear-gradient(to right, transparent, var(--bg) 16px); }
+.track.fr { -webkit-mask-image: linear-gradient(to left, transparent, var(--bg) 16px); mask-image: linear-gradient(to left, transparent, var(--bg) 16px); }
+.track.fl.fr { -webkit-mask-image: linear-gradient(to right, transparent, var(--bg) 16px, var(--bg) calc(100% - 16px), transparent); mask-image: linear-gradient(to right, transparent, var(--bg) 16px, var(--bg) calc(100% - 16px), transparent); }
+.tab { flex: none; width: 80px; height: 56px; padding: 0 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 12px; line-height: 15px; font-weight: 500; color: var(--text3); border-radius: 28px; white-space: nowrap; position: relative; z-index: 1;
+  scroll-snap-align: start; -webkit-touch-callout: none; -webkit-user-drag: none; transition: color .2s, transform .35s var(--spring); }
+.tab:active { transform: scale(.94); transition-duration: .08s; }
 .tab > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.tab .ic { position: relative; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text2); }
-.tab .ic svg { width: 21px; height: 21px; }
-.tab.on { color: var(--acc); background: var(--acc-soft); font-weight: 600; }
+.tab .ic { position: relative; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text2); transition: color .2s; }
+.tab .ic svg { width: 28px; height: 28px; stroke-width: 1.8; transition: scale .35s var(--spring); }
+.tab.on { color: var(--acc); font-weight: 600; }
 .tab.on .ic { color: var(--acc); }
-.badge { position: absolute; top: -5px; left: 13px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--badge); color: var(--on-badge); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
-.gthb { flex: none; width: 66px; height: 66px; border-radius: 33px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;
+.badge { position: absolute; top: -5px; left: 17px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--badge); color: var(--on-badge); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+/* «ապակե» գնդիկը. սեղմելիս թռչում է ու մի պահ ուռչում (hop), մատը պահելիս՝ մեծանում է ու գնում մատի հետևից (drag) */
+.glass { position: absolute; z-index: 0; top: 16px; left: 0; height: 56px; width: var(--w, 0); translate: var(--x, 0) 0; border-radius: 28px; background: var(--acc-soft); pointer-events: none;
+  transition: translate .55s var(--spring), width .55s var(--spring), scale .4s var(--spring), background-color .25s, box-shadow .25s, opacity .2s; }
+.glass.still { transition: none; }
+.glass.hop { animation: hop .55s var(--spring); }
+@keyframes hop { 35% { scale: 1.16 1.12; } 100% { scale: 1; } }
+.track.drag { scroll-snap-type: none; }
+.track.drag .glass { transition: width .3s var(--spring), scale .4s var(--spring), background-color .25s, box-shadow .25s; scale: 1.12 1.24;
+  background: var(--glass); box-shadow: var(--glass-edge); -webkit-backdrop-filter: blur(1px) saturate(1.8); backdrop-filter: blur(1px) saturate(1.8); animation: none; }
+.track.drag .tab { transform: none; }
+.track.drag .tab.on:not(.hov) { color: var(--text3); font-weight: 500; }
+.track.drag .tab.on:not(.hov) .ic { color: var(--text2); }
+.track.drag .tab.hov { color: var(--acc); font-weight: 600; }
+.track.drag .tab.hov .ic { color: var(--acc); }
+.track.drag .tab.hov .ic svg { scale: 1.14; }
+.gthb { flex: none; width: 64px; height: 64px; border-radius: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;
   background: var(--surface2); box-shadow: var(--pop); transition: transform .2s var(--spring); }
 .gthb::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; animation: halo 3.6s ease-out infinite; }
 @keyframes halo { 0% { box-shadow: 0 0 0 0 var(--tone1); } 70%, 100% { box-shadow: 0 0 0 14px transparent; } }
@@ -400,7 +427,7 @@ body.kb .composer { padding-bottom: 10px; }
   .page { padding-left: 16px; padding-right: 16px; }
   .lt { padding-left: 16px; padding-right: 16px; }
   .chips { margin: 0 -16px; padding: 0 16px; }
-  .tab { font-size: 10px; letter-spacing: -.02em; }
+  .tab { width: 74px; padding: 0 1px; font-size: 11px; letter-spacing: -.01em; }
   .gthb { width: 60px; height: 60px; } .gthb img { width: 42px; }
   .dock { gap: 8px; padding-left: 10px; padding-right: 10px; }
   .hc { padding-left: 16px; padding-right: 16px; } .d14, .dayh { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
@@ -408,7 +435,7 @@ body.kb .composer { padding-bottom: 10px; }
 }
 /* նեղ էկրանին «Բոլորը»-ում՝ 2 սյուն, որ բաժնի անունը չկտրվի */
 @media (max-width: 359px) { .gcells { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-@media (max-width: 339px) { .tab { font-size: 9.5px; letter-spacing: -.03em; } .lt h1 { font-size: 27px; } }
+@media (max-width: 339px) { .lt h1 { font-size: 27px; } }
 
 /* ───────── «Հարց ձեզ» քարտ (v0.8). մեծ, փափուկ կոճակներ, մեկ հարց միանգամից ───────── */
 .qcard { gap: 14px; }
