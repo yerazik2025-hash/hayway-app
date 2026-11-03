@@ -339,16 +339,19 @@
     if (!el) return;
     const fixedNames = (D.fixed_items || []).map((x) => x.name).join(', ');
     const pbtn = (kind, t, n, s) => `<button type="button" class="cell" data-ppl="${kind}" ${n ? '' : 'disabled'}><span class="bd"><span class="t">${t}</span>${s ? `<span class="s">${s}</span>` : ''}</span><span class="v strong ${kind === 'churn' && n ? 'neg' : ''}">${fmt(n)}${NB}մարդ</span>${n ? `<span class="chev">${I.chev}</span>` : ''}</button>`;
-    // շրջանառությունը, ծախսն ու մաքուրը՝ օրվա տողում (bindDash), այստեղ՝ ծախսերը ըստ տեսակի և վարորդները
+    // շրջանառությունը, ծախսն ու մաքուրը՝ օրվա տողում (bindDash), այստեղ՝ ծախսերը ըստ տեսակի և վարորդները.
+    // առաքումը (db\0026)՝ առանց list.am-ի ու ամսական ծախսերի (դրանք տաքսու վահանակում են)
+    const dlv = park === 'delivery';
     el.innerHTML = (r.has ? ['<div class="dt-c">Ծախսերը</div>',
       cell({ t: 'Վճարային համակարգեր', s: 'Idram, Telcell, EasyPay, PrimeBridge', v: amd(num(r.pay)) }),
       cell({ t: `Հարկ ${fmt(D.tax_pct)}%`, s: 'շրջանառությունից', v: amd(num(r.tax)) }),
+    ].concat(dlv ? [] : [
       cell({ t: 'Գովազդ', s: 'list.am', v: amd(num(r.ads)) }),
       cell({ t: 'Ամսական ծախսեր', s: esc(fixedNames || 'վարձ, աշխատավարձ'), v: amd(num(r.fixed)) }),
-    ] : []).concat([
-      '<div class="dt-c">Պատվերներ և վարորդներ</div>',
+    ]) : []).concat([
+      `<div class="dt-c">Պատվերներ և ${dlv ? 'առաքիչներ' : 'վարորդներ'}</div>`,
       cell({ t: 'Պատվերներ', s: `գումարը՝ ${short(r.gmv)}`, v: fmt(r.orders) }),
-      cell({ t: 'Աշխատել են', s: r.avg ? 'միջինը օրական' : 'գոնե մեկ պատվեր', v: `${fmt(r.active)}${NB}վարորդ` }),
+      cell({ t: 'Աշխատել են', s: r.avg ? 'միջինը օրական' : 'գոնե մեկ պատվեր', v: `${fmt(r.active)}${NB}${dlv ? 'առաքիչ' : 'վարորդ'}` }),
       pbtn('new', 'Գրանցվել են', r.new, ''),
       pbtn('churn', 'Դուրս են եկել', r.churn, '10 օր պատվեր չունեն'),
       '<div class="dt-l" hidden></div>',
@@ -400,12 +403,13 @@
     const k = D.mode === 'months' ? rows.length - 1 : rows.map((r) => !r.now).lastIndexOf(true);
     pick(k >= 0 ? k : rows.length - 1);
   }
-  async function dashLoad() {
-    return Promise.all(PARKS.map(([p]) => rpc('app_dash', { p_park: p, p_mode: period }).catch((e) => (p === 'taxi' ? Promise.reject(e) : null))));
+  // parks՝ Գլխավորում երկուսը, «Առաքում» բաժնում՝ միայն առաքումը (DLV)
+  async function dashLoad(parks = PARKS) {
+    return Promise.all(parks.map(([p]) => rpc('app_dash', { p_park: p, p_mode: period }).catch((e) => (p === 'taxi' ? Promise.reject(e) : null))));
   }
-  const dashHtml = (ds) => PARKS.map(([p, l], i) => sec(l, dashCard(p, ds[i]))).join('');
-  function bindDashAll(ds) {
-    PARKS.forEach(([p], i) => { if (ds[i] && ds[i].connected) bindDash(p, ds[i]); });
+  const dashHtml = (ds, parks = PARKS) => parks.map(([p, l], i) => sec(l, dashCard(p, ds[i]))).join('');
+  function bindDashAll(ds, parks = PARKS) {
+    parks.forEach(([p], i) => { if (ds[i] && ds[i].connected) bindDash(p, ds[i]); });
     app.querySelectorAll('[data-period]').forEach((b) => b.onclick = async () => {
       if (b.dataset.period === period) return;
       period = b.dataset.period;
@@ -414,10 +418,10 @@
       const box = document.getElementById('dash');
       box.style.opacity = '.5';
       try {
-        const nd = await dashLoad();
+        const nd = await dashLoad(parks);
         if (b.dataset.period !== period) return;
-        box.innerHTML = dashHtml(nd);
-        bindDashAll(nd);
+        box.innerHTML = dashHtml(nd, parks);
+        bindDashAll(nd, parks);
       } finally { box.style.opacity = ''; }
     });
   }
@@ -747,7 +751,7 @@
   // ───────── Բաժիններ ─────────
   route('/sections', async () => {
     lastTab = 'sections';
-    const [h, lr, geo, riv] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle(), rpc('app_geo').catch(() => null), rpc('app_rivals').catch(() => null)]);
+    const [h, lr, geo, riv, dv] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle(), rpc('app_geo').catch(() => null), rpc('app_rivals').catch(() => null), rpc('app_dlv').catch(() => null)]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     const soon = '<span class="tag n">շուտով</span>';
@@ -766,6 +770,7 @@
       ])}
       ${grid('Գումար', [
         gc('#/finance', I.money, 'g', 'Ֆինանս', `${short(w.commission)} · 7 օր`),
+        gc('#/delivery', I.box, 't', 'Առաքում', dv && dv.connected ? `${fmt(dv.active7)} առաքիչ · 7 օր` : 'միանում է'),
       ])}
       ${grid('Աճ', [
         gc('#/listam', I.mega, 'o', 'list.am', laNv, la && la.status !== 'ok' && la.status ? (la.status === 'off' ? 'neg' : 'warn') : ''),
@@ -782,7 +787,6 @@
         cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ', trail: soon }),
         cell({ href: '#/leads', icon: I.userplus, color: 'b', t: 'Հայտեր', s: 'Հայտից մինչև 50-րդ պատվեր', trail: soon }),
         cell({ href: '#/contact', icon: I.chat, color: 's', t: 'Կապ', s: 'Հայտարարություններ և նամակներ', trail: soon }),
-        cell({ href: '#/delivery', icon: I.box, color: 't', t: 'Առաքում', s: 'HayWay Delivery', trail: soon }),
       ], 'ic'))}
     `));
   });
@@ -1815,7 +1819,7 @@
   const driversLine = (n) => { if (!n) return ''; const ok = n.drivers_synced_at; if (n.drivers_error && (!ok || new Date(n.drivers_error.at) > new Date(ok))) return `Վարորդների ցուցակը՝ ${ok ? ago(ok) : 'չկա'}`; return ok ? `Վարորդների ցուցակը՝ ${ago(ok)}` : ''; };
   route('/settings', async () => {
     lastTab = 'settings';
-    const [h, st, notes, logsR, usersR, agR, sessR, asR, brain, tgS] = await Promise.all([
+    const [h, st, notes, logsR, usersR, agR, sessR, asR, brain, tgS, dvS] = await Promise.all([
       rpc('app_home'), garikState(), rpc('app_notes'),
       sb.from('agent_log').select('at,agent,action,details').order('id', { ascending: false }).limit(10),
       sb.from('app_users').select('email,role,name'),
@@ -1824,6 +1828,7 @@
       assistantNow().catch(() => null),
       sb.rpc('app_brain').then((r) => r.data || [], () => []),
       sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
+      rpc('app_dlv').catch(() => null),
     ]);
     const ps = await pushState();
     pendingCount = h.tasks_pending || 0;
@@ -1841,7 +1846,9 @@
         { foot: 'Առանց քո «Այո»-ի ոչինչ չեն անում։' })}
       ${sec('Միացումներ', group([
         cell({ icon: I.car, color: 'y', t: 'Yandex Fleet · տաքսի', s: driversLine(notes), v: `<span class="tag pos">${ago(h.last_sync)}</span>` }),
-        cell({ icon: I.box, color: 't', t: 'Yandex Fleet · Delivery', v: '<span class="tag warn">մուտք չկա</span>' }),
+        cell({ href: '#/delivery', icon: I.box, color: 't', t: 'Yandex Fleet · Delivery', s: dvS && dvS.connected ? `${fmt(dvS.working)} առաքիչ` : '',
+          v: dvS && dvS.error ? '<span class="tag warn">սխալ</span>' : dvS && dvS.connected ? `<span class="tag pos">${ago(dvS.last_sync)}</span>`
+            : `<span class="tag n">${dvS && dvS.key ? 'լցվում է' : 'միանում է'}</span>` }),
         cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', s: st.mode === 'pc' ? `HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
           v: !st.ok ? '<span class="tag warn">կապ չկա</span>' : st.mode !== 'pc' ? '<span class="tag pos">միացված</span>'
             : runnerOn(asR && asR.runner) ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">անջատված</span>' }),
@@ -1901,8 +1908,33 @@
     marketing: ['Մարքեթինգ', I.mega, 'Ալիքներ և արշավներ։'],
     leads: ['Հայտեր', I.userplus, 'Հայտից մինչև 50-րդ պատվեր։'],
     contact: ['Կապ', I.chat, 'Հայտարարություններ և նամակներ։'],
-    delivery: ['Առաքում', I.box, 'Պետք է Delivery պարկի մուտքը։'],
   };
+
+  // ───────── Առաքում (HayWay Delivery, db\0026). 03.11, Գարիկ. «HayWay Delivery բաժինը միացնենք հավելվածին» ─────────
+  // Նույն եկամտի վահանակը, ինչ Գլխավորում (ժամկետներ, օրեր, աղյուսակ) + առաքիչների 3 թիվ
+  const DLV = [['delivery', 'Եկամուտ']];
+  route('/delivery', async () => {
+    lastTab = 'sections';
+    const [h, c, ds] = await Promise.all([rpc('app_home'), rpc('app_dlv'), dashLoad(DLV)]);
+    pendingCount = h.tasks_pending || 0;
+    const back = ['#/sections', 'Բաժիններ'];
+    if (!c.connected) {
+      mount({ title: 'Առաքում', tab: 'sections', back, sub: '<span class="dot wait"></span>միանում է' },
+        page(emptyState(I.box, 'Միանում է', c.key ? 'Առաջին թվերը՝ շուտով։' : 'Fleet-ի բանալին ստեղծվում է։')));
+      return;
+    }
+    const pseg = `<div class="seg pseg">${PERIODS.map(([k, l]) => `<button type="button" data-period="${k}" class="${k === period ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    mount({ title: 'Առաքում', tab: 'sections', back, sub: c.error ? '<span class="dot wait"></span>թարմացումը ձախողվեց' : `HayWay Delivery · թարմ՝ ${ago(c.last_sync)}` }, page(`
+      ${pseg}
+      <div id="dash">${dashHtml(ds, DLV)}</div>
+      ${sec('Առաքիչներ', `<div class="kpis">
+        ${kpi('Հիմա գծում', fmt(c.online), '')}
+        ${kpi('Աշխատել են · 7 օր', fmt(c.active7), '')}
+        ${kpi('Աշխատող պրոֆիլ', fmt(c.working), '')}
+      </div>`)}
+    `));
+    bindDashAll(ds, DLV);
+  });
   Object.keys(SOON).forEach((k) => route('/' + k, async () => {
     lastTab = 'sections';
     const h = await rpc('app_home');
