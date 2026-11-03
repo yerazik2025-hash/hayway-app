@@ -1,32 +1,34 @@
-/* HayWay տիրոջ հավելված — դիզայն-համակարգ v3 (iOS-ի կանոններով)
-   Սկզբունքներ. ֆիքսված շրջանակ (վերնագիր + ներքևի տող), ոլորվում է միայն բովանդակությունը,
-   8pt ցանց, 16px կողային լուսանցք, տառեր 34/22/17/15/13/12, թվերը՝ tabular, դեղինը՝ միայն գլխավոր գործողության համար։ */
+/* HayWay տիրոջ հավելված — ԿԱ 2-ի պատյան (03.11.2026, Գարիկի «այո»-ով)
+   ԿԱ 2-ի կանոնները (30–31.10). մուգ ոճ, մեկ շեշտ (մեղմ կապույտ), ետևում՝ դանդաղ լողացող գունային լույսեր (առանց ապակու),
+   բիզնեսի իր գույնը չկա՝ միայն անունն ու փոքր լոգոն, ներքևում՝ «Այսօր» + պարկի գլխավոր բաժինները + «Բոլորը», աջում՝ GTH կոճակը (Գարիկ)։
+   Ֆիքսված շրջանակ. ոլորվում է միայն .scroll-ը։ Բոլոր գույները՝ ՄԻԱՅՆ :root-ում, ներքևում՝ միայն var(--…)։ */
 
 :root {
-  color-scheme: light;
-  --bg: #F2F2F7; --surface: #FFFFFF; --surface2: #F7F7F9; --fill: rgba(118,118,128,.12); --fill2: rgba(118,118,128,.20);
-  --text: #111113; --text2: #5C5C63; --text3: #8A8A91; --sep: rgba(60,60,67,.16);
-  --brand: #FCE000; --brand-ink: #111113; --ink-inv: #FFFFFF;
-  --pos: #18794E; --pos-bg: #E3F4EA; --neg: #C0362C; --neg-bg: #FCE8E6; --warn: #9A5B00; --warn-bg: #FDF1DC; --info: #2563EB; --info-bg: #E6EEFD;
-  --bar: #C7C7CC; --bar-hi: #111113;
-  --bar-bg: rgba(249,249,251,.86);
-  --shadow: 0 1px 2px rgba(0,0,0,.04);
+  color-scheme: dark;
+  --bg: #0A0B0E; --surface: #14161A; --surface2: #1B1D22; --fill: #20232A; --fill2: #2B2F37;
+  --line: rgba(255,255,255,.07); --sep: var(--line);
+  --text: #F5F6F8; --text2: #B9BDC7; --text3: #9298A4;
+  --card: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012)) #14161A;
+  --edge: inset 0 0 0 1px rgba(255,255,255,.065), inset 0 1px 0 rgba(255,255,255,.05);
+  --pop: 0 18px 44px -14px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.08);
+  --topbar: rgba(10,11,14,.9);
+  --acc: #6EA8FE; --acc-soft: rgba(110,168,254,.15);
+  /* փափուկ գլխավոր կոճակ (31.10, Գարիկ. «կոճակները առավել փափուկ») */
+  --btn: #344A6B; --btn-on: #3E5980; --on-btn: #EAF2FF; --btn-edge: inset 0 1px 0 rgba(255,255,255,.09);
+  --pos: #3DDC97; --pos-bg: rgba(61,220,151,.13);
+  --warn: #FFB547; --warn-bg: rgba(255,181,71,.13);
+  --neg: #FF6B5A; --neg-bg: rgba(255,107,90,.14);
+  --info: var(--acc); --info-bg: var(--acc-soft);
+  --vio: #B79CFF; --vio-bg: rgba(183,156,255,.14); --teal: #3FD0C9; --teal-bg: rgba(63,208,201,.13); --org: #FF9A5C; --org-bg: rgba(255,154,92,.14);
+  --tone1: rgba(58,118,255,.42); --tone2: rgba(128,92,255,.32); --tone3: rgba(22,190,214,.22);
+  --badge: #FF5A4E; --on-badge: #FFFFFF; --knob: #FFFFFF;
   --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
-  --tab-h: 52px; --top-h: 48px;
-  --r: 14px; --r-sm: 10px;
-  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Noto Sans Armenian', 'Noto Sans', 'Segoe UI', system-ui, sans-serif;
+  --top-h: 56px; --dock-h: 92px;
+  --r: 22px; --r-sm: 14px;
+  --font: 'Noto Sans Armenian', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Noto Sans', 'Segoe UI', system-ui, sans-serif;
+  --ease: cubic-bezier(.2,0,0,1); --spring: cubic-bezier(.22,1,.36,1);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --bg: #000000; --surface: #1C1C1E; --surface2: #2C2C2E; --fill: rgba(118,118,128,.24); --fill2: rgba(118,118,128,.36);
-    --text: #F5F5F7; --text2: #AEAEB2; --text3: #8E8E93; --sep: rgba(84,84,88,.55);
-    --pos: #3DD68C; --pos-bg: rgba(61,214,140,.14); --neg: #FF6B5E; --neg-bg: rgba(255,107,94,.15); --warn: #FFB340; --warn-bg: rgba(255,179,64,.15); --info: #6EA8FF; --info-bg: rgba(110,168,255,.15);
-    --bar: #48484A; --bar-hi: #F5F5F7; --brand-ink: #111113;
-    --bar-bg: rgba(22,22,24,.86);
-    --shadow: none;
-  }
-}
+/* ════════ վերջ — ներքևում գույն չկա ════════ */
 
 /* ───────── Հիմք. էջը չի շարժվում ───────── */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -39,135 +41,225 @@ button, a, .cell, .chip, .tab { touch-action: manipulation; }
 input, textarea, select { font-size: max(16px, 1rem); }
 p { margin: 0; }
 h1, h2, h3 { margin: 0; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 12px; }
 svg.i { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-.num, .val, .kpi-v, .tnum { font-variant-numeric: tabular-nums; }
+.num, .val, .kpi-v, .tnum, [data-n] { font-variant-numeric: tabular-nums; }
+
+/* գունային լույսերը ետևում՝ երեք մեղմ դաշտ, դանդաղ լողում են (միայն radial-gradient, առանց blur/ապակու) */
+.aura { position: fixed; top: 0; bottom: 0; left: 50%; width: min(100%, 560px); transform: translateX(-50%); z-index: 0; pointer-events: none; overflow: hidden; }
+.aura i { position: absolute; aspect-ratio: 1; border-radius: 50%; will-change: transform; }
+.aura i:nth-child(1) { width: 130%; left: -62%; top: -24%; background: radial-gradient(closest-side, var(--tone1), transparent); animation: drift1 24s ease-in-out infinite alternate; }
+.aura i:nth-child(2) { width: 115%; right: -58%; top: 10%; background: radial-gradient(closest-side, var(--tone2), transparent); animation: drift2 31s ease-in-out infinite alternate; }
+.aura i:nth-child(3) { width: 125%; left: -50%; top: 56%; background: radial-gradient(closest-side, var(--tone3), transparent); animation: drift3 37s ease-in-out infinite alternate; }
+@keyframes drift1 { to { transform: translate(22%, 14%) scale(1.14); } }
+@keyframes drift2 { to { transform: translate(-20%, 22%) scale(.9); } }
+@keyframes drift3 { to { transform: translate(26%, -18%) scale(1.12); } }
 
 /* Շրջանակ. #app-ը ամբողջ էկրանն է, ոլորվում է միայն .scroll-ը */
-.app { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vvh, 100%); max-width: 560px; margin: 0 auto;
-  display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+.app { position: fixed; z-index: 1; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vvh, 100%); max-width: 560px; margin: 0 auto;
+  display: flex; flex-direction: column; background: transparent; overflow: hidden; }
 .scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
-.page { padding: 4px 16px 32px; display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.app.has-dock .scroll { padding-bottom: calc(var(--dock-h) + var(--safe-b)); }
+body.kb .app.has-dock .scroll { padding-bottom: 0; }
+.page { padding: 6px 20px 32px; display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+.page.enter > * { animation: rise .5s var(--spring) both; }
+.page.enter > *:nth-child(2) { animation-delay: .05s; } .page.enter > *:nth-child(3) { animation-delay: .1s; }
+.page.enter > *:nth-child(4) { animation-delay: .15s; } .page.enter > *:nth-child(n+5) { animation-delay: .2s; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 .loading { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 15px; }
-.spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--fill2); border-top-color: var(--text); animation: spin .8s linear infinite; }
+.spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--fill2); border-top-color: var(--acc); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ───────── Վերևի տող (մեծ վերնագիր → փոքր) ───────── */
-.top { flex-shrink: 0; padding-top: var(--safe-t); background: var(--bg); position: relative; z-index: 3; }
-.top-in { height: var(--top-h); position: relative; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
+/* ───────── Վերևի տող. ձախում՝ HayWay-ի լոգոն ու անունը (կամ «Հետ»), աջում՝ թարմացնել ───────── */
+.top { flex-shrink: 0; padding-top: var(--safe-t); background: transparent; position: relative; z-index: 3; transition: background-color .2s; }
+.top-in { height: var(--top-h); position: relative; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 12px; }
 .top .ct { position: absolute; left: 124px; right: 124px; top: 0; bottom: 0; line-height: var(--top-h); text-align: center; pointer-events: none; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity .15s; }
-.top.scrolled { background: var(--bar-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 .5px 0 var(--sep); }
+.top.scrolled { background: var(--topbar); box-shadow: 0 1px 0 var(--line); }
 .top.scrolled .ct, .top.compact .ct { opacity: 1; }
+.top.br .ct { display: none; }
 .top .l, .top .r { display: flex; align-items: center; min-width: 0; }
 .top .r { justify-content: flex-end; gap: 2px; }
-.ibtn { width: 44px; height: 44px; border: 0; background: transparent; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); cursor: pointer; position: relative; }
-.ibtn:active { background: var(--fill); }
+.brand { display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 0; padding: 0 4px; border-radius: 14px; }
+.brand img { width: 36px; height: 36px; border-radius: 10px; display: block; flex: none; }
+.brand > span { display: flex; flex-direction: column; min-width: 0; }
+.brand b { font-size: 17px; line-height: 21px; font-weight: 700; letter-spacing: -.01em; }
+.brand small { display: flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 16px; color: var(--text3); white-space: nowrap; }
+.brand small i { width: 6px; height: 6px; border-radius: 50%; background: var(--pos); position: relative; flex: none; }
+.brand small i::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--pos); animation: ping 2.4s var(--ease) infinite; }
+@keyframes ping { 0% { transform: scale(1); opacity: .7; } 80%, 100% { transform: scale(3.2); opacity: 0; } }
+.ibtn { width: 44px; height: 44px; border: 0; background: transparent; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: var(--text2); cursor: pointer; position: relative; transition: transform .35s var(--spring), background-color .2s; }
+.ibtn:active { background: var(--fill); transform: scale(.9); transition-duration: .08s; }
 .ibtn.spinning svg { animation: spin .8s linear infinite; }
-.backb { display: flex; align-items: center; gap: 0; height: 44px; padding: 0 8px 0 0; border: 0; background: transparent; color: var(--text); font-size: 17px; cursor: pointer; }
-.backb svg { margin-right: -2px; }
-.lt { padding: 2px 16px 12px; }
-.lt h1 { font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
-.lt .st { margin-top: 4px; font-size: 15px; color: var(--text2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.backb { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 12px 0 4px; border: 0; border-radius: 22px; background: transparent; color: var(--acc); font-size: 17px; font-weight: 500; cursor: pointer; }
+.backb:active { background: var(--fill); }
+.backb svg { width: 24px; height: 24px; }
+.lt { padding: 4px 20px 14px; }
+.lt h1 { font-size: 30px; line-height: 1.15; font-weight: 600; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.lt .st { margin-top: 6px; font-size: 14px; color: var(--text2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .dot { width: 8px; height: 8px; border-radius: 4px; display: inline-block; flex-shrink: 0; background: var(--text3); }
-.dot.ok { background: #34C759; } .dot.wait { background: #FF9F0A; } .dot.off { background: var(--text3); } .dot.bad { background: var(--neg); }
+.dot.ok { background: var(--pos); } .dot.wait { background: var(--warn); } .dot.off { background: var(--text3); } .dot.bad { background: var(--neg); }
 .err b { font-weight: 700; } .err p { margin-top: 6px; font-size: 13px; line-height: 1.45; }
 
-/* ───────── Ներքևի տող ───────── */
-.tabbar { flex-shrink: 0; height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b); display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
-  background: var(--bar-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 -.5px 0 var(--sep); z-index: 3; }
-.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text3); font-size: 10px; letter-spacing: -.01em; font-weight: 600; min-width: 0; position: relative; }
-.tab span:last-child { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0; }
-.tab.on { color: var(--text); }
-.tab .ic { position: relative; height: 28px; display: flex; align-items: center; justify-content: center; }
-.tab .g { width: 30px; height: 28px; border-radius: 9px; background: var(--fill); display: flex; align-items: center; justify-content: center; }
-.tab.on .g { background: var(--brand); color: var(--brand-ink); }
-.badge { position: absolute; top: -3px; left: 15px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--neg); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
-body.kb .tabbar { display: none; }
+/* ───────── Ներքևը՝ բաժինների շարք + GTH կոճակ (ամուր մակերես, ոչ ապակի) ───────── */
+.dock { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; gap: 10px;
+  padding: 18px 12px calc(10px + var(--safe-b)); background: linear-gradient(to top, var(--bg) 45%, transparent); pointer-events: none; }
+.dock > * { pointer-events: auto; }
+body.kb .dock { display: none; }
+.strip { flex: 1; min-width: 0; height: 62px; border-radius: 31px; padding: 4px; background: var(--surface2); box-shadow: var(--pop); display: flex; align-items: center; }
+.tab { flex: 1 1 0; min-width: 0; height: 54px; padding: 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 11px; line-height: 14px; font-weight: 500; color: var(--text3); border-radius: 27px; white-space: nowrap; position: relative;
+  transition: color .2s, background-color .25s, transform .35s var(--spring); }
+.tab:active { transform: scale(.9); transition-duration: .08s; }
+.tab > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tab .ic { position: relative; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text2); }
+.tab .ic svg { width: 21px; height: 21px; }
+.tab.on { color: var(--acc); background: var(--acc-soft); font-weight: 600; }
+.tab.on .ic { color: var(--acc); }
+.badge { position: absolute; top: -5px; left: 13px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--badge); color: var(--on-badge); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.gthb { flex: none; width: 66px; height: 66px; border-radius: 33px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;
+  background: var(--surface2); box-shadow: var(--pop); transition: transform .2s var(--spring); }
+.gthb::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; animation: halo 3.6s ease-out infinite; }
+@keyframes halo { 0% { box-shadow: 0 0 0 0 var(--tone1); } 70%, 100% { box-shadow: 0 0 0 14px transparent; } }
+.gthb img { width: 46px; height: auto; display: block; }
+.gthb .cue { height: 9px; padding: 0 4px; border-radius: 5px 5px 5px 2px; background: var(--acc-soft); display: flex; gap: 2px; align-items: center; }
+.gthb .cue i { width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--acc); animation: dots 1.6s ease-in-out infinite; }
+.gthb .cue i:nth-child(2) { animation-delay: .2s; } .gthb .cue i:nth-child(3) { animation-delay: .4s; }
+@keyframes dots { 50% { opacity: .3; } }
+.gthb:active { transform: scale(.93); }
 
-/* ───────── Խմբավորված ցուցակ (iOS inset grouped) ───────── */
-.sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px; }
-.sec-h h2 { font-size: 20px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
-.sec-h .a { font-size: 15px; color: var(--info); white-space: nowrap; flex-shrink: 0; }
-.sec-f { padding: 0 4px; font-size: 13px; line-height: 1.45; color: var(--text2); }
-.group { background: var(--surface); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); min-width: 0; }
-.cell { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; position: relative; min-width: 0; background: var(--surface); width: 100%; border: 0; text-align: left; cursor: default; }
-a.cell, button.cell { cursor: pointer; }
-a.cell:active, button.cell:active { background: var(--fill); }
-.cell + .cell::before { content: ''; position: absolute; top: 0; right: 0; left: 16px; height: .5px; background: var(--sep); }
-.group.ic .cell + .cell::before { left: 58px; }
+/* ───────── Խմբավորված ցուցակ ───────── */
+.sec { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sec-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; min-height: 30px; }
+.sec-h h2 { font-size: 20px; font-weight: 600; line-height: 1.3; letter-spacing: -.015em; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; }
+.sec-h .a { font-size: 14px; color: var(--acc); white-space: nowrap; flex-shrink: 0; font-weight: 500; }
+.sec-f { padding: 0 4px; font-size: 13px; line-height: 1.45; color: var(--text3); }
+.group { background: var(--card); border-radius: var(--r); overflow: hidden; box-shadow: var(--edge); min-width: 0; }
+.cell { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 16px; position: relative; min-width: 0; background: transparent; width: 100%; border: 0; text-align: left; cursor: default; color: var(--text); }
+a.cell, button.cell { cursor: pointer; transition: background-color .25s; }
+a.cell:active, button.cell:active { background: var(--fill); transition-duration: .05s; }
+.cell + .cell::before { content: ''; position: absolute; top: 0; right: 0; left: 16px; height: 1px; background: var(--line); }
+.group.ic .cell + .cell::before { left: 64px; }
 .group.avs .cell + .cell::before { left: 68px; }
 .cell .bd { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.cell .t { font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.cell .t { font-size: 15.5px; line-height: 1.3; font-weight: 500; overflow-wrap: anywhere; }
 .cell .t.b { font-weight: 600; }
-.cell .s { font-size: 13px; line-height: 1.4; color: var(--text2); overflow-wrap: anywhere; }
-.cell .v { font-size: 16px; color: var(--text2); text-align: right; flex-shrink: 0; max-width: 55%; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.cell .s { font-size: 13px; line-height: 1.35; color: var(--text3); overflow-wrap: anywhere; }
+.cell .v { font-size: 15.5px; color: var(--text2); text-align: right; flex-shrink: 0; max-width: 55%; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .cell .v.strong { color: var(--text); font-weight: 600; }
 .cell .chev { color: var(--text3); width: 16px; height: 16px; flex-shrink: 0; margin-right: -4px; }
-.ico { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
-.ico svg { width: 18px; height: 18px; }
-.ico.k { background: #1C1C1E; color: var(--brand); } .ico.y { background: #F5C400; color: #111; } .ico.g { background: #30A46C; } .ico.r { background: #E5484D; }
-.ico.o { background: #F76808; } .ico.b { background: #0A84FF; } .ico.p { background: #8E4EC6; } .ico.t { background: #12A594; } .ico.s { background: #8E8E93; }
-@media (prefers-color-scheme: dark) { .ico.k { background: #3A3A3C; } }
+/* պատկերակի սալիկ. մեղմ երանգ + նույն գույնի նշան (ԿԱ 2-ի .tile) */
+.ico { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--fill); color: var(--text2); }
+.ico svg { width: 19px; height: 19px; }
+.ico.y { background: var(--warn-bg); color: var(--warn); } .ico.g { background: var(--pos-bg); color: var(--pos); } .ico.r { background: var(--neg-bg); color: var(--neg); }
+.ico.o { background: var(--org-bg); color: var(--org); } .ico.b { background: var(--acc-soft); color: var(--acc); } .ico.p { background: var(--vio-bg); color: var(--vio); }
+.ico.t { background: var(--teal-bg); color: var(--teal); } .ico.s, .ico.k { background: var(--fill); color: var(--text2); }
 
 /* ───────── Պիտակներ ───────── */
-.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 1.5; max-width: 100%; white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.4; max-width: 100%; white-space: normal; overflow-wrap: anywhere; vertical-align: middle; background: var(--fill); color: var(--text2); }
 .tag.pos { background: var(--pos-bg); color: var(--pos); } .tag.neg { background: var(--neg-bg); color: var(--neg); }
-.tag.warn { background: var(--warn-bg); color: var(--warn); } .tag.n { background: var(--fill); color: var(--text2); } .tag.info { background: var(--info-bg); color: var(--info); }
-.tag.k { background: var(--text); color: var(--bg); }
+.tag.warn { background: var(--warn-bg); color: var(--warn); } .tag.n { background: var(--fill); color: var(--text2); } .tag.info { background: var(--acc-soft); color: var(--acc); }
+.tag.k { background: var(--acc-soft); color: var(--acc); }
 .pos { color: var(--pos); } .neg { color: var(--neg); } .warn { color: var(--warn); } .mut { color: var(--text2); } .mut3 { color: var(--text3); }
 .delta { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; font-size: 13px; line-height: 18px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap; font-variant-numeric: tabular-nums; background: var(--fill); color: var(--text2); }
+.pill.up { background: var(--pos-bg); color: var(--pos); } .pill.down { background: var(--neg-bg); color: var(--neg); }
+.cnt { min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-size: 13px; line-height: 24px; font-weight: 700; text-align: center; display: inline-block; font-variant-numeric: tabular-nums; }
 
 /* ───────── Թվեր (KPI) ───────── */
-.kpis { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
-.kpi { background: var(--surface); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; box-shadow: var(--shadow); }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.kpi { background: var(--card); border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; box-shadow: var(--edge); transition: transform .35s var(--spring); }
 .kpi-l { font-size: 13px; color: var(--text2); line-height: 1.35; overflow-wrap: anywhere; }
-.kpi-v { font-size: 26px; font-weight: 700; line-height: 1.15; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kpi-v small { font-size: 15px; font-weight: 600; color: var(--text2); letter-spacing: 0; }
-.kpi-s { font-size: 13px; color: var(--text2); line-height: 1.35; overflow-wrap: anywhere; }
-a.kpi:active { background: var(--fill); }
+.kpi-v { font-size: 26px; font-weight: 600; line-height: 1.15; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-v small { font-size: 15px; font-weight: 500; color: var(--text3); letter-spacing: 0; }
+.kpi-s { font-size: 12.5px; color: var(--text3); line-height: 1.35; overflow-wrap: anywhere; }
+a.kpi:active { transform: scale(.97); transition-duration: .08s; }
 
-.card { background: var(--surface); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; box-shadow: var(--shadow); }
+.card { background: var(--card); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; box-shadow: var(--edge); position: relative; }
+a.card { transition: transform .35s var(--spring); }
+a.card:active { transform: scale(.98); transition-duration: .08s; }
 .card h3 { font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .between { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .wrap { flex-wrap: wrap; }
 .hero { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.hero .n { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.hero .n { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .hero .u { font-size: 15px; color: var(--text2); }
-.prog { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
-.prog > span { display: block; height: 100%; border-radius: 4px; background: var(--text); }
-.prog.y > span { background: var(--brand); }
-.prog.thin { height: 6px; }
+.prog { height: 7px; border-radius: 99px; background: var(--fill2); overflow: hidden; }
+.prog > span { display: block; height: 100%; border-radius: inherit; background: var(--acc); transition: width 1.1s var(--spring); }
+.prog.y > span { background: linear-gradient(90deg, var(--acc), var(--teal)); }
+.prog.thin { height: 5px; }
 .meta { font-size: 13px; color: var(--text2); line-height: 1.45; overflow-wrap: anywhere; }
 
-/* ───────── Սյունակային գրաֆիկ ───────── */
-.chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 6px; align-items: end; height: 128px; padding-top: 18px; border-bottom: 1px solid var(--sep); }
+/* ───────── Գլխավորի մեծ քարտը (ԿԱ 2-ի hero). թիվ + 14 օր, սեղմել օրը → այդ օրը ───────── */
+.hc { padding: 20px 20px 16px; gap: 6px; isolation: isolate; }
+.hc::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; opacity: .75;
+  background: radial-gradient(85% 60% at 100% 0%, var(--tone2), transparent 70%), radial-gradient(70% 50% at 0% 100%, var(--tone3), transparent 70%); }
+.lab { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text2); }
+.lab .aux { color: var(--text3); font-weight: 400; white-space: nowrap; }
+.val { font-size: 46px; line-height: 52px; font-weight: 600; letter-spacing: -.04em; white-space: nowrap; }
+.val small { font-size: 24px; font-weight: 500; color: var(--text3); margin-left: 6px; letter-spacing: 0; }
+.cmp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; line-height: 18px; color: var(--text3); margin-top: 2px; }
+.d14 { border-top: 1px solid var(--line); margin: 12px -20px 0; padding: 14px 20px 0; display: flex; flex-direction: column; gap: 10px; }
+.d14-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text2); }
+.d14-h b { font-size: 15px; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bars { display: flex; align-items: flex-end; gap: 5px; height: 84px; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: pointer; }
+.bars > i { flex: 1; height: var(--h); min-height: 4px; border-radius: 5px 5px 2px 2px; background: var(--btn); transform-origin: bottom; transition: opacity .2s, filter .2s, background-color .2s; }
+.bars > i.t { background: var(--acc); }
+.bars.sel > i { opacity: .5; }
+.bars.sel > i.on { opacity: 1; background: var(--acc); filter: drop-shadow(0 0 10px var(--tone1)); }
+.bars.grow > i { animation: grow .75s var(--spring) both; animation-delay: calc(var(--k) * 32ms + .15s); }
+@keyframes grow { from { transform: scaleY(0); } }
+.axis { display: flex; justify-content: space-between; font-size: 11.5px; line-height: 14px; color: var(--text3); font-variant-numeric: tabular-nums; margin-top: -4px; }
+.dayh { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); margin: 4px -20px 0; padding: 12px 20px 0; }
+.dayh span { font-size: 15px; line-height: 20px; font-weight: 600; }
+.dayh small { display: block; font-size: 13px; line-height: 18px; color: var(--text3); font-weight: 400; margin-top: 2px; }
+.dayh b { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* «Սպասում է «Այո»-ի» քարտը (ԿԱ 2-ի պատյանինը. երևում է միայն երբ կա ինչ հաստատել) */
+.apr .cell { padding-top: 11px; padding-bottom: 11px; }
+.apr-h { display: flex; align-items: center; gap: 12px; padding: 14px 16px; width: 100%; }
+.apr-h .t { flex: 1; font-size: 16px; font-weight: 600; }
+.apr-h + .cell::before { left: 16px; }
+
+/* «Բոլորը»՝ պարկի բաժինները խմբերով, 3 սյուն */
+.gcells { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.gcell { min-height: 104px; padding: 14px 4px 12px; border-radius: 22px; background: var(--card); box-shadow: var(--edge); display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; position: relative; transition: transform .35s var(--spring); }
+.gcell:active { transform: scale(.94); transition-duration: .08s; }
+.gcell .ico { width: 42px; height: 42px; border-radius: 14px; }
+.gcell .ico svg { width: 21px; height: 21px; }
+.gcell .nm { font-size: 13.5px; line-height: 17px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.01em; }
+.gcell .nv { font-size: 12px; line-height: 15px; color: var(--text3); font-variant-numeric: tabular-nums; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.gcell .nv.warn { color: var(--warn); } .gcell .nv.neg { color: var(--neg); }
+.gcell .badge { top: 8px; left: auto; right: 10px; }
+
+/* ───────── Սյունակային գրաֆիկ (բաժիններում) ───────── */
+.chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 6px; align-items: end; height: 128px; padding-top: 18px; }
 .chart .c { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; height: 100%; position: relative; cursor: pointer; }
-.chart .c .b { border-radius: 4px 4px 0 0; background: var(--bar); min-height: 2px; }
-.chart .c.hi .b { background: var(--bar-hi); }
-.chart .c.sel .b { background: var(--brand); }
+.chart .c .b { border-radius: 6px 6px 2px 2px; background: var(--btn); min-height: 3px; transition: background-color .2s; }
+.chart .c.hi .b { background: var(--acc); }
+.chart .c.sel .b { background: var(--acc); box-shadow: 0 0 14px var(--tone1); }
 .chart .c .lb { position: absolute; left: -6px; right: -6px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .chart-x { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 6px; margin-top: 6px; }
 .chart-x span { text-align: center; font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; }
-.chart-x span.hi { color: var(--text); font-weight: 600; }
+.chart-x span.hi { color: var(--acc); font-weight: 600; }
 
-/* ───────── Կոճակներ ───────── */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: 12px; border: 0; cursor: pointer;
-  font-size: 16px; font-weight: 600; line-height: 1.2; text-align: center; background: var(--fill); color: var(--text); min-width: 0; }
-.btn.pri { background: var(--brand); color: var(--brand-ink); }
-.btn.dark { background: var(--text); color: var(--bg); }
-.btn.plain { background: transparent; color: var(--info); padding: 0 8px; min-height: 44px; }
-.btn.danger { background: transparent; color: var(--neg); }
-.btn.sm { min-height: 40px; font-size: 15px; padding: 0 14px; border-radius: 10px; }
+/* ───────── Կոճակներ (կլոր, փափուկ) ───────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 20px; border-radius: 999px; border: 0; cursor: pointer;
+  font-size: 16px; font-weight: 600; line-height: 1.2; text-align: center; background: var(--fill); color: var(--text); min-width: 0; transition: transform .35s var(--spring), background-color .2s, opacity .2s; }
+.btn.pri, .btn.dark { background: var(--btn); color: var(--on-btn); box-shadow: var(--btn-edge); }
+.btn.plain { background: transparent; color: var(--acc); padding: 0 8px; min-height: 44px; }
+.btn.danger { background: var(--neg-bg); color: var(--neg); }
+.btn.sm { min-height: 40px; font-size: 15px; padding: 0 16px; }
 .btn.full { width: 100%; }
-.btn:active { filter: brightness(.94); }
+.btn:active { transform: scale(.96); transition-duration: .08s; }
+.btn.pri:active, .btn.dark:active { background: var(--btn-on); }
 .btn:disabled { opacity: .45; }
 .btns { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
 
 /* Արագ գործողություններ */
-.qa { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
-.qa a { background: var(--surface); border-radius: var(--r); min-height: 84px; padding: 12px 6px 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px;
-  font-size: 13px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--text); position: relative; min-width: 0; box-shadow: var(--shadow); }
+.qa { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.qa a { background: var(--card); border-radius: 20px; min-height: 84px; padding: 12px 6px 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px;
+  font-size: 13px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--text); position: relative; min-width: 0; box-shadow: var(--edge); }
 .qa a:active { background: var(--fill); }
 .qa a span:last-child { overflow-wrap: break-word; hyphens: auto; max-width: 100%; }
 .qa .q { width: 36px; height: 36px; border-radius: 18px; background: var(--fill); display: flex; align-items: center; justify-content: center; }
@@ -175,16 +267,15 @@ a.kpi:active { background: var(--fill); }
 .qa .badge { top: 8px; left: auto; right: 10px; }
 
 /* Սեգմենտ և չիպեր */
-.seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); background: var(--fill); border-radius: 10px; padding: 2px; gap: 2px; }
-.seg button { min-height: 36px; border: 0; border-radius: 8px; background: transparent; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seg button.on { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-@media (prefers-color-scheme: dark) { .seg button.on { background: #636366; } }
-.chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); background: var(--fill); border-radius: 18px; padding: 4px; gap: 4px; }
+.seg button { min-height: 42px; border: 0; border-radius: 14px; background: transparent; font-size: 14px; font-weight: 600; color: var(--text3); cursor: pointer; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background-color .2s, color .2s; }
+.seg button.on { background: var(--acc-soft); color: var(--acc); }
+.chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 .chips::-webkit-scrollbar { display: none; }
-.chip { flex-shrink: 0; min-height: 36px; padding: 0 14px; border-radius: 18px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 0; cursor: pointer; box-shadow: var(--shadow); }
-.chip .cnt { color: var(--text3); font-weight: 600; font-variant-numeric: tabular-nums; }
-.chip.on { background: var(--text); color: var(--bg); }
-.chip.on .cnt { color: inherit; opacity: .7; }
+.chip { flex-shrink: 0; min-height: 38px; padding: 0 15px; border-radius: 19px; background: var(--surface2); color: var(--text2); font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 0; cursor: pointer; box-shadow: var(--edge); }
+.chip .cnt { min-width: 0; height: auto; padding: 0; background: none; color: var(--text3); font-size: 13px; line-height: inherit; }
+.chip.on { background: var(--acc-soft); color: var(--acc); box-shadow: none; }
+.chip.on .cnt { color: inherit; opacity: .75; }
 
 /* Վարորդի տող */
 .av { width: 40px; height: 40px; border-radius: 20px; background: var(--fill); color: var(--text2); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; text-transform: uppercase; }
@@ -194,67 +285,71 @@ a.kpi:active { background: var(--fill); }
 .cell .nm { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 
 /* ───────── Առաջարկի քարտ (Գործեր) ───────── */
-.prop { background: var(--surface); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; box-shadow: var(--shadow); }
-.prop .who { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); min-width: 0; }
-.prop .who .ico { width: 24px; height: 24px; border-radius: 6px; } .prop .who .ico svg { width: 14px; height: 14px; }
-.prop .who b { color: var(--text); font-weight: 600; }
+.prop { background: var(--card); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; box-shadow: var(--edge); }
+.prop .who { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text3); min-width: 0; }
+.prop .who .ico { width: 26px; height: 26px; border-radius: 9px; } .prop .who .ico svg { width: 15px; height: 15px; }
+.prop .who b { color: var(--text2); font-weight: 600; }
 .prop .who .tm { margin-left: auto; white-space: nowrap; color: var(--text3); }
 .prop h3 { font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .prop .why { font-size: 15px; line-height: 1.45; color: var(--text2); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .prop .why.open { -webkit-line-clamp: unset; display: block; }
-.prop .more { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--info); font-size: 15px; cursor: pointer; min-height: 28px; }
-.prop .list { margin: 0 -16px; border-top: .5px solid var(--sep); border-bottom: .5px solid var(--sep); }
-.prop .list .cell { padding-left: 16px; }
+.prop .more { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--acc); font-size: 15px; cursor: pointer; min-height: 28px; }
+.prop .list { margin: 0 -18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.prop .list .group { background: transparent; box-shadow: none; }
+.prop .list .cell { padding-left: 18px; }
 
 /* ───────── Դատարկ վիճակ ───────── */
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 32px 16px; }
-.empty .ei { width: 56px; height: 56px; border-radius: 16px; background: var(--fill); color: var(--text2); display: flex; align-items: center; justify-content: center; }
+.empty .ei { width: 56px; height: 56px; border-radius: 18px; background: var(--acc-soft); color: var(--acc); display: flex; align-items: center; justify-content: center; }
 .empty .ei svg { width: 28px; height: 28px; }
-.empty h3 { font-size: 20px; font-weight: 700; }
+.empty h3 { font-size: 20px; font-weight: 600; }
 .empty p { font-size: 15px; color: var(--text2); line-height: 1.45; max-width: 320px; }
 .err { background: var(--neg-bg); color: var(--neg); border-radius: var(--r-sm); padding: 12px 14px; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
-.none { padding: 16px; font-size: 15px; color: var(--text2); text-align: center; }
+.none { padding: 16px; font-size: 15px; color: var(--text3); text-align: center; }
 
-/* Անջատիչ (iOS switch) */
+/* Անջատիչ */
 .sw { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
 .sw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
 .sw span { position: absolute; inset: 0; border-radius: 16px; background: var(--fill2); transition: background .2s; }
-.sw span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform .2s; }
-.sw input:checked + span { background: #34C759; }
+.sw span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--knob); box-shadow: 0 2px 4px rgba(0,0,0,.3); transition: transform .2s; }
+.sw input:checked + span { background: var(--pos); }
 .sw input:checked + span::after { transform: translateX(20px); }
 
 /* Դաշտեր */
-.in { width: 100%; min-height: 48px; border-radius: 12px; border: 0; padding: 12px 14px; background: var(--fill); color: var(--text); line-height: 1.3; outline: none; }
-.in:focus { box-shadow: 0 0 0 2px var(--text) inset; }
+.in { width: 100%; min-height: 50px; border-radius: 16px; border: 1px solid transparent; padding: 12px 16px; background: var(--fill); color: var(--text); line-height: 1.3; outline: none; }
+.in:focus { border-color: var(--acc); }
 .in::placeholder { color: var(--text3); }
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: 13px; color: var(--text2); padding: 0 4px; }
+.field label { font-size: 13px; color: var(--text3); padding: 0 4px; }
 
 /* Հաշվիչ */
-.stepper { display: grid; grid-template-columns: 48px minmax(0,1fr) 48px; align-items: center; gap: 8px; }
-.stepper button { height: 48px; border-radius: 12px; border: 0; background: var(--fill); font-size: 24px; font-weight: 500; cursor: pointer; color: var(--text); }
-.stepper .n { text-align: center; font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface2); }
+.stepper { display: grid; grid-template-columns: 50px minmax(0,1fr) 50px; align-items: center; gap: 8px; }
+.stepper button { height: 50px; border-radius: 25px; border: 0; background: var(--fill); font-size: 24px; font-weight: 500; cursor: pointer; color: var(--text); }
+.stepper button:active { background: var(--fill2); }
+.stepper .n { text-align: center; font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface2); }
 .kv span { font-size: 15px; color: var(--text2); min-width: 0; overflow-wrap: anywhere; }
-.kv b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kv b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Մինի-սանդղակ ցուցակում */
-.mbar { height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; margin-top: 4px; }
-.mbar > span { display: block; height: 100%; background: var(--text3); border-radius: 2px; }
+.mbar { height: 4px; border-radius: 2px; background: var(--fill2); overflow: hidden; margin-top: 5px; }
+.mbar > span { display: block; height: 100%; background: var(--acc); border-radius: 2px; opacity: .8; }
 
-/* ───────── Գարիկի զրույց ───────── */
+/* ───────── Գարիկի զրույց (GTH կոճակից) ───────── */
+.top.chat-top .ct { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.top.chat-top .ct img { width: 40px; height: auto; display: block; }
 .chat { padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; }
-.msg.ai { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; box-shadow: var(--shadow); }
-.msg.me { align-self: flex-end; background: var(--text); color: var(--bg); border-bottom-right-radius: 6px; }
+.msg { max-width: 85%; padding: 10px 14px; border-radius: 20px; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+.msg.ai { align-self: flex-start; background: var(--surface2); border-bottom-left-radius: 6px; box-shadow: var(--edge); }
+.msg.me { align-self: flex-end; background: var(--btn); color: var(--on-btn); border-bottom-right-radius: 6px; }
 .msg.typing { color: var(--text3); }
-.msg .note { display: block; margin-top: 8px; font-size: 13px; color: var(--text2); }
+.msg .note { display: block; margin-top: 8px; font-size: 13px; color: var(--text3); }
 /* «Կատարե՞մ» քարտ (օգնականի ձեռքեր, v0.10) */
-.act { align-self: flex-start; width: 85%; max-width: 85%; min-width: 0; background: var(--surface); border-radius: 18px; border-bottom-left-radius: 6px; padding: 12px 14px;
-  box-shadow: var(--shadow), inset 3px 0 0 var(--brand); display: flex; flex-direction: column; gap: 8px; }
-.act.rejected, .act.undone, .act.expired { box-shadow: var(--shadow), inset 3px 0 0 var(--fill2); }
-.act.failed { box-shadow: var(--shadow), inset 3px 0 0 var(--neg); }
-.act-h { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: none; }
+.act { align-self: flex-start; width: 85%; max-width: 85%; min-width: 0; background: var(--surface2); border-radius: 20px; border-bottom-left-radius: 6px; padding: 12px 14px;
+  box-shadow: var(--edge), inset 3px 0 0 var(--acc); display: flex; flex-direction: column; gap: 8px; }
+.act.rejected, .act.undone, .act.expired { box-shadow: var(--edge), inset 3px 0 0 var(--fill2); }
+.act.failed { box-shadow: var(--edge), inset 3px 0 0 var(--neg); }
+.act-h { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: none; }
 .act-t { font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
 .act-b { display: flex; gap: 8px; flex-wrap: wrap; }
 .act-b .btn { flex: 1 1 96px; min-height: 44px; font-weight: 600; }
@@ -263,32 +358,34 @@ a.kpi:active { background: var(--fill); }
 .act-s span { overflow-wrap: anywhere; min-width: 0; }
 .act-s .btn.plain { min-height: 36px; padding: 0 6px; font-size: 14px; }
 .btn.gray { background: var(--fill); color: var(--text); }
-.msg.notice { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--brand); }
-.msg.notice .note-h { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+.msg.notice { box-shadow: var(--edge), inset 0 0 0 1.5px var(--acc); }
+.msg.notice .note-h { display: block; font-size: 12px; font-weight: 600; color: var(--acc); margin-bottom: 4px; }
 .nlist { gap: 0; padding: 4px 16px; }
 .nrow { display: flex; align-items: center; gap: 12px; padding: 10px 0; min-width: 0; }
-.nrow + .nrow { box-shadow: 0 -.5px 0 var(--sep); }
+.nrow + .nrow { box-shadow: 0 -1px 0 var(--line); }
 .nrow p { flex: 1; min-width: 0; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
 .nrow .btn { flex-shrink: 0; }
-.tgcard { box-shadow: var(--shadow), inset 3px 0 0 var(--info); }
+.tgcard { box-shadow: var(--edge), inset 3px 0 0 var(--acc); }
 .tgcard p { font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
 .tgcard .meta { display: inline-block; margin-top: 4px; }
 .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.sugg button { text-align: left; border: 0; background: var(--surface); border-radius: 12px; padding: 12px 14px; font-size: 15px; line-height: 1.35; color: var(--text); cursor: pointer; min-height: 48px; box-shadow: var(--shadow); overflow-wrap: anywhere; }
-.sugg button:active { background: var(--fill); }
-.composer { flex-shrink: 0; display: flex; align-items: flex-end; gap: 8px; padding: 8px 12px 8px 16px; background: var(--bar-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 -.5px 0 var(--sep); }
-body.kb .composer { padding-bottom: 8px; }
-.composer textarea { flex: 1; min-width: 0; min-height: 40px; max-height: 132px; resize: none; border: 0; border-radius: 20px; padding: 9px 14px; background: var(--surface); color: var(--text); line-height: 1.35; outline: none; box-shadow: inset 0 0 0 .5px var(--sep); }
-.composer .send { width: 40px; height: 40px; border-radius: 20px; border: 0; background: var(--brand); color: var(--brand-ink); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+.sugg button { text-align: left; border: 0; background: var(--surface2); border-radius: 16px; padding: 12px 14px; font-size: 15px; line-height: 1.35; color: var(--text); cursor: pointer; min-height: 48px; box-shadow: var(--edge); overflow-wrap: anywhere; transition: transform .35s var(--spring); }
+.sugg button:active { transform: scale(.98); background: var(--fill); transition-duration: .08s; }
+.composer { flex-shrink: 0; display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px calc(10px + var(--safe-b)) 14px; background: var(--topbar); box-shadow: 0 -1px 0 var(--line); position: relative; z-index: 3; }
+body.kb .composer { padding-bottom: 10px; }
+.composer textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 132px; resize: none; border: 1px solid transparent; border-radius: 22px; padding: 11px 16px; background: var(--surface2); color: var(--text); line-height: 1.35; outline: none; box-shadow: var(--edge); }
+.composer textarea:focus { border-color: var(--acc); }
+.composer .send { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--btn); color: var(--on-btn); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: transform .35s var(--spring); }
+.composer .send:active { transform: scale(.9); }
 .composer .send:disabled { background: var(--fill2); color: var(--text3); }
 
 /* ───────── Մուտք ───────── */
-.login { flex: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: calc(24px + var(--safe-t)) 20px calc(24px + var(--safe-b)); }
-.login .brand { display: flex; align-items: center; gap: 12px; }
-.login .brand h1 { font-size: 28px; font-weight: 700; }
+.login { flex: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: calc(24px + var(--safe-t)) 24px calc(24px + var(--safe-b)); }
+.login .brand { display: flex; align-items: center; gap: 12px; padding: 0; }
+.login .brand h1 { font-size: 28px; font-weight: 600; letter-spacing: -.02em; }
 .login .brand p { font-size: 15px; color: var(--text2); }
 .login .box { display: flex; flex-direction: column; gap: 12px; }
-.login .hint { font-size: 13px; color: var(--text2); line-height: 1.45; text-align: center; }
+.login .hint { font-size: 13px; color: var(--text3); line-height: 1.45; text-align: center; }
 .msgline { font-size: 14px; line-height: 1.4; color: var(--text2); min-height: 20px; text-align: center; overflow-wrap: anywhere; }
 .kpis.k3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
 .kpis.k3 .kpi { padding: 12px; }
@@ -297,41 +394,47 @@ body.kb .composer { padding-bottom: 8px; }
 .top.nb .ct { left: 56px; right: 56px; }
 .kpi-v { font-size: clamp(20px, 6.6vw, 26px); }
 .kpis.k3 .kpi-v { font-size: clamp(16px, 5.3vw, 20px); }
-.hero .n { font-size: clamp(36px, 12vw, 44px); }
-@media (max-width: 359px) {
-  .page { padding-left: 12px; padding-right: 12px; }
-  .chips { margin: 0 -12px; padding: 0 12px; }
-  .tab { font-size: 9.5px; letter-spacing: -.03em; }
-  .lt h1 { font-size: 28px; }
+.hero .n { font-size: clamp(38px, 12vw, 46px); }
+.val { font-size: clamp(38px, 12vw, 46px); }
+@media (max-width: 374px) {
+  .page { padding-left: 16px; padding-right: 16px; }
+  .lt { padding-left: 16px; padding-right: 16px; }
+  .chips { margin: 0 -16px; padding: 0 16px; }
+  .tab { font-size: 10px; letter-spacing: -.02em; }
+  .gthb { width: 60px; height: 60px; } .gthb img { width: 42px; }
+  .dock { gap: 8px; padding-left: 10px; padding-right: 10px; }
+  .hc { padding-left: 16px; padding-right: 16px; } .d14, .dayh { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+  .gcells { gap: 8px; }
 }
-@media (max-width: 359px) { .tab span:last-child { overflow: visible; text-overflow: clip; } }
-/* 320px. «Կարգավորում»-ը 3px-ով դուրս էր գալիս էկրանից */
-@media (max-width: 339px) { .tab { font-size: 9px; letter-spacing: -.045em; } }
+/* նեղ էկրանին «Բոլորը»-ում՝ 2 սյուն, որ բաժնի անունը չկտրվի */
+@media (max-width: 359px) { .gcells { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 339px) { .tab { font-size: 9.5px; letter-spacing: -.03em; } .lt h1 { font-size: 27px; } }
 
 /* ───────── «Հարց ձեզ» քարտ (v0.8). մեծ, փափուկ կոճակներ, մեկ հարց միանգամից ───────── */
 .qcard { gap: 14px; }
-.qcard h3 { font-size: 19px; font-weight: 700; line-height: 1.3; }
+.qcard h3 { font-size: 19px; font-weight: 600; line-height: 1.3; }
 .qcard .meta { font-size: 14px; margin-top: -6px; }
-.qprog { height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; }
-.qprog span { display: block; height: 100%; background: var(--brand); border-radius: 2px; transition: width .4s ease; }
+.qprog { height: 4px; border-radius: 2px; background: var(--fill2); overflow: hidden; }
+.qprog span { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width .4s ease; }
 .qopts { display: flex; flex-direction: column; gap: 8px; }
-.qopt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 12px 16px; border-radius: 14px;
+.qopt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 12px 16px; border-radius: 18px;
   border: 1px solid transparent; background: var(--surface2); color: var(--text); font: inherit; font-size: 16px; font-weight: 600; text-align: left; cursor: pointer;
   -webkit-tap-highlight-color: transparent; transition: transform .14s ease, background-color .18s ease, border-color .18s ease; }
 .qopt span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .qopt:active { transform: scale(.98); background: var(--fill2); }
 .qopt .qmark { flex-shrink: 0; width: 22px; height: 22px; border-radius: 11px; border: 2px solid var(--fill2); transition: all .18s ease; }
 .qopts.multi .qopt .qmark { border-radius: 7px; }
-.qopt.on { background: var(--brand); color: var(--brand-ink); }
-.qopt.on .qmark { border-color: var(--brand-ink); background: var(--brand-ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FCE000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12.5 4 4 8-9'/%3E%3C/svg%3E") center/16px no-repeat; }
+.qopt.on { background: var(--acc-soft); color: var(--acc); border-color: var(--acc); }
+.qopt.on .qmark { border-color: var(--acc); background: var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2306101F' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12.5 4 4 8-9'/%3E%3C/svg%3E") center/16px no-repeat; }
 .qopt:disabled { cursor: default; }
-.qcard .btn.pri { min-height: 52px; border-radius: 14px; font-size: 17px; font-weight: 700; transition: transform .14s ease, opacity .18s ease; }
+.qcard .btn.pri { min-height: 54px; font-size: 17px; font-weight: 600; transition: transform .14s ease, opacity .18s ease; }
 .qcard .btn.pri:active { transform: scale(.98); }
 .qtext { resize: none; font: inherit; font-size: 16px; }
 .qcard .msgline:empty { display: none; }
 .qdone { align-items: center; text-align: center; padding: 24px 16px; }
 .qok { width: 52px; height: 52px; border-radius: 26px; background: var(--pos-bg); color: var(--pos); display: flex; align-items: center; justify-content: center; }
-@media (prefers-color-scheme: dark) { .qopt { background: var(--surface2); } }
 /* ChatGPT բաժին. ChatGPT-ի պատասխանի տեքստը (կարճ, «Կարդալ ամբողջը»-ով) */
 .ans { white-space: pre-wrap; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; color: var(--text); }
 .ans.clip { max-height: 240px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent); }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

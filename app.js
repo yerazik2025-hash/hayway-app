@@ -8,6 +8,8 @@
   const sb = window.supabase.createClient(CFG.url, CFG.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   const app = document.getElementById('app');
   const cache = {};
+  // ԿԱ 2. ետևի մեղմ գունային լույսերը (styles.css → .aura)
+  document.body.insertAdjacentHTML('afterbegin', '<div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>');
 
   // ───────── Ստեղնաշար և էկրանի բարձրություն (iPhone-ի «շարժվող էջի» ուղղում) ─────────
   const root = document.documentElement;
@@ -89,29 +91,44 @@
   }
   function invalidate() { for (const k in cache) delete cache[k]; }
 
-  // ───────── Շրջանակ ─────────
+  // ───────── Շրջանակ (ԿԱ 2-ի պատյան, 03.11.2026) ─────────
+  // Ներքևում՝ «Այսօր» + պարկի գլխավոր 3 բաժինը + «Բոլորը» (մնացածը՝ այնտեղ, խմբերով), աջում՝ GTH կոճակը → Գարիկ (օգնականը)։
+  // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
-  function tabbar(active) {
-    const t = (k, href, icon, label, badge) => `<a class="tab ${active === k ? 'on' : ''}" href="${href}"><span class="ic">${icon}${badge ? `<span class="badge">${badge}</span>` : ''}</span><span>${label}</span></a>`;
-    return `<nav class="tabbar">
-      ${t('home', '#/', I.home, 'Գլխավոր')}
-      ${t('tasks', '#/tasks', I.tasks, 'Գործեր', pendingCount)}
-      ${t('garik', '#/garik', `<span class="g">${I.star}</span>`, 'Գարիկ')}
-      ${t('sections', '#/sections', I.grid, 'Բաժիններ')}
-      ${t('settings', '#/settings', I.cfg, 'Կարգավորում')}
-    </nav>`;
+  const DOCK = [['', I.home, 'Այսօր'], ['drivers', I.users, 'Վարորդ'], ['growth', I.userplus, 'Նորեկ'], ['finance', I.money, 'Ֆինանս'], ['sections', I.grid, 'Բոլորը']];
+  const hashParts = () => (location.hash || '#/').slice(1).split('?')[0].split('/');
+  let chatBack = '#/';
+  function tabbar() {
+    const s = hashParts()[1] || '', pinned = DOCK.some((d) => d[0] === s);
+    const on = (k) => k === s || (k === 'sections' && !pinned);
+    return `<nav class="dock"><div class="strip">${DOCK.map(([k, ic, l]) => `<a class="tab ${on(k) ? 'on' : ''}" href="#/${k}"><span class="ic">${ic}${!k && pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</span><span>${l}</span></a>`).join('')}</div>
+      <a class="gthb" href="#/garik" aria-label="Գարիկ՝ GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span></a></nav>`;
   }
   // o: { title, sub, tab, back:[href,label], right, compact, after }
   function frame(o, body) {
-    const left = o.back ? `<a class="backb" href="${o.back[0]}">${I.back}<span>${esc(o.back[1])}</span></a>` : '';
+    const chat = o.tab === 'garik';
+    let back = o.back;
+    // Բաժինները բացվում են ներքևից կամ «Բոլորը»-ից. ներքևի բաժնում «Հետ» պետք չէ, մնացածում՝ «Բոլորը»
+    if (back && back[0] === '#/sections') { const [, s, arg] = hashParts(); back = DOCK.some((d) => d[0] === s) && !arg ? null : [back[0], 'Բոլորը']; }
+    const left = chat ? `<a class="backb" href="${chatBack}">${I.back}<span>Հետ</span></a>`
+      : back ? `<a class="backb" href="${back[0]}">${I.back}<span>${esc(back[1])}</span></a>`
+      : `<a class="brand" href="#/"><img src="icon.svg?v=9" width="36" height="36" alt=""><span><b>HayWay</b><small><i></i>${todayLong()}</small></span></a>`;
     const right = o.right !== undefined ? o.right : `<button class="ibtn" id="refresh" aria-label="Թարմացնել">${I.refresh}</button>`;
     const large = o.compact ? '' : `<header class="lt"><h1>${o.title}</h1>${o.sub ? `<div class="st">${o.sub}</div>` : ''}</header>`;
-    return `<div class="top ${o.compact ? 'compact scrolled' : ''} ${o.back ? '' : 'nb'}"><div class="top-in"><div class="l">${left}</div><div class="ct">${o.title}</div><div class="r">${right}</div></div></div>
-      <div class="scroll" id="sc">${large}${body}</div>${o.after || ''}${tabbar(o.tab)}`;
+    const ct = chat ? `<img src="GTH-AGENCY-logo-SAFE.svg" width="40" height="21" alt="GTH logo"><span>${o.title}</span>` : o.title;
+    return `<div class="top ${o.compact ? 'compact scrolled' : ''} ${back || chat ? '' : 'nb br'} ${chat ? 'chat-top' : ''}"><div class="top-in"><div class="l">${left}</div><div class="ct">${ct}</div><div class="r">${right}</div></div></div>
+      <div class="scroll" id="sc">${large}${body}</div>${o.after || ''}${chat ? '' : tabbar()}`;
   }
+  let lastPath = '';
   function mount(o, body) {
     app.innerHTML = frame(o, body);
+    app.classList.toggle('has-dock', o.tab !== 'garik');
     const sc = document.getElementById('sc'), top = app.querySelector('.top');
+    // նոր էկրան բացելիս բլոկները մեղմ բարձրանում են (թարմացնելիս՝ ոչ)
+    const path = location.hash || '#/', pg = sc.querySelector('.page');
+    if (pg && path !== lastPath) pg.classList.add('enter');
+    lastPath = path;
+    countUp(sc);
     if (!o.compact) sc.addEventListener('scroll', () => top.classList.toggle('scrolled', sc.scrollTop > 40), { passive: true });
     const r = document.getElementById('refresh');
     if (r) r.onclick = () => { r.classList.add('spinning'); invalidate(); render(); };
@@ -127,6 +144,33 @@
   const group = (cells, cls = '') => `<div class="group ${cls}">${cells.join('')}</div>`;
   const kpi = (l, v, s, href) => `<${href ? `a href="${href}"` : 'div'} class="kpi"><span class="kpi-l">${l}</span><span class="kpi-v">${v}</span>${s ? `<span class="kpi-s">${s}</span>` : ''}</${href ? 'a' : 'div'}>`;
   const emptyState = (icon, h, p, btn) => `<div class="empty"><span class="ei">${icon}</span><h3>${h}</h3><p>${p}</p>${btn || ''}</div>`;
+
+  // Գլխավորի 14 օրը. սեղմել կամ մատը սահեցնել → ներքևում այդ օրը (սկզբում՝ վերջին լրիվ օրը)
+  function bindDays(days) {
+    const bars = document.getElementById('d14'), out = document.getElementById('d14d');
+    if (!bars || !out) return;
+    const pick = (i) => {
+      i = Math.max(0, Math.min(days.length - 1, i));
+      const d = days[i], isT = d.day === today();
+      bars.classList.add('sel');
+      bars.querySelectorAll('i').forEach((b, k) => b.classList.toggle('on', k === i));
+      out.innerHTML = `<span>${isT ? 'Այսօր' : DAYS_L[dayIdx(d.day)]}<small>${dmy(d.day)} · ${fmt(d.orders)} պատվեր · ${fmt(d.active)} վարորդ</small></span><b>${amd(Math.round(+d.commission || 0))}</b>`;
+    };
+    const at = (x) => { const r = bars.getBoundingClientRect(); return Math.floor((x - r.left) / r.width * days.length); };
+    bars.addEventListener('pointerdown', (e) => { pick(at(e.clientX)); });
+    bars.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') pick(at(e.clientX)); });
+    const lastFull = days.map((d) => d.day < today()).lastIndexOf(true);
+    pick(lastFull >= 0 ? lastFull : days.length - 1);
+  }
+  // թվերը հաշվում են 0-ից (ԿԱ 2-ի «կենդանի» թվերը). միայն նոր էկրան բացելիս
+  function countUp(root) {
+    if (!root.querySelector('.page.enter') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    root.querySelectorAll('[data-n]').forEach((el) => {
+      const n = +el.dataset.n, t0 = performance.now();
+      const step = (t) => { const k = Math.min(1, (t - t0) / 800), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(Math.round(n * e)); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    });
+  }
 
   // Սյունակային գրաֆիկ. մեկ շարք, չեզոք գույն, այսօրը՝ մուգ, սեղմելիս՝ արժեքը վերևում
   function barChart(id, days, key, fmtFull, unitWord) {
@@ -171,9 +215,10 @@
     const path = (location.hash || '#/').slice(1).split('?')[0];
     const [, seg = '', arg = ''] = path.split('/');
     const fn = routes['/' + seg] || routes['/'];
+    if (seg !== 'garik') chatBack = '#' + path;
     const sc = document.getElementById('sc');
     app.querySelectorAll('.composer').forEach((e) => e.remove());
-    if (sc && app.querySelector('.tabbar')) sc.innerHTML = '<div class="loading" style="height:60vh"><span class="spin"></span></div>';
+    if (sc && app.querySelector('.dock')) sc.innerHTML = '<div class="loading" style="height:60vh"><span class="spin"></span></div>';
     else app.innerHTML = '<div class="loading"><span class="spin"></span></div>';
     try {
       await fn(arg);
@@ -317,9 +362,27 @@
     const fresh = notes && notes.drivers_synced_at && (Date.now() - new Date(notes.drivers_synced_at)) < 3 * 3600e3;
     const active = h.active_30d || 0;
     const vsWeek = (cur, prev) => { if (!prev) return ''; const d = Math.round((cur - prev) / prev * 100); if (!d) return '<span class="delta mut">նույնը, ինչ նախորդ 7 օրը</span>'; return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '▲' : '▼'}${NB}${Math.abs(d)}%</span> <span class="mut">նախորդ 7 օրից</span>`; };
+    // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ ամենավերևում, թիվը՝ նաև ներքևի «Այսօր»-ի վրա
     const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
     if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
-    if (!tasks.length) todo.push(cell({ icon: I.tasks, color: 'g', t: 'Այսօր նոր գործ չկա', s: 'Գործակալները ստուգում են ամեն առավոտ 08:30-ին' }));
+    const apr = tasks.length ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length}</span></a>${todo.join('')}</div>`
+      : group([cell({ icon: I.tasks, color: 'g', t: 'Այսօր նոր գործ չկա', s: 'Գործակալները ստուգում են ամեն առավոտ 08:30-ին' })], 'ic');
+    // Գլխավոր թիվը՝ պարկի եկամուտը 7 օրում + վերջին 14 օրը ըստ օրերի (Դավիթի АРОМАТИКА-ի պես). սեղմել օրը → այդ օրվա թվերը
+    const d14 = (h.days || []).slice(-14);
+    const max14 = Math.max(1, ...d14.map((d) => +d.commission || 0));
+    const dPct = P7.commission ? Math.round((W7.commission - P7.commission) / P7.commission * 100) : null;
+    const lastLb = d14.length && d14[d14.length - 1].day === today() ? 'այսօր' : dmy(d14.length ? d14[d14.length - 1].day : '');
+    const hc = `<div class="card hc">
+        <div class="lab"><span>Պարկի եկամուտ · 7 օր</span><span class="aux">թարմ՝ ${ago(h.last_sync)}</span></div>
+        <div class="val"><span data-n="${Math.round(W7.commission)}">${fmt(W7.commission)}</span><small>֏</small></div>
+        <div class="cmp">${dPct === null ? '' : `<span class="pill ${dPct > 0 ? 'up' : dPct < 0 ? 'down' : ''}">${dPct > 0 ? '+' : dPct < 0 ? '−' : ''}${Math.abs(dPct)}%</span>`}<span>նախորդ 7 օրը՝ ${short(P7.commission)}</span></div>
+        ${d14.length ? `<div class="d14">
+          <div class="d14-h"><span>Վերջին 14 օրը</span><b>${short(sum(d14, 'commission'))}</b></div>
+          <div class="bars grow" id="d14">${d14.map((d, i) => `<i class="${d.day === today() ? 't' : ''}" style="--h:${Math.max(4, Math.round((+d.commission || 0) / max14 * 100))}%;--k:${i}"></i>`).join('')}</div>
+          <div class="axis"><span>${dmy(d14[0].day)}</span><span>${d14.length > 8 ? dmy(d14[7].day) : ''}</span><span>${lastLb}</span></div>
+          <div class="dayh" id="d14d"></div>
+        </div>` : ''}
+      </div>`;
     const hasQ = qs && qs.open && qs.open.length;
     // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
     const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
@@ -334,24 +397,26 @@
       : tgState.username ? sec('', `<div class="card tgcard">
         <p><b>Գարիկի պատասխանները՝ Telegram-ում</b><br><span class="meta">Հիշեցումներն ու «Կատարե՞մ» քարտերը կգան Telegram-ում, «Այո»-ն կարող եք սեղմել հենց այնտեղ։</span></p>
         <div class="act-b"><button type="button" class="btn pri sm" data-tglink>Միացնել Telegram-ը</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`) : '';
-    mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">· թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
+    mount({ title: 'Այսօր', tab: 'home' }, page(`
       ${notice}
-      ${tgCard}
       ${hasQ ? '<section class="sec" id="qa"></section>' : ''}
-      ${sec('Այսօր անել', group(todo, 'ic'))}
+      ${apr}
+      ${tgCard}
+      ${hc}
       ${sec('Վերջին 7 օր', `<div class="kpis">
         ${fresh ? kpi('Հիմա աշխատում են', fmt(h.online.total), `${fmt(h.online.on_order)}-ը պատվերի վրա`, '#/drivers/active')
                 : kpi('Այսօր աշխատել են', fmt(todayRow.active || 0), 'վարորդ՝ գոնե մեկ պատվերով', '#/drivers/active')}
         ${kpi('Պատվերներ', fmt(W7.orders), vsWeek(W7.orders, P7.orders))}
         ${kpi('Ընդհանուր գումար', short(W7.gmv), vsWeek(W7.gmv, P7.gmv), '#/finance')}
-        ${kpi('Պարկի եկամուտ', short(W7.commission), vsWeek(W7.commission, P7.commission), '#/finance')}
+        ${kpi('Նորեկներ · 30 օր', fmt(h.month.new), 'գրանցվել են Fleet-ում', '#/growth')}
       </div>`, { foot: ('Լրիվ օրեր՝ առանց այսօրվա, համեմատած դրանից առաջվա 7 օրվա հետ։ ' + estNote(notes, 15)).trim() })}
       ${sec('Նպատակ՝ 1000 վարորդ', `<a class="card" href="#/drivers/active">
-        <div class="hero"><span class="n">${fmt(active)}</span><span class="u">աշխատող վարորդ</span></div>
+        <div class="hero"><span class="n" data-n="${active}">${fmt(active)}</span><span class="u">աշխատող վարորդ</span></div>
         <div class="prog y"><span style="width:${Math.min(100, active / 10)}%"></span></div>
         <p class="meta">Այս շաբաթ եկավ <b class="pos">${w.new}</b>, գնաց <b class="neg">${w.churn}</b>։</p>
-      </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ Բաժիններում։' })}
+      </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ «Բոլորը»-ում։' })}
     `));
+    if (d14.length) bindDays(d14);
     if (hasQ) questionCard(document.getElementById('qa'), qs);
     bindTg();
     bindPush();
@@ -426,28 +491,36 @@
     const w = h.week;
     const soon = '<span class="tag n">շուտով</span>';
     const la = lr.data;
-    const laTag = !la ? '' : la.status === 'off' ? '<span class="tag neg">կանգնած</span>' : la.status === 'warn' ? '<span class="tag warn">ուշանում է</span>' : '';
     const gl = geo && geo.last;
-    mount({ title: 'Բաժիններ', tab: 'sections', sub: '11 բաժին · 8-ը կենդանի տվյալներով' }, page(`
-      ${sec('Վարորդներ և որակ', group([
-        cell({ href: '#/drivers', icon: I.users, color: 'y', t: 'Վարորդներ', s: `${fmt(h.active_30d)} ակտիվ · շաբաթ՝ +${w.new} / −${w.churn}` }),
-        cell({ href: '#/quality', icon: I.quality, color: 'p', t: 'Որակ', s: `${pct(w.orders, w.orders + w.cancelled)}% պատվեր ավարտվում է` }),
-        cell({ href: '#/terms', icon: I.percent, color: 'r', t: 'Պայմաններ', s: 'Կոմիսիայի խմբեր, հաշվիչ, մրցույթ' }),
-      ], 'ic'))}
-      ${sec('Գումար', group([
-        cell({ href: '#/finance', icon: I.money, color: 'g', t: 'Ֆինանսներ', s: `Եկամուտ՝ ${short(w.commission)} այս շաբաթ` }),
-      ], 'ic'))}
-      ${sec('Աճ', group([
-        cell({ href: '#/growth', icon: I.userplus, color: 'y', t: 'Նոր վարորդներ', s: `30 օրում՝ +${fmt(h.month.new)} · գրանցումից մինչև 50-րդ պատվեր` }),
-        cell({ href: '#/listam', icon: I.mega, color: 'r', t: 'list.am', s: 'Նամակներ, թարմացում, փաթեթ, հայտեր, մրցակիցներ', trail: laTag }),
-        cell({ href: '#/geo', icon: I.ai, color: 'k', t: 'ChatGPT', s: gl ? `${fmt(gl.score)}% պատասխաններում HayWay-ը կա` : 'Երևո՞ւմ ենք, երբ վարորդը հարցնում է ChatGPT-ին' }),
+    // «Բոլորը» (ԿԱ 2). տաքսի պարկի իրական բաժինները խմբերով, ամեն մեկի տակ՝ իր գլխավոր թիվը; չմիացվածները՝ ներքևում «Շուտով»
+    const gc = (href, ic, col, nm, nv, nvCls, badge) => `<a class="gcell" href="${href}"><span class="ico ${col}">${ic}</span><span class="nm">${nm}</span><span class="nv ${nvCls || ''}">${nv}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
+    const grid = (title, cells) => sec(title, `<div class="gcells">${cells.join('')}</div>`);
+    const laNv = !la ? 'նամակներ, հայտեր' : la.status === 'off' ? 'կանգնած է' : la.status === 'warn' ? 'ուշանում է' : 'աշխատում է';
+    mount({ title: 'Բոլոր բաժինները', tab: 'sections', sub: 'HayWay տաքսի պարկ · Yandex Fleet' }, page(`
+      ${grid('Վարորդներ', [
+        gc('#/drivers', I.users, 'y', 'Վարորդներ', `${fmt(h.active_30d)} ակտիվ`),
+        gc('#/growth', I.userplus, 'b', 'Նորեկներ', `+${fmt(h.month.new)} · 30 օր`),
+        gc('#/quality', I.quality, 'p', 'Որակ', `${pct(w.orders, w.orders + w.cancelled)}% ավարտված`),
+        gc('#/terms', I.percent, 'r', 'Պայմաններ', 'կոմիսիա, խմբեր'),
+      ])}
+      ${grid('Գումար', [
+        gc('#/finance', I.money, 'g', 'Ֆինանս', `${short(w.commission)} · 7 օր`),
+      ])}
+      ${grid('Աճ', [
+        gc('#/listam', I.mega, 'o', 'list.am', laNv, la && la.status !== 'ok' && la.status ? (la.status === 'off' ? 'neg' : 'warn') : ''),
+        gc('#/geo', I.ai, 't', 'ChatGPT', gl ? `${fmt(gl.score)}% երևում ենք` : 'չափում չկա'),
+      ])}
+      ${grid('Կառավարում', [
+        gc('#/tasks', I.tasks, 'y', 'Գործեր', pendingCount ? `${pendingCount} սպասում է` : 'ամեն ինչ որոշված', '', pendingCount),
+        gc('#/garik', I.star, 'b', 'Գարիկ', 'GTH օգնական'),
+        gc('#/settings', I.cfg, 's', 'Կարգավորում', 'միացումներ, մուտք'),
+      ])}
+      ${sec('Շուտով', group([
         cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ, մրցակիցներ', trail: soon }),
         cell({ href: '#/leads', icon: I.userplus, color: 'b', t: 'Հայտեր', s: 'Հայտից մինչև 50-րդ պատվեր', trail: soon }),
         cell({ href: '#/contact', icon: I.chat, color: 's', t: 'Կապ', s: 'Հայտարարություններ և նամակներ', trail: soon }),
-      ], 'ic'))}
-      ${sec('Այլ պարկ', group([
         cell({ href: '#/delivery', icon: I.box, color: 't', t: 'Առաքում', s: 'HayWay Delivery', trail: soon }),
-      ], 'ic'))}
+      ], 'ic'), { foot: 'Նոր բաժին է պետք՝ գրեք Գարիկին (GTH կոճակը ներքևում)։' })}
     `));
   });
 
