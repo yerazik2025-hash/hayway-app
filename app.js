@@ -842,13 +842,15 @@
   // Տվյալները՝ app_rivals() / app_rival(). լցնում է HayWay-ի համակարգչի «Garik-Rivals» task-ը ամեն օր (scripts\rivals-check.ps1)։
   // list.am-ի մյուս փոքր պարկերը մնում են list.am բաժնում։
   const OFFER = [['taxi_pct', 'Տաքսի՝ պարկի տոկոս'], ['delivery_pct', 'Առաքում՝ պարկի տոկոս'], ['flat_fee', 'Ֆիքսված վճար'], ['bonus', 'Բոնուս նորեկին'],
-    ['first_week', 'Առաջին շաբաթ'], ['cashback', 'Վերադարձ (cashback)'], ['referral', 'Ընկեր բերելու բոնուս'], ['car_rent', 'Մեքենա վարձով'],
+    ['first_week', 'Սկզբի զեղչ'], ['cashback', 'Վերադարձ (cashback)'], ['referral', 'Ընկեր բերելու բոնուս'], ['car_rent', 'Մեքենա վարձով'],
     ['payout', 'Վճարում'], ['languages', 'Լեզուներ'], ['other', 'Այլ']];
   const WHY = { price_below: 'մեզնից էժան', bonus: 'նոր բոնուս', big_ad: 'մեծ գովազդ' };
   const numPct = (v) => { const m = String(v ?? '').replace(',', '.').match(/\d+(\.\d+)?/); return m ? +m[0] : null; };
   const refPct = (v) => String(v ?? '—').replace('.', ',');
-  const rivalOffer = (o) => { o = o || {}; return [o.taxi_pct && `տաքսի ${o.taxi_pct}`, o.delivery_pct && `առաքում ${o.delivery_pct}`, o.flat_fee, o.bonus && `բոնուս ${o.bonus}`]
-    .filter(Boolean).slice(0, 3).map((x) => esc(x)).join(' · ') || 'պայմանները դեռ չգիտենք'; };
+  // ցուցակում՝ միայն կարճը (առաջին մասը մինչև «;» կամ «(»), մանրամասնը՝ պարկի էջում
+  const brief = (v) => { const t = String(v || '').split(/[;(]/)[0].trim(); return t.length > 32 ? t.slice(0, 31).trim() + '…' : t; };
+  const rivalOffer = (o) => { o = o || {}; return [o.taxi_pct && `տաքսի ${brief(o.taxi_pct)}`, o.delivery_pct && `առաքում ${brief(o.delivery_pct)}`, o.flat_fee && brief(o.flat_fee),
+    o.first_week && brief(o.first_week), o.bonus && `բոնուս ${brief(o.bonus)}`].filter(Boolean).slice(0, 3).map((x) => esc(x)).join(' · ') || 'պայմանները դեռ չգիտենք'; };
   const rvLead = (n) => `<span class="av">${esc(String(n || '').slice(0, 2))}</span>`;
   const chCell = (c, withDay) => cell({ href: `#/rivals/${encodeURIComponent(c.rival)}`, lead: rvLead(c.name),
     t: `<span class="nm"><span class="t b">${esc(c.name)}</span>${c.important ? `<span class="tag warn">${esc(WHY[c.why] || 'կարևոր')}</span>` : ''}</span>`,
