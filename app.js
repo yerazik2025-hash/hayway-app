@@ -985,8 +985,7 @@
       else if (t.no > 0) tag = '<span class="tag n">հերթում</span>';
       else if (t.none > 0) tag = '<span class="tag n">ստուգվում է</span>';
       else tag = '<span class="tag pos">կանք</span>';
-      const s = t.no ? `չկանք ${t.no} հարցում${(t.langs || []).length ? ' · ' + t.langs.map((l) => LANG[l] || l).join(', ') : ''}`
-        : t.none ? `${t.none} հարց դեռ ստուգվում է` : `բոլոր ${t.n} հարցում կանք`;
+      const s = t.no ? `չկանք ${t.no} հարցում` : t.none ? `${t.none} հարց դեռ ստուգվում է` : `բոլոր ${t.n} հարցում կանք`;
       return cell({ href: '#/geo/t-' + t.id, t: `${esc(t.name)} ${tag}`, s, v: `${t.yes}${NB}/${NB}${t.n}`, strong: true, extra: bar(t.yes, t.n) });
     });
     const mk = S.markets || {}, meta = S.markets_meta || {};
