@@ -1192,13 +1192,15 @@
     const sub = !W.hook_at ? '<span class="dot wait"></span>Միանում է 098 888 960-ին'
       : `<span class="dot ${fresh ? 'ok' : 'bad'}"></span>098 888 960 · վերջին նամակը ${ago(W.hook_at)}`;
     const pend = W.pending || [];
+    // SendPulse-ի բոտը կանգնած է (03.11-ին՝ վճարը ավարտվել էր 28.10-ին) → մենյուն չի պատասխանում, նամակները կուտակվում են
+    const botOff = W.bot && W.bot.active === false ? `WhatsApp-ի բոտը կանգնած է. SendPulse-ի ամսավճարը (22 $) ավարտվել է, մենյուն վարորդներին չի պատասխանում։${W.bot.unread ? ` ${fmt(W.bot.unread)} նամակ անպատասխան է։` : ''}` : '';
     if (!W.hook_at && !pend.length) {
-      mount({ title: 'WhatsApp', tab: 'sections', sub }, page(emptyState(I.chat, 'WhatsApp-ը միանում է',
-        'Երբ վարորդներն ու առաքիչները գրեն 098 888 960-ին, այստեղ կերևա, քանիսի հետ խոսեցինք և քանիսը գրանցվեցին։ Պատասխանների նախագծերը կգան ներքևում՝ ձեր «Այո»-ին։')));
+      mount({ title: 'WhatsApp', tab: 'sections', sub }, page(`${emptyState(I.chat, 'WhatsApp-ը միանում է',
+        'Երբ վարորդներն ու առաքիչները գրեն 098 888 960-ին, այստեղ կերևա, քանիսի հետ խոսեցինք և քանիսը գրանցվեցին։ Պատասխանների նախագծերը կգան ներքևում՝ ձեր «Այո»-ին։')}${botOff ? sec('Ուշադրություն', `<div class="card nlist"><div class="nrow"><p>${esc(botOff)}</p></div></div>`) : ''}`));
       return;
     }
     // կարևորը՝ միայն երբ ինչ-որ բան կանգնած է
-    const warn = [];
+    const warn = botOff ? [botOff] : [];
     if (W.hook_at && !fresh) warn.push('2 օր է WhatsApp-ից նամակ չի գալիս։ Գարիկը ստուգում է կապը։');
     if (W.drafting && (!W.runner_at || Date.now() - new Date(W.runner_at) > 15 * 60e3)) warn.push(`${fmt(W.drafting)} հարց սպասում է պատասխանի նախագծին. HayWay-ի համակարգիչը կարծես անջատված է։`);
     const card = (r) => `<article class="prop" data-id="${r.id}">
@@ -1848,7 +1850,7 @@
         ...(tgS.username ? [cell({ icon: I.chat, color: 'b', t: 'Telegram · Գարիկի ծանուցումներ',
           s: tgS.linked ? `@${esc(tgS.username)}${tgS.name ? ' · ' + esc(tgS.name) : ''}` : 'Պատասխաններ, հիշեցումներ և «Այո/Ոչ» քարտեր',
           trail: tgS.linked ? '<button type="button" class="btn plain sm" data-tgunlink>Անջատել</button>' : '<button type="button" class="btn pri sm" data-tglink>Միացնել</button>' })] : []),
-        cell({ icon: I.chat, color: 'g', t: 'WhatsApp բոտ', v: '<span class="tag pos">աշխատում է</span>' }),
+        cell({ href: '#/whatsapp', icon: I.chat, color: 'g', t: 'WhatsApp բոտ', s: '098 888 960 · SendPulse' }),
         cell({ icon: I.mega, color: 'o', t: 'list.am', v: '<span class="tag n">Կոմպ 2-ում</span>' }),
         cell({ icon: I.money, color: 'b', t: 'PrimeBridge', v: '<span class="tag n">շուտով</span>' }),
       ], 'ic'))}
