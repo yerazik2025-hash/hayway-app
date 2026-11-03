@@ -696,81 +696,128 @@
   // (աղբյուրը Կոմպ 2-ի list գործակալի ֆայլերն են)։
   const daysAgo = (iso) => iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : null;
   const dmyhm = (iso) => iso ? `${dmy(iso)} ${hm(iso)}` : '—';
-  route('/listam', async () => {
+  // 03.11, Գարիկ. «list.am բաժնում առաջինը՝ տեղադրված հայտարարությունների քանակը և 500-ի նպատակը, տակը ընդհանուր դիտումները (7 օրվա գրաֆիկով)
+  // ու մնացած թվերը, կոճակով՝ մեր բոլոր հայտարարությունները իրենց թվերով; հետո՝ նամակագրությունը (այսօր քանի մարդ, 7 օր), «ինչ գովազդենք» կոճակ,
+  // մրցակիցներն ու նրանց քարտերի թարմացումները, վառոնկան; ամեն ինչ պարզ, առանց երկար գրությունների»։ Տվյալը՝ channels.listam + app_listam() (db\0016)
+  const LISTAM_GOAL = 500;
+  const KIND = { taxi: 'տաքսի', delivery: 'առաքում', both: 'տաքսի և առաքում' };
+  const ASK_PROMO = 'Ո՞ր list.am հայտարարությունները արժե գովազդել (Թոփ) հիմա և ինչու';
+  const lastDays = (n) => [...Array(n)].map((_, i) => new Date(Date.now() + 4 * 3600e3 - (n - 1 - i) * 864e5).toISOString().slice(0, 10));
+  const nextDay = (iso) => new Date(new Date(iso + 'T12:00:00Z').getTime() + 864e5).toISOString().slice(0, 10);
+  const listamItem = (id) => `https://www.list.am/item/${encodeURIComponent(id)}`;
+  route('/listam', async (arg) => {
     lastTab = 'sections';
-    const [h, cr] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary,metrics,updated_at').eq('id', 'listam').maybeSingle()]);
+    const [h, cr, L, pr] = await Promise.all([
+      rpc('app_home'),
+      sb.from('channels').select('status,summary,metrics,updated_at').eq('id', 'listam').maybeSingle(),
+      rpc('app_listam').catch(() => ({ days: [], ads: [], rivals: [], removed: [] })),
+      sb.from('tasks').select('id,title,cost').eq('agent', 'list.am').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
+    ]);
     pendingCount = h.tasks_pending || 0;
-    const c = cr.data;
-    if (!c) {
-      mount({ title: 'list.am', tab: 'sections', back: ['#/sections', 'Բաժիններ'] }, page(emptyState(I.mega, 'Տվյալ դեռ չկա', 'Ցուցանիշները լցնում է Կոմպ 1-ը ժամը մեկ։')));
+    const c = cr.data || {}, M = c.metrics || {}, hl = M.health || {}, rf = M.refresh || {}, ad = M.ads || {}, ib = M.inbox || {}, mk = M.market || {}, ld = M.leads || {};
+    const ads = L.ads || [], rivals = L.rivals || [];
+
+    // ── Մեր բոլոր հայտարարությունները (կոճակից) ──
+    if (arg === 'ads') {
+      const rows = ads.map((x) => `<a class="cell" href="${listamItem(x.id)}" target="_blank" rel="noopener"><span class="bd">
+          <span class="nm"><span class="t b">${esc(x.title || x.id)}</span>${x.top ? '<span class="tag info">Թոփ</span>' : ''}</span>
+          <span class="s">${fmt(x.views)} դիտում · ${fmt(x.phone)} զանգ · ${fmt(x.applicants)} դիմորդ</span></span>
+          ${x.views7 != null ? `<span class="v"><span class="tag ${x.views7 > 0 ? 'pos' : 'n'}">+${fmt(x.views7)}</span></span>` : ''}</a>`);
+      mount({ title: 'Մեր հայտարարությունները', tab: 'sections', back: ['#/listam', 'list.am'], sub: ads.length ? `${fmt(ads.length)} հայտարարություն · ${dmy(L.ads_day)}` : '' },
+        page(ads.length ? sec('', group(rows), { foot: 'Կանաչը՝ վերջին 7 օրում ավելացած դիտումները։ Սեղմել՝ բացել list.am-ում։' })
+          : emptyState(I.mega, 'Թվերը դեռ չկան', 'Գործակալը ամեն առավոտ 09:05-ին հավաքում է ամեն հայտարարության թվերը։ Առաջինները կերևան այսօր։')));
       return;
     }
-    const M = c.metrics || {}, hl = M.health || {}, rf = M.refresh || {}, ad = M.ads || {}, ib = M.inbox || {}, mk = M.market || {}, ld = M.leads || {};
-    const off = c.status === 'off', stopD = daysAgo(hl.data_at);
-    // Գործընթաց. թարմ է, եթե վերջին աշխատանքը ավելի նոր է, քան սահմանը (ժամերով)
-    const proc = (icon, color, t, every, at, limitH) => {
-      const ms = at ? Date.now() - new Date(at) : null;
-      const fresh = ms !== null && ms < limitH * 3600e3;
-      const late = ms === null ? 'տվյալ չկա' : ms < 864e5 ? Math.floor(ms / 3600e3) + NB + 'ժ' : Math.floor(ms / 864e5) + NB + 'օր';
-      return cell({ icon, color, t, s: `${every} · վերջինը՝ ${dmyhm(at)}`, v: fresh ? '<span class="tag pos">աշխատում է</span>' : `<span class="tag neg">${late}</span>` });
+    // ── Մեկ մրցակցի քարտերը ──
+    if (arg === 'rival') {
+      const who = decodeURIComponent(hashParts()[3] || '');
+      const mine = rivals.filter((r) => r.seller === who);
+      const rows = mine.map((r) => `<a class="cell" href="${listamItem(r.id)}" target="_blank" rel="noopener"><span class="bd">
+          <span class="nm"><span class="t b">${esc(r.title)}</span>${r.top ? '<span class="tag info">Թոփ</span>' : ''}${r.new ? '<span class="tag pos">նոր</span>' : ''}${r.upd ? '<span class="tag warn">թարմացրել են</span>' : ''}</span>
+          <span class="s">${esc(KIND[r.kind] || '')}${r.shown ? ` · ${esc(r.shown)}` : ''}${r.n7 ? ` · 7 օրում թարմացրել են ${r.n7} անգամ` : ''}</span></span></a>`);
+      mount({ title: esc(who || 'Մրցակից'), tab: 'sections', back: ['#/listam', 'list.am'], sub: `${fmt(mine.length)} հայտարարություն list.am-ում` },
+        page(mine.length ? sec('', group(rows), { foot: 'Սեղմել՝ բացել list.am-ում։' }) : emptyState(I.trophy, 'Քարտեր չկան', 'Այս մրցակցի հայտարարությունները վերջին ստուգման մեջ չկան։')));
+      return;
+    }
+
+    // 1. Տեղադրված / 500 + դիտումներ (7 օրվա աճը՝ միայն իրար հաջորդող օրերից)
+    const live = ad.live || ads.length || 0;
+    const sn = ad.snapshots || [], last = sn[sn.length - 1] || {};
+    const LD = (L.days || []).slice().sort((x, y) => (x.day < y.day ? -1 : 1));
+    const lastD = LD[LD.length - 1] || {};
+    const views = lastD.views != null ? lastD.views : last.views, phone = lastD.phone != null ? lastD.phone : last.phone;
+    const applicants = ads.length ? ads.reduce((t, x) => t + (+x.applicants || 0), 0) : (lastD.applicants != null ? lastD.applicants : last.applicants);
+    const grow = [];
+    for (let i = 1; i < LD.length; i++) if (nextDay(LD[i - 1].day) === LD[i].day && LD[i].views != null && LD[i - 1].views != null) grow.push({ day: LD[i].day, v: Math.max(0, LD[i].views - LD[i - 1].views) });
+    const viewsChart = grow.length ? barChart('lv', grow, 'v', (n) => fmt(n), 'դիտում') : '<p class="none">Գրաֆիկը լցվում է՝ ամեն օր մեկ սյուն</p>';
+    const topN = ads.length ? ads.filter((x) => x.top).length : mk.our_top;
+    // 2. Նամակագրություն. այսօր քանի զրույց + 7 օր
+    const ibMap = {}; (ib.days || []).forEach((d) => { ibMap[d.day] = d.n; });
+    const ib7 = lastDays(7).map((d) => ({ day: d, n: ibMap[d] || 0 }));
+    // 3. Վառոնկա (hayter գործակալի աղյուսակից)
+    const bs = ld.by_status || {};
+    const fRows = [['Գրեցին', ld.total || 0], ['Պատասխանեցինք', (bs.answered || 0) + (bs.phone || 0) + (bs.qualified || 0) + (bs.registered || 0)],
+      ['Հեռախոս տվեցին', (bs.phone || 0) + (bs.qualified || 0) + (bs.registered || 0)], ['Գրանցվեցին', bs.registered || 0]];
+    const f0 = fRows[0][1] || 1;
+    const funnel = `<div class="card fnl">${fRows.map(([t, n], i) => `<div class="fr"><i style="--w:${Math.max(38, Math.round(n / f0 * 100))}%;--k:${i}"><b>${fmt(n)}</b><span>${t}</span></i>${i ? `<em>${pct(n, f0)}%</em>` : ''}</div>`).join('')}</div>`;
+    // 4. Մրցակիցներ. վաճառողներն ըստ հայտարարությունների քանակի + այսօրվա փոփոխությունները
+    const bySeller = {};
+    rivals.forEach((r) => { const k = r.seller || '—'; const g = bySeller[k] || (bySeller[k] = { n: 0, top: 0, upd: 0, n7: 0, nw: 0 }); g.n++; if (r.top) g.top++; if (r.upd) g.upd++; if (r.new) g.nw++; g.n7 += +r.n7 || 0; });
+    const sellers = Object.keys(bySeller).sort((x, y) => bySeller[y].n - bySeller[x].n || bySeller[y].n7 - bySeller[x].n7);
+    const nNew = rivals.filter((r) => r.new).length, nUpd = rivals.filter((r) => r.upd).length, nTopNew = rivals.filter((r) => r.top_new).length;
+    const rivRows = sellers.slice(0, 8).map((k) => { const g = bySeller[k]; return cell({ href: `#/listam/rival/${encodeURIComponent(k)}`, lead: `<span class="av">${esc(String(k).slice(0, 2))}</span>`,
+      t: `<span class="nm"><span class="t b">${esc(k)}</span>${g.top ? `<span class="tag info">Թոփ ${g.top}</span>` : ''}${g.upd ? '<span class="tag warn">թարմացրել են</span>' : ''}</span>`,
+      s: `${fmt(g.n)} հայտարարություն${g.n7 ? ` · ${g.n7} թարմացում 7 օրում` : ''}` }); });
+    const lastPos = (mk.positions || []).slice(-1)[0] || {};
+    // 5. Մանրամասներ. գործընթացները
+    const proc = (icon, color, t, at, limitH) => {
+      const ms = at ? Date.now() - new Date(at) : null, fresh = ms !== null && ms < limitH * 3600e3;
+      return cell({ icon, color, t, s: at ? `վերջինը՝ ${dmyhm(at)}` : 'տվյալ չկա', v: fresh ? '<span class="tag pos">աշխատում է</span>' : '<span class="tag neg">կանգնած</span>' });
     };
-    // Փաթեթ. մնացածը, ժամկետը, ինչքան կայրվի
-    const left = rf.package_left, total = rf.package_total || 500, until = rf.package_until;
-    const dLeft = until ? Math.max(0, Math.ceil((new Date(until) - Date.now()) / 864e5)) : null;
-    const need = dLeft !== null ? (rf.ads_per_day || 17) * dLeft : null;
-    const burn = off ? left : (need !== null && left != null ? Math.max(0, left - need) : null);
-    const pkNote = left == null ? '' : off
-      ? `Գործակալը կանգնած է, թարմացումները չեն ծախսվում. <b class="neg">${fmt(left)}-ը կայրվի ${dmy(until)}-ին</b>, եթե մինչ այդ չաշխատի։`
-      : burn > 0 ? `Օրական ${rf.ads_per_day || 17}-ով մինչև ${dmy(until)} կծախսվի ${fmt(need)}, կմնա ${fmt(burn)}։` : `Կբավականացնի մինչև ${dmy(until)}։`;
-    // Գովազդներ. վերջին երկու պահի տարբերությունը
-    const sn = ad.snapshots || [], s1 = sn[sn.length - 1] || {}, s0 = sn[sn.length - 2] || {};
-    const plus = (a, b) => (a != null && b != null) ? `+${fmt(a - b)} ${dmy(s0.day)}-ից` : '';
-    const lg = ib.lang || {};
-    const fn = ld.funnel || {}, bs = ld.by_status || {};
-    const posAll = mk.positions || [];
-    const posRows = posAll.slice().reverse().map((p) => cell({ t: dmy(p.day), s: p.in200 ? `Առաջին 100-ում՝ ${p.in100} · լավագույնը՝ #${p.best}` : 'Առաջին 200-ում չկանք', v: fmt(p.in200), strong: true }));
-    const lastPos = posAll[posAll.length - 1] || {};
-    const sub = off ? `<span class="dot bad"></span>Գործակալը կանգնած է ${stopD}${NB}օր` : '<span class="dot ok"></span>list գործակալ · Կոմպ 2';
+    const off = c.status === 'off';
+    const sub = off ? `<span class="dot bad"></span>Գործակալը կանգնած է ${daysAgo(hl.data_at)}${NB}օր` : `<span class="dot ok"></span>թարմ՝ ${ago(c.updated_at)}`;
     mount({ title: 'list.am', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(`
-      ${off ? sec('', `<div class="err"><b>Գործակալը ${dmy(hl.data_at)}-ից չի աշխատում</b><p>Նամակներին և դիմորդներին չի պատասխանվում, գովազդները չեն բարձրանում, մրցակիցները չեն ստուգվում։ Պատճառը՝ Կոմպ 2-ը (նոութբուքը) կապ չունի. պետք է միացնել այն և բացել Chrome-ը։</p></div>`) : ''}
-      ${sec('Գործընթացներ', group([
-        proc(I.chat, 'b', 'Նամակներ և դիմորդներ', 'ամեն 10 րոպե', ib.last_at, 2),
-        proc(I.refresh, 'g', 'Գովազդների թարմացում', 'օրը 6 անգամ', rf.last_at, 13),
-        proc(I.trophy, 'o', 'Մրցակիցների ստուգում', 'ամեն օր 09:00', mk.generated, 26),
-        proc(I.userplus, 'p', 'Հայտերի աղյուսակ', 'ամեն օր', ld.updated_at, 26),
-      ], 'ic'), { foot: `Աջում՝ քանի օր է գործընթացը կանգնած։ Վահանակը թարմացվում է ժամը մեկ, վերջինը՝ ${ago(c.updated_at)}։` })}
-      ${left != null ? sec('Թարմացման փաթեթ', `<div class="card">
-        <div class="hero"><span class="n">${fmt(left)}</span><span class="u">/ ${fmt(total)} թարմացում մնաց</span></div>
-        <div class="prog y"><span style="width:${Math.min(100, pct(left, total))}%"></span></div>
-        <p class="meta">Ժամկետը՝ ${dmy(until)}${dLeft !== null ? ` (${dLeft}${NB}օր)` : ''}։ ${pkNote}</p>
-      </div>`, { foot: ad.wallet ? `Դրամապանակ՝ ${amd(ad.wallet)} (փաթեթը գնելուց հետո)։` : '' }) : ''}
-      ${sec('Հայտեր list.am-ից', group([
-        cell({ t: 'Գրեցին վերջին 30 օրում', v: fmt(fn.leads30), strong: true, s: fn.day ? `7 օրում՝ ${fmt(fn.leads7)}` : '' }),
-        cell({ t: 'Հեռախոս տվեցին', v: fmt(bs.phone || 0), strong: true, s: 'Սպասում են զանգի' }),
-        cell({ t: 'Գրանցվեցին Fleet-ում', v: fmt(fn.registered30 != null ? fn.registered30 : (bs.registered || 0)), strong: true, s: '30 օրում' }),
-        cell({ t: 'Կորած', v: fmt(bs.lost || 0), strong: true, s: `Ընդամենը ${fmt(ld.total)} հայտից` }),
-      ]), { foot: `hayter գործակալի աղյուսակից, թարմացվել է ${dmyhm(ld.updated_at)}։` })}
-      ${sec('Նամակներ', `<div class="kpis">
-        ${kpi('Պատասխան 7 օրում', fmt(ib.d7), '')}
-        ${kpi('Պատասխան 30 օրում', fmt(ib.d30), '')}
-      </div>` + group([
-        cell({ t: 'Հարց քեզ', s: 'Պատասխանը գիտի միայն տերը. վճար, վարձակալություն, բնակարան և այլն', v: fmt(ib.open_questions), strong: true }),
-        cell({ t: 'Դիմորդներ', s: 'Աշխատանքի հայտ list.am-ով', v: fmt(ib.applicants), strong: true }),
-        cell({ t: 'Նամակագրություններ', s: `Անգլ.՝ ${fmt(lg.en || 0)} · ռուս.՝ ${fmt(lg.ru || 0)} · հայ.՝ ${fmt(lg.hy || 0)}`, v: fmt(ib.threads), strong: true }),
-        cell({ t: 'Թեժ հայտեր', s: 'Պատրաստ են գրանցվելու', v: fmt(ib.hot), strong: true }),
-      ]), { foot: `Վերջին պատասխանը՝ ${dmyhm(ib.last_at)}։` })}
-      ${sec('Գովազդներ', `<div class="kpis">
-        ${kpi('Դիտում', fmt(s1.views), plus(s1.views, s0.views))}
-        ${kpi('Զանգի սեղմում', fmt(s1.phone), plus(s1.phone, s0.phone))}
-      </div>` + group([
-        cell({ t: 'Ակտիվ գովազդ', s: ad.valid_to ? `Գործում են մինչև ${esc(ad.valid_to)}` : '', v: fmt(ad.live), strong: true }),
-      ]), { foot: `Բոլոր գովազդների գումարը, ${dmy(s1.day)}-ի դրությամբ։${s0.applicants != null ? ` Դիմորդներ՝ ${fmt(s0.applicants)} (${dmy(s0.day)})։` : ''}` })}
+      ${off ? `<div class="err"><b>Գործակալը ${dmy(hl.data_at)}-ից չի աշխատում</b></div>` : ''}
+      <div class="card hc">
+        <div class="lab"><span>Տեղադրված հայտարարություններ</span><span class="aux">նպատակ՝ ${fmt(LISTAM_GOAL)}</span></div>
+        <div class="val"><span data-n="${live}">${fmt(live)}</span><small>/ ${fmt(LISTAM_GOAL)}</small></div>
+        <div class="prog y"><span style="width:${Math.min(100, live / LISTAM_GOAL * 100)}%"></span></div>
+        <div class="d14">
+          <div class="d14-h"><span>Ընդհանուր դիտում</span><b data-n="${views || 0}">${fmt(views)}</b></div>
+          ${viewsChart}
+        </div>
+      </div>
+      <div class="kpis">
+        ${kpi('Զանգի սեղմում', fmt(phone), '')}
+        ${kpi('Դիմորդներ', fmt(applicants), '')}
+        ${kpi('Թոփ-ում', fmt(topN), '')}
+        ${kpi('Թարմացում մնաց', fmt(rf.package_left), rf.package_until ? `մինչև ${dmy(rf.package_until)}` : '')}
+      </div>
+      <a class="btn pri full" href="#/listam/ads">${I.mega} Բոլոր հայտարարությունները${ads.length ? ` · ${fmt(ads.length)}` : ''}</a>
+      ${sec('Նամակագրություն', `<div class="card">
+        <div class="hero"><span class="n" data-n="${ibMap[today()] || 0}">${fmt(ibMap[today()] || 0)}</span><span class="u">զրույց այսօր</span></div>
+        ${barChart('lm', ib7, 'n', (n) => fmt(n), 'զրույց')}
+      </div>
+      <div class="kpis k3">
+        ${kpi('Թեժ հայտ', fmt(ib.hot), '')}
+        ${kpi('Հարց քեզ', fmt(ib.open_questions), '')}
+        ${kpi('Դիմորդ', fmt(ib.applicants), '')}
+      </div>`)}
+      ${sec('Ինչ գովազդենք', `<a class="btn pri full" href="#/garik?ask=${encodeURIComponent(ASK_PROMO)}">${I.star} GTH, առաջարկիր</a>`
+        + ((pr.data || []).length ? group((pr.data || []).map((t) => cell({ href: '#/tasks', icon: I.trophy, color: 'o', t: esc(t.title), v: t.cost ? `<span class="tag warn">${esc(t.cost)}</span>` : '' })), 'ic') : ''))}
+      ${sec('Վառոնկա', funnel)}
       ${sec('Մրցակիցներ', `<div class="kpis">
-        ${kpi('Yandex-ի գովազդ', fmt(mk.yandex_ads), `${fmt(mk.sellers)} վաճառողից`)}
-        ${kpi('Մեր լավագույն տեղը', lastPos.best ? '#' + lastPos.best : '—', `${fmt(lastPos.in100)}-ը առաջին 100-ում`)}
-      </div>` + group([
-        cell({ t: 'Թոփ-ում են', s: `Մրցակիցներ՝ ${fmt(mk.rival_top)}, մենք՝ ${fmt(mk.our_top)}`, v: fmt(mk.rival_top), strong: true }),
-      ].concat(posRows)), { foot: `Ըստ օրերի՝ մեր գովազդների տեղը list.am-ի ցուցակում, աջում՝ քանիսն են առաջին 200-ում։ Ստուգումը՝ ${dmyhm(mk.generated)}։` })}
+        ${kpi('Yandex-ի գովազդ', fmt(mk.yandex_ads), `${fmt(mk.sellers)} մրցակից`)}
+        ${kpi('Մեր լավագույն տեղը', lastPos.best ? '#' + lastPos.best : '—', 'ցուցակում')}
+      </div>`
+        + (rivals.length ? `<div class="chips">${[[nUpd, 'թարմացրել են', 'warn'], [nNew, 'նոր', 'pos'], [nTopNew, 'նոր Թոփ', 'info']].map(([n, t]) => `<span class="chip">${fmt(n)} ${t}</span>`).join('')}</div>` + group(rivRows, 'avs')
+          : '<p class="none">Քարտերը կերևան մրցակիցների հաջորդ ստուգումից հետո</p>'), { foot: rivals.length ? `Ստուգումը՝ ${dmy(L.rivals_day)}${L.rivals_prev ? `, համեմատած ${dmy(L.rivals_prev)}-ի հետ` : ''}։` : '' })}
+      ${sec('Մանրամասներ', group([
+        proc(I.chat, 'b', 'Նամակներին պատասխան', ib.last_at, 2),
+        proc(I.refresh, 'g', 'Հայտարարությունների թարմացում', rf.last_at, 13),
+        proc(I.trophy, 'o', 'Մրցակիցների ստուգում', mk.generated, 26),
+        proc(I.userplus, 'p', 'Հայտերի աղյուսակ', ld.updated_at, 26),
+      ], 'ic'))}
     `));
   });
 
@@ -1093,6 +1140,7 @@
     lastTab = 'garik';
     clearTimeout(chatPoll);
     try { localStorage.removeItem('hw_chat'); } catch (e) {}
+    const askQ = new URLSearchParams((location.hash.split('?')[1]) || '').get('ask');
     const [h, st, as, gc] = await Promise.all([rpc('app_home'), garikState(), assistantNow(), gthCards()]);
     const w = h.week;
     const pc = st.mode === 'pc', on = !pc || runnerOn(as.runner);
@@ -1204,6 +1252,8 @@
     q.addEventListener('focus', () => setTimeout(down, 300));
     app.querySelectorAll('#sugg button').forEach((c) => c.onclick = () => ask(c.dataset.q));
     document.getElementById('clear').onclick = async () => { if (confirm('Մաքրե՞լ զրույցը։')) { clearTimeout(chatPoll); await sb.rpc('app_assistant_clear'); render(); } };
+    // այլ բաժնից եկած հարցը (#/garik?ask=…). մեկ անգամ, հասցեից հանելով, որ թարմացնելիս չկրկնվի
+    if (askQ) { history.replaceState(null, '', '#/garik'); ask(askQ).then(down); }
   });
 
   // ───────── Կարգավորումներ ─────────

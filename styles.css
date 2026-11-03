@@ -262,6 +262,16 @@ a.card:active { transform: scale(.98); transition-duration: .08s; }
 .gcell .nv.warn { color: var(--warn); } .gcell .nv.neg { color: var(--neg); }
 .gcell .badge { top: 8px; left: auto; right: 10px; }
 
+/* list.am-ի վառոնկան. կենտրոնացված, նեղացող շերտեր, աջում՝ առաջին քայլից քանի %-ն է հասել */
+.fnl { gap: 8px; padding: 16px; }
+.fnl .fr { position: relative; display: flex; justify-content: center; }
+.fnl i { width: var(--w); min-height: 46px; padding: 6px 12px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-style: normal;
+  background: linear-gradient(90deg, var(--btn), var(--btn-on)); color: var(--on-btn); text-align: center; animation: fnl .7s var(--spring) both; animation-delay: calc(var(--k) * 90ms + .1s); }
+.fnl i b { font-size: 18px; line-height: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fnl i span { font-size: 12px; line-height: 15px; opacity: .85; }
+.fnl .fr:last-child i { background: var(--pos-bg); color: var(--pos); }
+.fnl em { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; font-weight: 600; color: var(--text3); font-variant-numeric: tabular-nums; }
+@keyframes fnl { from { opacity: 0; transform: scaleX(.6); } }
 /* ───────── Սյունակային գրաֆիկ (բաժիններում) ───────── */
 .chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 6px; align-items: end; height: 128px; padding-top: 18px; }
 .chart .c { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; height: 100%; position: relative; cursor: pointer; }
