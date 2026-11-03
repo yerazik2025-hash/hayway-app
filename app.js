@@ -102,8 +102,8 @@
   let chatBack = '#/';
   function tabbar() {
     const s = hashParts()[1] || '';
-    return `<nav class="dock"><div class="strip"><div class="track"><i class="glass" aria-hidden="true"></i>${DOCK.map(([k, ic, l]) => `<a class="tab${k === s ? ' on' : ''}" href="#/${k}" draggable="false"><span class="ic">${ic}${!k && pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</span><span>${l}</span></a>`).join('')}</div></div>
-      <a class="gthb" href="#/garik" aria-label="Գարիկ՝ GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span></a></nav>`;
+    return `<nav class="dock"><div class="strip"><div class="track"><i class="glass" aria-hidden="true"></i>${DOCK.map(([k, ic, l]) => `<a class="tab${k === s ? ' on' : ''}" href="#/${k}" draggable="false"><span class="ic">${ic}</span><span>${l}</span></a>`).join('')}</div></div>
+      <a class="gthb" href="#/garik" aria-label="Գարիկ՝ GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span>${pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</a></nav>`;
   }
   // o: { title, sub, tab, back:[href,label], right, compact, after }
   function frame(o, body) {
@@ -161,6 +161,7 @@
       nd.replaceWith(keep);
       const fresh = [...nd.querySelectorAll('.tab')];
       keep.querySelectorAll('.tab').forEach((t, i) => { t.classList.toggle('on', fresh[i].classList.contains('on')); t.querySelector('.ic').innerHTML = fresh[i].querySelector('.ic').innerHTML; });
+      keep.querySelector('.gthb').innerHTML = nd.querySelector('.gthb').innerHTML;
       const tr = keep.querySelector('.track'), on = tr.querySelector('.tab.on');
       if (on) reveal(tr, on, true);
       glassPlace(tr, on, true);
@@ -456,15 +457,10 @@
   // ───────── Գլխավոր (պարզ. այսօր անել · 4 թիվ · 1000-ի նպատակը) ─────────
   route('/', async () => {
     lastTab = 'home';
-    const [h, notes, tr, qs, nts] = await Promise.all([
-      rpc('app_home'), rpc('app_notes'),
-      sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
-      rpc('app_questions').catch(() => null),
-      sb.rpc('app_notices').then((r) => r.data || [], () => []),
-      sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
-    ]).then((a) => { tgState = a[5]; return a; });
-    const tasks = tr.data || [];
-    pendingCount = tasks.length;
+    // 03.11, Գարիկ. «հավելվածը բացելուց միանգամից երևա ֆինանսական կտորը» → Գլխավորը սկսվում է եկամտով;
+    // «Այո»-ն, հիշեցումները, «Հարց ձեզ»-ը ու ծանուցումների միացումը՝ GTH էջում (gthCards), թիվը՝ GTH կոճակի վրա
+    const [h, notes] = await Promise.all([rpc('app_home'), rpc('app_notes')]);
+    pendingCount = h.tasks_pending || 0;
     const w = h.week;
     // Համեմատում ենք միայն լրիվ օրերը (առանց այսօրվա). վերջին 7-ը՝ նախորդ 7-ի հետ
     const full = (h.days || []).filter((d) => d.day < today());
@@ -476,11 +472,6 @@
     const fresh = notes && notes.drivers_synced_at && (Date.now() - new Date(notes.drivers_synced_at)) < 3 * 3600e3;
     const active = h.active_30d || 0;
     const vsWeek = (cur, prev) => { if (!prev) return ''; const d = Math.round((cur - prev) / prev * 100); if (!d) return '<span class="delta mut">նույնը, ինչ նախորդ 7 օրը</span>'; return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '▲' : '▼'}${NB}${Math.abs(d)}%</span> <span class="mut">նախորդ 7 օրից</span>`; };
-    // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ ամենավերևում, թիվը՝ նաև ներքևի «Այսօր»-ի վրա
-    const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
-    if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
-    const apr = tasks.length ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length}</span></a>${todo.join('')}</div>`
-      : group([cell({ icon: I.tasks, color: 'g', t: 'Այսօր նոր գործ չկա', s: 'Գործակալները ստուգում են ամեն առավոտ 08:30-ին' })], 'ic');
     // Գլխավոր թիվը՝ պարկի եկամուտը 7 օրում + վերջին 14 օրը ըստ օրերի (Դավիթի АРОМАТИКА-ի պես). սեղմել օրը → այդ օրվա թվերը
     const d14 = (h.days || []).slice(-14);
     const max14 = Math.max(1, ...d14.map((d) => +d.commission || 0));
@@ -497,25 +488,7 @@
           <div class="dayh" id="d14d"></div>
         </div>` : ''}
       </div>`;
-    const hasQ = qs && qs.open && qs.open.length;
-    // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
-    const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
-        <p>${esc(n.text)}</p><button type="button" class="btn sm gray" data-seen="${n.id}">Լավ</button></div>`).join('')}</div>`) : '';
-    // Գարիկի ծանուցումները. նախ՝ հենց հավելվածում (push), իսկ եթե հեռախոսը չի կարող՝ Telegram (db\0013). «Հետո»-ն թաքցնում է 7 օրով
-    let tgLater = 0; try { tgLater = +localStorage.getItem('hw_tg_later') || 0; } catch (e) {}
-    const ps = await pushState();
-    const tgCard = Date.now() <= tgLater || ps.on || tgState.linked ? ''
-      : ps.ok && !ps.denied ? sec('', `<div class="card tgcard">
-        <p><b>Գարիկի ծանուցումները՝ այս հեռախոսում</b><br><span class="meta">Երբ Գարիկը պատասխանի, հիշեցնի կամ «Կատարե՞մ» քարտ պատրաստի, հեռախոսը ձեզ կտեղեկացնի։</span></p>
-        <div class="act-b"><button type="button" class="btn pri sm" data-pushon>Միացնել ծանուցումները</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`)
-      : tgState.username ? sec('', `<div class="card tgcard">
-        <p><b>Գարիկի պատասխանները՝ Telegram-ում</b><br><span class="meta">Հիշեցումներն ու «Կատարե՞մ» քարտերը կգան Telegram-ում, «Այո»-ն կարող եք սեղմել հենց այնտեղ։</span></p>
-        <div class="act-b"><button type="button" class="btn pri sm" data-tglink>Միացնել Telegram-ը</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`) : '';
     mount({ title: 'Այսօր', tab: 'home' }, page(`
-      ${notice}
-      ${hasQ ? '<section class="sec" id="qa"></section>' : ''}
-      ${apr}
-      ${tgCard}
       ${hc}
       ${sec('Վերջին 7 օր', `<div class="kpis">
         ${fresh ? kpi('Հիմա աշխատում են', fmt(h.online.total), `${fmt(h.online.on_order)}-ը պատվերի վրա`, '#/drivers/active')
@@ -531,19 +504,53 @@
       </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ «Բոլորը»-ում։' })}
     `));
     if (d14.length) bindDays(d14);
-    if (hasQ) questionCard(document.getElementById('qa'), qs);
-    bindTg();
-    bindPush();
-    const later = app.querySelector('[data-tglater]');
-    if (later) later.onclick = () => { try { localStorage.setItem('hw_tg_later', String(Date.now() + 7 * 864e5)); } catch (e) {} later.closest('.sec').remove(); };
-    app.querySelectorAll('[data-seen]').forEach((b) => b.onclick = async () => {
-      b.disabled = true;
-      await sb.rpc('app_notice_seen', { p_id: +b.dataset.seen });
-      const row = b.closest('.nrow'), list = row.parentElement;
-      row.remove();
-      if (!list.children.length) list.closest('.sec').remove();
-    });
   });
+
+  // ───────── GTH էջի (օգնականի) քարտերը (03.11, Գարիկ. «այս բաժինները թող լինեն իր AI օգնականի, այսինքն GTH բաժնում») ─────────
+  // «Սպասում է «Այո»-ի», Գարիկի հիշեցումները, «Հարց ձեզ», ծանուցումների միացում. նախկինում Գլխավորում էին
+  async function gthCards() {
+    const [tr, qs, nts] = await Promise.all([
+      sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
+      rpc('app_questions').catch(() => null),
+      sb.rpc('app_notices').then((r) => r.data || [], () => []),
+      sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
+    ]).then((a) => { tgState = a[3]; return a; });
+    const tasks = tr.data || [];
+    pendingCount = tasks.length;
+    // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ GTH էջի վերևում, թիվը՝ GTH կոճակի վրա
+    const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
+    if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
+    const apr = tasks.length ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length}</span></a>${todo.join('')}</div>` : '';
+    const hasQ = qs && qs.open && qs.open.length;
+    // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
+    const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
+        <p>${esc(n.text)}</p><button type="button" class="btn sm gray" data-seen="${n.id}">Լավ</button></div>`).join('')}</div>`) : '';
+    // Գարիկի ծանուցումները. նախ՝ հենց հավելվածում (push), իսկ եթե հեռախոսը չի կարող՝ Telegram (db\0013). «Հետո»-ն թաքցնում է 7 օրով
+    let tgLater = 0; try { tgLater = +localStorage.getItem('hw_tg_later') || 0; } catch (e) {}
+    const ps = await pushState();
+    const tgCard = Date.now() <= tgLater || ps.on || tgState.linked ? ''
+      : ps.ok && !ps.denied ? sec('', `<div class="card tgcard">
+        <p><b>Գարիկի ծանուցումները՝ այս հեռախոսում</b><br><span class="meta">Երբ Գարիկը պատասխանի, հիշեցնի կամ «Կատարե՞մ» քարտ պատրաստի, հեռախոսը ձեզ կտեղեկացնի։</span></p>
+        <div class="act-b"><button type="button" class="btn pri sm" data-pushon>Միացնել ծանուցումները</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`)
+      : tgState.username ? sec('', `<div class="card tgcard">
+        <p><b>Գարիկի պատասխանները՝ Telegram-ում</b><br><span class="meta">Հիշեցումներն ու «Կատարե՞մ» քարտերը կգան Telegram-ում, «Այո»-ն կարող եք սեղմել հենց այնտեղ։</span></p>
+        <div class="act-b"><button type="button" class="btn pri sm" data-tglink>Միացնել Telegram-ը</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`) : '';
+    const html = `${notice}${hasQ ? '<section class="sec" id="qa"></section>' : ''}${apr}${tgCard}`;
+    return { html, any: !!(notice || hasQ || apr || tgCard), bind() {
+      if (hasQ) questionCard(document.getElementById('qa'), qs);
+      bindTg();
+      bindPush();
+      const later = app.querySelector('[data-tglater]');
+      if (later) later.onclick = () => { try { localStorage.setItem('hw_tg_later', String(Date.now() + 7 * 864e5)); } catch (e) {} later.closest('.sec').remove(); };
+      app.querySelectorAll('[data-seen]').forEach((b) => b.onclick = async () => {
+        b.disabled = true;
+        await sb.rpc('app_notice_seen', { p_id: +b.dataset.seen });
+        const row = b.closest('.nrow'), list = row.parentElement;
+        row.remove();
+        if (!list.children.length) list.closest('.sec').remove();
+      });
+    } };
+  }
 
   // ───────── «Հարց ձեզ» (db\0009_owner_questions.sql). մեկ հարց միանգամից, կոճակներով ─────────
   const OTHER = 'Ուրիշ';
@@ -1085,8 +1092,7 @@
     lastTab = 'garik';
     clearTimeout(chatPoll);
     try { localStorage.removeItem('hw_chat'); } catch (e) {}
-    const [h, st, as] = await Promise.all([rpc('app_home'), garikState(), assistantNow()]);
-    pendingCount = h.tasks_pending || 0;
+    const [h, st, as, gc] = await Promise.all([rpc('app_home'), garikState(), assistantNow(), gthCards()]);
     const w = h.week;
     const pc = st.mode === 'pc', on = !pc || runnerOn(as.runner);
     const offNote = !st.ok ? '\n\nԳարիկը հիմա կապ չունի, փորձիր մի քիչ հետո։'
@@ -1130,7 +1136,7 @@
     const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true,
       right: `<button class="ibtn" id="clear" aria-label="Մաքրել զրույցը">${I.trash}</button>`,
       after: `<div class="composer"><textarea id="q" rows="1" placeholder="${st.ok ? 'Հարցրու Գարիկին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button></div>` },
-      `<div class="chat" id="chat">${bubble('ai', hello)}<div class="chat" id="thread" style="padding:0">${thread(msgs)}</div>${msgs.length ? '' : sugg}</div>`);
+      `${gc.html ? `<div class="page gthc">${gc.html}</div>` : ''}<div class="chat" id="chat">${bubble('ai', hello)}<div class="chat" id="thread" style="padding:0">${thread(msgs)}</div>${msgs.length ? '' : sugg}</div>`);
     const q = document.getElementById('q'), send = document.getElementById('send'), threadEl = document.getElementById('thread');
     const down = () => { sc.scrollTop = sc.scrollHeight; };
     const paint = () => { threadEl.innerHTML = thread(msgs); down(); };
@@ -1172,7 +1178,9 @@
         poll();
       }, 5000);
     };
-    down();
+    gc.bind();
+    // «Այո» սպասող բան կա՝ էջը բացվում է վերևից (քարտերով), չկա՝ զրույցի վերջից
+    if (!gc.any) down();
     poll();
     async function ask(text) {
       text = String(text || '').trim(); if (!text || busy || !st.ok) return;
