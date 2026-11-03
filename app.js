@@ -992,6 +992,7 @@
         case 'remind': return `Կհիշեցնեմ ${r.at ? dayHm(r.at) : ''}`;
         case 'watch': return `Հսկում եմ${r.now != null ? ` (հիմա՝ ${fmt(r.now)})` : ''}`;
         case 'remember': return 'Հիշեցի';
+        case 'listam_top': case 'listam_package': return `Հերթում է (${fmt(r.price || 0)} ֏). list.am-ը կանի 10–20 րոպեում`;
         default: return 'Արված է';
       }
     };
