@@ -246,7 +246,7 @@ a.card:active { transform: scale(.98); transition-duration: .08s; }
 .dayh b { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ───────── Գլխավորի վահանակ (db\0025). ժամկետ՝ 7/14/30 օր կամ ամիսներ; սյան առջևում՝ մաքուրը, ետևում՝ շրջանառությունը (ծախսերից առաջ) ───────── */
-.pseg { margin-bottom: 4px; }
+.seg.pseg { margin-bottom: 4px; grid-auto-columns: minmax(max-content, 1fr); }
 .bars.dash > i { position: relative; height: 100%; min-height: 0; background: none; border-radius: 0; }
 .bars.dash > i::before, .bars.dash > i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; border-radius: 5px 5px 2px 2px; transform-origin: bottom; }
 .bars.dash > i::before { height: var(--g); background: var(--fill2); }
