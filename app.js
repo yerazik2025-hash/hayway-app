@@ -535,7 +535,7 @@
     ]).then((a) => { tgState = a[3]; reelsW = ((a[4] && a[4].reels) || []).filter((r) => r.status === 'ready').reverse(); waP = ((a[5] && a[5].pending) || []).length; return a; });
     const tasks = tr.data || [];
     pendingCount = tasks.length;
-    // նոր ռիլ, որ սպասում է տիրոջ «Հրապարակել»-ին (db1)
+    // նոր ռիլ, որ սպասում է տիրոջ «Հրապարակել»-ին (db\0021)
     const reelCell = reelsW.length ? cell({ href: '#/reels', icon: I.film, color: 'p', t: `Նոր ռիլ #${reelsW[0].n}՝ դիտեք`, s: 'Հրապարակել կամ փոխել' }) : '';
     // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ GTH էջի վերևում, թիվը՝ GTH կոճակի վրա
     const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
@@ -1132,8 +1132,8 @@
     };
   });
 
-  // Ձայնով (Գարիկ 03.11. «որ կարողանա նաև խոսալով բացատրել ինչ է պետք»). սեղմել → խոսել → «Կանգնեցնել» → ձայնը պահվում է Storage «reels/voice»,
-  // HayWay-ի համակարգիչը (reels-run.ps1) այն դարձնում է տեքստ, ու հաջորդ ռիլի սցենարը կարդում է
+  // Ձայնով կարծիք ռիլի մասին՝ գրելու փոխարեն (Գարիկ 03.11. «գրելու տեղը պարզապես խոսքով ասվեր մեկնաբանությունը հոլովակի վերաբերյալ, ոչ գրավոր»).
+  // սեղմել → խոսել → «Կանգնեցնել» → ձայնը պահվում է Storage «reels/voice»; տեքստը միայն գործարանի համար է (reels-run.ps1), տիրոջը ցույց չի տրվում
   const voiceBox = (id) => `<div class="vbox" id="${id}"><button type="button" class="btn gray full" data-rec>${I.mic} Ասել ձայնով</button>
       <div class="vdone" hidden><audio controls preload="metadata"></audio><button type="button" class="btn sm gray" data-vdel>Ջնջել</button></div></div>`;
   function bindVoice(id, msg) {
@@ -1170,9 +1170,9 @@
     done.querySelector('[data-vdel]').onclick = () => { st.path = null; au.removeAttribute('src'); done.hidden = true; btn.hidden = false; };
     return { path: () => st.path, busy: () => st.busy || !!st.rec };
   }
-  // արդեն ասված ձայնային կարծիքները՝ լսել + տեքստը (երբ պատրաստ է)
+  // արդեն ասված ձայնային կարծիքները՝ լսելու համար
   const voiceList = (items, urls) => (items || []).filter((v) => v.path && urls[v.path]).map((v) => `<div class="vnote"><audio controls preload="none" src="${esc(urls[v.path])}"></audio>
-      <p class="meta">${v.text ? esc(v.text) : 'Տեքստը պատրաստվում է…'}</p></div>`).join('');
+      <p class="meta">Ձեր ձայնային կարծիքը · ${dmy(v.at)}</p></div>`).join('');
 
   // «Օրինակներ» (Գարիկ 03.11). տերը դնում է դուր եկած ռիլ՝ վիդեո հեռախոսից կամ հղում, և գրում՝ ինչ վերցնել; հաջորդ ռիլերը կարդում են դրանք
   const reelRefsSec = (refs, urls) => sec('Օրինակներ', `<div class="card">
@@ -1180,23 +1180,19 @@
       <input class="in" id="rf-url" type="url" inputmode="url" autocomplete="off" placeholder="TikTok կամ Instagram հղում">
       <label class="btn gray full" for="rf-file" id="rf-pick">${I.film} Ընտրել վիդեո</label><input id="rf-file" type="file" accept="video/*,image/*" hidden>
       <textarea class="in qtext" id="rf-note" rows="2" placeholder="Ինչն է դուր գալիս"></textarea>
-      ${voiceBox('rf-voice')}
       <button type="button" class="btn pri full" id="rf-send">Ավելացնել</button>
       <p class="msgline" id="rf-msg"></p>
-    </div>${refs.length ? `<div style="margin-top:8px">${group(refs.map((f) => cell({ icon: f.kind === 'video' ? I.film : f.kind === 'voice' ? I.mic : I.link, color: 'p',
-      t: f.note ? esc(f.note) : f.voice_text ? esc(f.voice_text) : f.kind === 'voice' ? 'Ձայնով բացատրություն' : 'Առանց նշման', s: `${dmy(f.created_at)} · ${f.used_in ? 'օգտագործված ռիլ #' + f.used_in : 'դեռ չի օգտագործվել'}${f.learned ? ' · ' + esc(f.learned) : ''}`,
-      extra: `${f.voice && urls[f.voice] ? voiceList([{ path: f.voice, text: f.note ? f.voice_text : '' }], urls) : ''}<span class="act-b" style="margin-top:8px">${(f.kind === 'video' ? urls[f.path] : f.url) ? `<a class="btn sm gray" href="${esc(f.kind === 'video' ? urls[f.path] : f.url)}" target="_blank" rel="noopener">Բացել</a>` : ''}<button type="button" class="btn sm gray" data-rfhide="${f.id}">Հանել</button></span>` })))}</div>` : ''}`,
+    </div>${refs.length ? `<div style="margin-top:8px">${group(refs.map((f) => cell({ icon: f.kind === 'video' ? I.film : I.link, color: 'p',
+      t: f.note ? esc(f.note) : 'Առանց նշման', s: `${dmy(f.created_at)} · ${f.used_in ? 'օգտագործված ռիլ #' + f.used_in : 'դեռ չի օգտագործվել'}${f.learned ? ' · ' + esc(f.learned) : ''}`,
+      extra: `<span class="act-b" style="margin-top:8px">${(f.kind === 'video' ? urls[f.path] : f.url) ? `<a class="btn sm gray" href="${esc(f.kind === 'video' ? urls[f.path] : f.url)}" target="_blank" rel="noopener">Բացել</a>` : ''}<button type="button" class="btn sm gray" data-rfhide="${f.id}">Հանել</button></span>` })))}</div>` : ''}`,
     { foot: 'Հաջորդ ռիլերը կվերցնեն դրանցից այն, ինչ նշել եք։' });
   function bindReelRefs() {
     const file = document.getElementById('rf-file'), pick = document.getElementById('rf-pick'), msg = document.getElementById('rf-msg'), send = document.getElementById('rf-send');
     if (!send) return;
-    const vo = bindVoice('rf-voice', msg);
     file.onchange = () => { const f = file.files[0]; if (f) pick.textContent = `${f.name} · ${fmt(f.size / 1048576, 1)} ՄԲ`; };
     send.onclick = async () => {
       const f = file.files[0], url = document.getElementById('rf-url').value.trim(), note = document.getElementById('rf-note').value.trim();
-      if (vo.busy()) { msg.textContent = 'Նախ կանգնեցրեք ձայնագրությունը'; return; }
-      const voice = vo.path();
-      if (!f && !url && !voice) { msg.textContent = 'Ընտրեք վիդեո, դրեք հղում կամ ասեք ձայնով'; return; }
+      if (!f && !url) { msg.textContent = 'Ընտրեք վիդեո կամ դրեք հղում'; return; }
       if (url && !/^https?:\/\//i.test(url)) { msg.textContent = 'Հղումը պետք է սկսվի https://-ով'; return; }
       if (f && f.size > 50 * 1048576) { msg.textContent = 'Վիդեոն 50 ՄԲ-ից մեծ է. դրեք հղումը'; return; }
       send.disabled = true; msg.textContent = f ? 'Բեռնվում է…' : '';
@@ -1207,7 +1203,7 @@
         const up = await sb.storage.from('reels').upload(path, f, { contentType: f.type || 'video/mp4', upsert: false });
         if (up.error) { msg.textContent = 'Վիդեոն չբեռնվեց, փորձեք նորից'; send.disabled = false; return; }
       }
-      const { error } = await sb.rpc('app_reel_ref_add', { p_kind: f ? 'video' : url ? 'link' : 'voice', p_path: path, p_url: url || null, p_note: note || null, p_voice: voice });
+      const { error } = await sb.rpc('app_reel_ref_add', { p_kind: f ? 'video' : 'link', p_path: path, p_url: url || null, p_note: note || null });
       if (error) { msg.textContent = 'Չստացվեց, փորձեք նորից'; send.disabled = false; return; }
       invalidate(); render();
     };
@@ -1227,7 +1223,7 @@
       paths = paths.filter(Boolean);
       try { const { data } = paths.length ? await sb.storage.from('reels').createSignedUrls(paths, 3 * 3600) : { data: [] }; (data || []).forEach((x) => { urls[x.path] = x.signedUrl; }); } catch (e) {}
     };
-    const refPaths = [...refs.filter((f) => f.kind === 'video').map((f) => f.path), ...refs.map((f) => f.voice)];
+    const refPaths = refs.filter((f) => f.kind === 'video').map((f) => f.path);
     if (!list.length) {
       await signAll(refPaths);
       mount({ title: 'Ռիլեր', tab: 'sections', back, sub }, page(emptyState(I.film, 'Առաջին ռիլը պատրաստվում է',
@@ -1258,12 +1254,12 @@
         : r.status === 'failed' ? esc(r.note || 'Հրապարակումը չստացվեց, նորից կփորձենք։') : '' })}
       ${sec(open ? 'Ձեր կարծիքը' : 'Կարծիք հաջորդ ռիլի համար', `<div class="card">
         ${voiceList(r.voice, urls)}
-        <textarea class="in qtext" id="rc" rows="3" placeholder="${open ? 'Ի՞նչ դուր եկավ, ի՞նչ փոխել' : 'Ի՞նչ դուր եկավ, ի՞նչ անել հաջորդում'}">${esc(r.comment || '')}</textarea>
         ${voiceBox('rc-voice')}
+        <textarea class="in qtext" id="rc" rows="2" placeholder="կամ գրեք">${esc(r.comment || '')}</textarea>
         <div class="act-b">${open ? `<button type="button" class="btn pri" data-v="publish" ${r.status === 'approved' ? 'disabled' : ''}>Հրապարակել</button><button type="button" class="btn gray" data-v="change">Փոխել</button>`
           : '<button type="button" class="btn pri" data-v="">Պահել</button>'}</div>
         <p class="msgline" id="rmsg">${r.owner_at ? `Վերջին կարծիքը՝ ${ago(r.owner_at)}` : ''}</p>
-      </div>`, { foot: 'Ամեն հաջորդ ռիլը գրվում է ձեր կարծիքներից և թվերից։' })}
+      </div>`, { foot: 'Սեղմեք «Ասել ձայնով» և ասեք՝ ինչ դուր եկավ, ինչ փոխել։ Հաջորդ ռիլը կանենք ձեր կարծիքով։' })}
       ${pub ? sec('Թվեր', `<div class="kpis">
           ${kpi('Դիտում', fmt(views), '')}${kpi('Հավանում', fmt(reelSum(r, 'likes')), '')}
           ${kpi('Մեկնաբանություն', fmt(reelSum(r, 'comments')), '')}${kpi('Կիսվել', fmt(reelSum(r, 'shares')), '')}
@@ -1282,8 +1278,8 @@
     sc.querySelectorAll('[data-v]').forEach((b) => b.onclick = async () => {
       if (rv.busy()) { msg.textContent = 'Նախ կանգնեցրեք ձայնագրությունը'; return; }
       const v = b.dataset.v || null, txt = ta.value.trim(), voice = rv.path();
-      if (v === 'change' && !txt && !voice) { msg.textContent = 'Գրեք կամ ասեք ձայնով՝ ինչ փոխել'; ta.focus(); return; }
-      if (!v && !txt && !voice) { ta.focus(); return; }
+      if (v === 'change' && !txt && !voice) { msg.textContent = 'Ասեք ձայնով՝ ինչ փոխել'; return; }
+      if (!v && !txt && !voice) { msg.textContent = 'Ասեք ձայնով կամ գրեք կարծիքը'; return; }
       sc.querySelectorAll('[data-v]').forEach((x) => { x.disabled = true; });
       const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: v, p_comment: txt, p_voice: voice });
       if (error) { msg.textContent = 'Չստացվեց, փորձեք նորից'; sc.querySelectorAll('[data-v]').forEach((x) => { x.disabled = false; }); return; }
@@ -1378,7 +1374,7 @@
     const kv = (t, v, s) => cell({ t, s, v, strong: true });
     const rateS = (r) => r ? `${String(r.pct).replace('.', ',')}% ${r.verified ? '' : '<span class="tag warn">մոտավոր</span>'}` : '';
     const pc = fe && fe.park_payment_costs;
-    // 03.11, Գարիկ. «ամենամաքուր շահույթ». բոլոր ծախսերը՝ վճարային, հարկ, ամսականներ (վարձ, աշխատավարձ…), list.am գովազդ (db3, app_net_income)
+    // 03.11, Գարիկ. «ամենամաքուր շահույթ». բոլոր ծախսերը՝ վճարային, հարկ, ամսականներ (վարձ, աշխատավարձ…), list.am գովազդ (db\0024, app_net_income)
     const np = ni && ni.period, ex = ni && ni.expenses;
     const allCost = np ? +np.payment_costs + +np.other_costs : 0;
     const feeSec = fe ? (np ? sec('Մաքուր շահույթ · 30 օր', `<div class="kpis">
