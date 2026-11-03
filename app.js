@@ -97,9 +97,10 @@
   // աջում՝ GTH կոճակը → Գարիկ (օգնականը)։ Աղյուսակով «Բոլորը»՝ վերևի կոճակով (#/sections)։
   // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
-  // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB)
+  // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB); Մրցակիցները՝ Վարորդներից առաջ (Գարիկ 03.11)
   // Գարիկ 03.11. «չատ գպտ-ից հետո ուզում եմ այս բաժինը երևա ռիլերի»
-  const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['reels', I.film, 'Ռիլեր'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
+  // Գարիկ 03.11. WhatsApp-ը՝ «Ռիլեր բաժնից առաջ», Մրցակիցները՝ «Վարորդներ բաժնից առաջ»
+  const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['whatsapp', I.chat, 'WhatsApp'], ['reels', I.film, 'Ռիլեր'], ['rivals', I.trophy, 'Մրցակիցներ'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
     ['finance', I.money, 'Ֆինանս']];
   // ներքևում չեղած էջերի «Հետ»-ը
   const SUB = { quality: ['#/settings', 'Կարգավորում'], terms: ['#/settings', 'Կարգավորում'], tasks: ['#/garik', 'GTH'] };
@@ -521,7 +522,7 @@
 
   // ───────── GTH էջի (օգնականի) քարտերը (03.11, Գարիկ. «այս բաժինները թող լինեն իր AI օգնականի, այսինքն GTH բաժնում») ─────────
   // «Սպասում է «Այո»-ի», Գարիկի հիշեցումները, «Հարց ձեզ», ծանուցումների միացում. նախկինում Գլխավորում էին
-  let reelsW = [];
+  let reelsW = [], waP = 0;
   async function gthCards() {
     const [tr, qs, nts] = await Promise.all([
       sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
@@ -529,7 +530,8 @@
       sb.rpc('app_notices').then((r) => r.data || [], () => []),
       sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
       rpc('app_reels').catch(() => null),
-    ]).then((a) => { tgState = a[3]; reelsW = ((a[4] && a[4].reels) || []).filter((r) => r.status === 'ready').reverse(); return a; });
+      rpc('app_wa').catch(() => null),
+    ]).then((a) => { tgState = a[3]; reelsW = ((a[4] && a[4].reels) || []).filter((r) => r.status === 'ready').reverse(); waP = ((a[5] && a[5].pending) || []).length; return a; });
     const tasks = tr.data || [];
     pendingCount = tasks.length;
     // նոր ռիլ, որ սպասում է տիրոջ «Հրապարակել»-ին (db1)
@@ -537,7 +539,9 @@
     // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ GTH էջի վերևում, թիվը՝ GTH կոճակի վրա
     const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
     if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
-    const apr = tasks.length || reelCell ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length + reelsW.length}</span></a>${reelCell}${todo.join('')}</div>` : '';
+    // WhatsApp-ի պատասխանների նախագծերը (db\0020)
+    const waCell = waP ? cell({ href: '#/whatsapp', icon: I.chat, color: 'g', t: `WhatsApp՝ ${waP} պատասխան`, s: 'Կարդալ և ուղարկել' }) : '';
+    const apr = tasks.length || reelCell || waCell ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length + reelsW.length + waP}</span></a>${waCell}${reelCell}${todo.join('')}</div>` : '';
     const hasQ = qs && qs.open && qs.open.length;
     // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
     const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
@@ -648,6 +652,7 @@
         gc('#/listam', I.mega, 'o', 'list.am', laNv, la && la.status !== 'ok' && la.status ? (la.status === 'off' ? 'neg' : 'warn') : ''),
         gc('#/geo', I.ai, 't', 'ChatGPT', gl ? `${fmt(gl.score)}% երևում ենք` : 'չափում չկա'),
         gc('#/rivals', I.trophy, 'r', 'Մրցակիցներ', rvNv),
+        gc('#/whatsapp', I.chat, 'g', 'WhatsApp', 'վարորդների նամակներ'),
         gc('#/reels', I.film, 'p', 'Ռիլեր', 'TikTok, Instagram'),
       ])}
       ${grid('Կառավարում', [
@@ -939,9 +944,20 @@
     return `${f(mon)}–${f(mon + 6 * 864e5)}`;
   };
   const place = (x) => 'տեղը՝' + NB + String(x).replace('.', ',');
+  // 100 հարցի նպատակը (queries.json v2.0, 03.11). summary.map = {goal,total,yes,no,none}, summary.topics = թեմաները պլանի հերթով
+  // (ամենաշատ «չկանք»-ը առաջինը. ինքնավար խմբագիրը՝ geo-act.ps1-ը, աշխատում է նույն հերթով)
+  const qs = (q) => `${LANG[q.lang] || q.lang} · ${WHO[q.who] || ''}`;
+  const geoYes = (q) => q.state === 'yes' || q.state === 'some';
+  const qNo = (q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
+    s: `${qs(q)}${q.rivals && q.rivals.length ? ' · փոխարենը՝ ' + q.rivals.slice(0, 3).map(esc).join(', ') : ''}`, v: '<span class="tag neg">չկանք</span>' });
+  const qYes = (q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
+    s: `${qs(q)} · ${q.hit}/${q.n} անգամ${q.rank ? ' · ' + place(q.rank) : ''}`,
+    v: q.state === 'yes' ? '<span class="tag pos">կանք</span>' : '<span class="tag warn">երբեմն</span>' });
+  const qWait = (q) => cell({ t: esc(q.q), s: qs(q), v: '<span class="tag n">ստուգվում է</span>' });
+  const bar = (a, b) => `<div class="mbar"><span style="width:${b ? Math.round(100 * a / b) : 0}%"></span></div>`;
   route('/geo', async (qid) => {
     lastTab = 'sections';
-    if (qid) return geoQuestion(qid);
+    if (qid) return qid.startsWith('t-') ? geoTopic(qid.slice(2)) : geoQuestion(qid);
     const [h, g] = await Promise.all([rpc('app_home'), rpc('app_geo')]);
     pendingCount = h.tasks_pending || 0;
     const L = g.last, run = g.runner || {};
@@ -951,60 +967,90 @@
       : `<span class="dot bad"></span>Ստուգողը կանգնած է ${ago(run.seen_at)}`;
     if (!L) {
       mount({ title: 'ChatGPT', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(emptyState(I.ai, 'Առաջին ստուգումը դեռ չի եղել',
-        'Շաբաթը մեկ HayWay-ի համակարգիչը ChatGPT-ին տալիս է 20 հարց, որ տալիս են աշխատանք փնտրող վարորդներն ու առաքիչները, և այստեղ ցույց է տալիս՝ որտեղ ենք և որտեղ չկանք։')));
+        'Շաբաթը մեկ HayWay-ի համակարգիչը ChatGPT-ին տալիս է 100 հարց, որ տալիս են աշխատանք փնտրող վարորդներն ու առաքիչները, և այստեղ ցույց է տալիս՝ որտեղ ենք և որտեղ չկանք։')));
       return;
     }
     const S = L.summary || {}, Q = S.queries || [], hist = g.history || [];
     const prev = hist.length > 1 ? hist[hist.length - 2] : null;
-    const gen = Q.filter((q) => q.kind !== 'brand' && q.n);
-    const yes = gen.filter((q) => q.state === 'yes' || q.state === 'some'), no = gen.filter((q) => q.state === 'no');
-    const qs = (q) => `${LANG[q.lang] || q.lang} · ${WHO[q.who] || ''}`;
+    const gen = Q.filter((q) => q.kind !== 'brand');
+    const M = S.map || { goal: gen.length, total: gen.length, yes: gen.filter(geoYes).length, no: gen.filter((q) => q.state === 'no').length, none: gen.filter((q) => q.state === 'none').length };
     const ST = { doing: '<span class="tag info">աշխատում ենք</span>', todo: '<span class="tag n">հաջորդը</span>' };
     const acts = (g.actions || []).map((a) => cell({ t: esc(a.title), s: esc([a.place, a.why].filter(Boolean).join(' · ')),
       v: a.status === 'done' ? `<span class="tag pos">արված${a.done_at ? ' ' + dmy(a.done_at) : ''}</span>` : (ST[a.status] || '') }));
+    // Պլանը. առաջին բաց թեման՝ «այս շաբաթ», մնացած բացերը՝ «հերթում», բոլորում կանք՝ «կանք»
+    let nextSet = false;
+    const tops = (S.topics || []).map((t) => {
+      let tag;
+      if (t.no > 0 && !nextSet) { nextSet = true; tag = '<span class="tag info">այս շաբաթ</span>'; }
+      else if (t.no > 0) tag = '<span class="tag n">հերթում</span>';
+      else if (t.none > 0) tag = '<span class="tag n">ստուգվում է</span>';
+      else tag = '<span class="tag pos">կանք</span>';
+      const s = t.no ? `չկանք ${t.no} հարցում${(t.langs || []).length ? ' · ' + t.langs.map((l) => LANG[l] || l).join(', ') : ''}`
+        : t.none ? `${t.none} հարց դեռ ստուգվում է` : `բոլոր ${t.n} հարցում կանք`;
+      return cell({ href: '#/geo/t-' + t.id, t: `${esc(t.name)} ${tag}`, s, v: `${t.yes}${NB}/${NB}${t.n}`, strong: true, extra: bar(t.yes, t.n) });
+    });
     const mk = S.markets || {}, meta = S.markets_meta || {};
-    const mrows = Object.keys(meta).filter((k) => mk[k]).map((k) => cell({ t: `${meta[k].flag} ${esc(meta[k].name)}`, s: `${mk[k].hit} պատասխանում ${mk[k].n}-ից`,
-      v: `${fmt(mk[k].pct)}%`, strong: true, extra: `<div class="mbar"><span style="width:${mk[k].pct || 0}%"></span></div>` }));
+    const mrows = Object.keys(meta).filter((k) => mk[k]).map((k) => cell({ t: `${meta[k].flag} ${esc(meta[k].name)}`, s: `${mk[k].hit} հարցում ${mk[k].n}-ից`,
+      v: `${fmt(mk[k].pct)}%`, strong: true, extra: bar(mk[k].pct || 0, 100) }));
     const ours = (S.our_links || []).map((o) => esc(o.t || o.u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)));
     mount({ title: 'ChatGPT', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(`
       ${sec('', `<div class="card">
-        <div class="hero"><span class="n">${fmt(L.score)}%</span><span class="u">պատասխաններում ChatGPT-ն նշում է HayWay-ը</span></div>
-        <p class="meta">${prev ? `Անցյալ շաբաթ՝ ${fmt(prev.score)}%։` : 'Առաջին ստուգումն է. համեմատությունը՝ հաջորդ շաբաթից։'}${S.rank_avg ? ` Առաջարկվող պարկերի ցուցակում HayWay-ի միջին ${place(S.rank_avg)}։` : ''}</p>
+        <div class="hero"><span class="n">${M.yes}${NB}/${NB}${M.goal}</span><span class="u">հարցում ChatGPT-ն նշում է HayWay-ը</span></div>
+        ${bar(M.yes, M.goal)}
+        <p class="meta">Նպատակը՝ լինել բոլոր ${M.goal} հարցում, որ տալիս են աշխատանք փնտրող վարորդներն ու առաքիչները։${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.none ? ` ${M.none} հարց դեռ ստուգվում է։` : ''}</p>
         ${L.note ? `<p class="meta"><b>${esc(L.note)}</b></p>` : ''}
       </div><div class="kpis" style="margin-top:8px">
-        ${kpi('Հարցեր, որտեղ կանք', `${yes.length}${NB}/${NB}${gen.length}`, '')}
+        ${kpi('Որտեղ չկանք', `${M.no}`, 'հարցում')}
         ${kpi('ChatGPT-ն մեզ ճանաչում է', `${fmt(L.brand)}%`, 'HayWay-ի մասին հարցերում')}
-      </div>`, { foot: `Ով է հարցնում՝ աշխատանք փնտրող վարորդ կամ առաքիչ։ Ամեն հարց տրվում է 3 անգամ, ChatGPT-ին առանց մուտքի։` })}
-      ${sec('Ինչի վրա ենք աշխատում', acts.length ? group(acts) : '<div class="group"><p class="none">Քայլերը կգրվեն ստուգումից հետո։</p></div>')}
-      ${no.length ? sec(`Որտեղ չկանք · ${no.length}`, group(no.map((q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
-        s: `${qs(q)}${q.rivals && q.rivals.length ? ' · փոխարենը՝ ' + q.rivals.slice(0, 3).map(esc).join(', ') : ''}`, v: '<span class="tag neg">չկանք</span>' }))),
-        { foot: 'Սեղմիր հարցի վրա՝ կարդալու, թե ChatGPT-ն ինչ է պատասխանում։' }) : ''}
-      ${sec(`Որտեղ կանք · ${yes.length}`, yes.length ? group(yes.map((q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
-        s: `${qs(q)} · ${q.hit}/${q.n} անգամ${q.rank ? ' · ' + place(q.rank) : ''}`,
-        v: q.state === 'yes' ? '<span class="tag pos">կանք</span>' : '<span class="tag warn">երբեմն</span>' }))) : '<div class="group"><p class="none">Դեռ ոչ մի հարցում։</p></div>')}
+      </div>`, { foot: 'Ով է հարցնում՝ աշխատանք փնտրող վարորդ կամ առաքիչ, 5 լեզվով։ Շաբաթը մեկ բոլոր հարցերը տրվում են ChatGPT-ին առանց մուտքի։' })}
+      ${tops.length ? sec('Պլանը՝ ըստ թեմաների', group(tops), { foot: 'Ամեն շաբաթ համակարգը ինքն է կայքում նոր էջ կամ պատասխան ավելացնում՝ սկսելով «այս շաբաթ» թեմայից։ Սեղմիր թեմայի վրա՝ հարցերը տեսնելու։' }) : ''}
+      ${sec('Ինչ ենք արել և անում', acts.length ? group(acts) : '<div class="group"><p class="none">Քայլերը կգրվեն ստուգումից հետո։</p></div>')}
       ${sec('Ըստ երկրի և լեզվի', group(mrows), { foot: 'Ռուսաստան, Հնդկաստան, Իրան՝ օտարերկրացի վարորդներն ու առաքիչները հարցնում են իրենց լեզվով։' })}
       ${(S.rivals || []).length ? sec('Ում է ChatGPT-ն առաջարկում', group(S.rivals.slice(0, 6).map((r) => cell({ t: esc(r.name), s: `${r.n} պատասխանում`, v: `${fmt(r.pct)}%`, strong: true }))),
         { foot: 'Այլ պարկեր, որ ChatGPT-ն նշում է նույն հարցերին։' }) : ''}
       ${(S.sources || []).length ? sec('Որտեղից է ChatGPT-ն վերցնում', group(S.sources.slice(0, 8).map((s) => cell({ t: esc(s.domain), v: fmt(s.n), strong: true,
         trail: s.ours ? '<span class="tag pos">մերն էլ կա</span>' : '' }))),
         { foot: `ChatGPT-ն պատասխանը գրում է այս կայքերից։ Այստեղ լինել = ChatGPT-ում լինել։${ours.length ? ' Մեր էջերը՝ ' + ours.slice(0, 4).join(', ') + '։' : ''}` }) : ''}
-      ${hist.length > 1 ? sec('Ըստ շաբաթների', group(hist.slice().reverse().map((x) => cell({ t: wkLabel(x.week), s: `${x.answers} պատասխան`, v: `${fmt(x.score)}%`, strong: true })))) : ''}
+      ${hist.length > 1 ? sec('Ըստ շաբաթների', group(hist.slice().reverse().map((x) => cell({ t: wkLabel(x.week), s: `${x.answers} պատասխան`,
+        v: x.cover != null ? `${x.cover}${NB}/${NB}${x.total}` : `${fmt(x.score)}%`, strong: true })))) : ''}
       <p class="sec-f">Վերջին ստուգումը՝ ${wkLabel(L.week)}, ${L.answers} պատասխան։</p>
     `));
   });
 
+  // Մեկ թեմայի հարցերը՝ որտեղ չկանք, որտեղ կանք, որոնք դեռ ստուգվում են
+  async function geoTopic(tid) {
+    const [h, g] = await Promise.all([rpc('app_home'), rpc('app_geo')]);
+    pendingCount = h.tasks_pending || 0;
+    const S = (g.last && g.last.summary) || {}, t = (S.topics || []).find((x) => x.id === tid);
+    if (!t) { location.hash = '#/geo'; return; }
+    const Q = (S.queries || []).filter((q) => q.topic === tid && q.kind !== 'brand');
+    const no = Q.filter((q) => q.state === 'no'), yes = Q.filter(geoYes), wait = Q.filter((q) => q.state === 'none');
+    const pg = t.page == null ? 'Այս թեմայով էջ դեռ չկա. համակարգը կստեղծի։' : `Մեր էջը՝ haywaypark.am/${esc(t.page)}`;
+    mount({ title: esc(t.name), tab: 'sections', back: ['#/geo', 'ChatGPT'], sub: esc(`${t.yes} հարցում կանք ${t.n}-ից`) }, page(`
+      ${sec('', `<div class="card">
+        <div class="hero"><span class="n">${t.yes}${NB}/${NB}${t.n}</span><span class="u">հարցում ChatGPT-ն նշում է HayWay-ը</span></div>
+        ${bar(t.yes, t.n)}
+        <p class="meta">${pg}</p>
+      </div>`)}
+      ${no.length ? sec(`Որտեղ չկանք · ${no.length}`, group(no.map(qNo)), { foot: 'Սեղմիր հարցի վրա՝ կարդալու, թե ChatGPT-ն ինչ է պատասխանում։' }) : ''}
+      ${yes.length ? sec(`Որտեղ կանք · ${yes.length}`, group(yes.map(qYes))) : ''}
+      ${wait.length ? sec(`Դեռ ստուգվում է · ${wait.length}`, group(wait.map(qWait)), { foot: 'Այս հարցերը ChatGPT-ին կտրվեն մոտակա ստուգման ժամանակ։' }) : ''}
+    `));
+  }
+
   // Մեկ հարցի պատասխանները՝ ինչպես ChatGPT-ն է գրել
   async function geoQuestion(id) {
-    const [h, rows] = await Promise.all([rpc('app_home'), rpc('app_geo_answers', { p_id: id })]);
+    const [h, rows, g] = await Promise.all([rpc('app_home'), rpc('app_geo_answers', { p_id: id }), rpc('app_geo').catch(() => null)]);
     pendingCount = h.tasks_pending || 0;
     const r0 = rows[0] || {};
+    const S = (g && g.last && g.last.summary) || {}, qq = (S.queries || []).find((q) => q.id === id), tp = qq && (S.topics || []).find((t) => t.id === qq.topic);
     const cards = rows.filter((r) => r.ok).map((r) => sec(`Պատասխան ${r.rep}`, `<div class="card">
         <div>${r.mentioned ? `<span class="tag pos">HayWay-ը կա${r.rank ? ' · ' + place(r.rank) : ''}</span>` : '<span class="tag neg">HayWay-ը չկա</span>'}${r.our_cited ? ' <span class="tag info">մեր էջը աղբյուր է</span>' : ''}</div>
         <div class="ans clip" dir="auto">${esc(r.answer)}</div>
         <button class="btn full ans-more" type="button">Կարդալ ամբողջը</button>
         ${(r.sources || []).length ? `<p class="meta">Աղբյուրներ՝ ${r.sources.map(esc).join(', ')}</p>` : ''}
       </div>`));
-    const sc = mount({ title: 'ChatGPT-ի պատասխանը', tab: 'sections', back: ['#/geo', 'ChatGPT'], sub: esc(`${LANG[r0.lang] || ''} · ${wkLabel(r0.week)}`) }, page(`
+    const sc = mount({ title: 'ChatGPT-ի պատասխանը', tab: 'sections', back: tp ? ['#/geo/t-' + tp.id, tp.name] : ['#/geo', 'ChatGPT'], sub: esc(`${LANG[r0.lang] || ''} · ${wkLabel(r0.week)}`) }, page(`
       ${sec('Հարցը', `<div class="card"><h3 dir="auto">${esc(r0.q || id)}</h3></div>`)}
       ${cards.join('') || sec('', '<div class="group"><p class="none">Պատասխան դեռ չկա։</p></div>')}
     `));
@@ -1019,6 +1065,73 @@
   const reelSum = (r, k) => ['tiktok', 'instagram'].reduce((a, p) => a + (r.last && r.last[p] ? +r.last[p][k] || 0 : 0), 0);
   // օրվա դիտումները՝ կուտակային թվերի տարբերությունից
   const reelDays = (r) => (r.days || []).map((d, i, a) => ({ day: d.day, views: Math.max(0, d.views - (i ? a[i - 1].views : 0)) }));
+  // ───────── WhatsApp (db\0020_whatsapp.sql, 03.11) ─────────
+  // Գարիկ 03.11. «պարզ և ընկալելի. միայն քանի հոգու հետ է չատը խոսել, քանիսն են գրանցվել, իսկ կարևորը՝ ներքևում ծանուցումով կամ հարցով»։
+  // Նամակները՝ SendPulse-ից (098 888 960, մենյուն մնում է), նախագիծը՝ տիրոջ Claude-ը HayWay-ի համակարգչում, «Ուղարկել»-ից հետո՝ wa-bot-ը։
+  route('/whatsapp', async () => {
+    lastTab = 'sections';
+    const [h, W] = await Promise.all([rpc('app_home'), rpc('app_wa')]);
+    pendingCount = h.tasks_pending || 0;
+    const fresh = W.hook_at && Date.now() - new Date(W.hook_at) < 2 * 864e5;
+    const sub = !W.hook_at ? '<span class="dot wait"></span>Միանում է 098 888 960-ին'
+      : `<span class="dot ${fresh ? 'ok' : 'bad'}"></span>098 888 960 · վերջին նամակը ${ago(W.hook_at)}`;
+    const pend = W.pending || [];
+    if (!W.hook_at && !pend.length) {
+      mount({ title: 'WhatsApp', tab: 'sections', sub }, page(emptyState(I.chat, 'WhatsApp-ը միանում է',
+        'Երբ վարորդներն ու առաքիչները գրեն 098 888 960-ին, այստեղ կերևա, քանիսի հետ խոսեցինք և քանիսը գրանցվեցին։ Պատասխանների նախագծերը կգան ներքևում՝ ձեր «Այո»-ին։')));
+      return;
+    }
+    // կարևորը՝ միայն երբ ինչ-որ բան կանգնած է
+    const warn = [];
+    if (W.hook_at && !fresh) warn.push('2 օր է WhatsApp-ից նամակ չի գալիս։ Գարիկը ստուգում է կապը։');
+    if (W.drafting && (!W.runner_at || Date.now() - new Date(W.runner_at) > 15 * 60e3)) warn.push(`${fmt(W.drafting)} հարց սպասում է պատասխանի նախագծին. HayWay-ի համակարգիչը կարծես անջատված է։`);
+    const card = (r) => `<article class="prop" data-id="${r.id}">
+        <div class="who"><span class="ico g">${I.chat}</span><b>${esc(r.name || 'Առանց անվան')}</b>${r.topic ? `<span>· ${esc(r.topic)}</span>` : ''}<span class="tm">${ago(r.at)}</span></div>
+        <h3 dir="auto">${esc(r.question)}</h3>
+        ${r.ask ? `<p class="why open">Հարց ձեզ՝ ${esc(r.ask)}</p>` : ''}
+        ${r.answered ? '<span class="tag warn" style="align-self:flex-start">Հեռախոսից արդեն պատասխանել են</span>' : ''}
+        <textarea class="in qtext" rows="7" dir="auto" data-txt placeholder="Գրեք պատասխանը">${esc(r.draft || '')}</textarea>
+        <div class="btns"><button class="btn" data-no>Չուղարկել</button><button class="btn pri" data-yes>Ուղարկել</button></div>
+        <p class="msgline"></p>
+      </article>`;
+    const sc = mount({ title: 'WhatsApp', tab: 'sections', sub }, page(`
+      ${sec('', `<div class="card">
+        <div class="hero"><span class="n" data-n="${W.people_7 || 0}">${fmt(W.people_7 || 0)}</span><span class="u">մարդու հետ խոսեցինք · 7 օր</span></div>
+        ${barChart('wa7', W.days, 'people', fmt, 'մարդ')}
+      </div>`)}
+      ${sec('', `<div class="kpis">
+        ${kpi('Գրանցվել են', fmt(W.registered_30), `${fmt(W.people_30)} գրողից · 30 օր`, '#/growth')}
+        ${kpi('Այսօր գրեցին', fmt(W.people_today), 'մարդ')}
+      </div>`, { foot: 'Գրանցված՝ գրել է WhatsApp-ով, հետո նույն համարով գրանցվել Fleet-ում։' })}
+      ${warn.length ? sec('Ուշադրություն', `<div class="card nlist">${warn.map((w) => `<div class="nrow"><p>${esc(w)}</p></div>`).join('')}</div>`) : ''}
+      ${pend.length ? sec(`Սպասում է ձեզ · ${pend.length}`, pend.map(card).join(''), { foot: 'Պատասխանը գնում է միայն «Ուղարկել»-ից հետո։ Նախ կարող եք փոխել տեքստը։' }) : ''}
+      ${sec('', group([cell({ icon: I.star, color: W.auto ? 'g' : 's', t: 'Ինքնուրույն պատասխաններ', s: W.auto ? 'Վստահ պատասխանները գնում են առանց «Այո»-ի' : 'Հիմա ամեն պատասխան՝ ձեր «Այո»-ով',
+        trail: `<button type="button" class="btn sm ${W.auto ? 'gray' : 'pri'}" data-auto="${W.auto ? 0 : 1}">${W.auto ? 'Անջատել' : 'Միացնել'}</button>` })]))}
+    `));
+    sc.querySelectorAll('.prop').forEach((art) => {
+      const ta = art.querySelector('[data-txt]'), msg = art.querySelector('.msgline'), bs = art.querySelectorAll('button');
+      const go = async (yes) => {
+        if (yes && !ta.value.trim()) { msg.textContent = 'Գրեք պատասխանը'; ta.focus(); return; }
+        bs.forEach((b) => { b.disabled = true; });
+        const { data, error } = await sb.rpc('app_wa_decide', { p_id: +art.dataset.id, p_yes: yes, p_text: yes ? ta.value.trim() : null });
+        if (error) { msg.textContent = 'Չստացվեց՝ ' + error.message; bs.forEach((b) => { b.disabled = false; }); return; }
+        msg.textContent = !data ? '' : data.status === 'approved' ? 'Գնում է՝ մեկ րոպեի ընթացքում' : data.status === 'expired' ? '24 ժամն անցել է. WhatsApp-ը այլևս թույլ չի տալիս պատասխանել' : 'Չի ուղարկվի';
+        setTimeout(() => { invalidate(); render(); }, 1500);
+      };
+      art.querySelector('[data-yes]').onclick = () => go(true);
+      art.querySelector('[data-no]').onclick = () => go(false);
+    });
+    const ab = sc.querySelector('[data-auto]');
+    if (ab) ab.onclick = async () => {
+      const on = ab.dataset.auto === '1';
+      if (on && !confirm('Միացնե՞լ ինքնուրույն պատասխանները։ Վստահ պատասխանները կգնան առանց ձեր «Այո»-ի, իսկ անծանոթ հարցերը նախկինի պես կգան ձեզ։')) return;
+      ab.disabled = true;
+      const { error } = await sb.rpc('app_wa_auto', { p_on: on });
+      if (error) { alert('Չստացվեց՝ ' + error.message); ab.disabled = false; return; }
+      invalidate(); render();
+    };
+  });
+
   route('/reels', async (n) => {
     lastTab = 'sections';
     const [h, R] = await Promise.all([rpc('app_home'), rpc('app_reels')]);
