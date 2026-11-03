@@ -86,7 +86,12 @@
   async function rpc(fn, args, key) {
     key = key || fn + JSON.stringify(args || {});
     if (cache[key] && Date.now() - cache[key].t < 60000) return cache[key].v;
-    const { data, error } = await sb.rpc(fn, args || {});
+    let { data, error } = await sb.rpc(fn, args || {});
+    // 03.11. Բազան երբեմն զբաղված է (Fleet-ի համաժամացումը 15 րոպեն մեկ) → 8 վրկ սահմանը անցնում է. մեկ անգամ նորից, մինչև սխալը ցույց տալը
+    if (error && (error.code === '57014' || /statement timeout/i.test(error.message || ''))) {
+      await new Promise((r) => setTimeout(r, 1500));
+      ({ data, error } = await sb.rpc(fn, args || {}));
+    }
     if (error) throw new Error(error.message);
     cache[key] = { t: Date.now(), v: data };
     return data;
@@ -1200,14 +1205,16 @@
     const [h, W] = await Promise.all([rpc('app_home'), rpc('app_wa')]);
     pendingCount = h.tasks_pending || 0;
     const fresh = W.hook_at && Date.now() - new Date(W.hook_at) < 2 * 864e5;
-    const sub = !W.hook_at ? '<span class="dot wait"></span>Միանում է 098 888 960-ին'
-      : `<span class="dot ${fresh ? 'ok' : 'bad'}"></span>098 888 960 · վերջին նամակը ${ago(W.hook_at)}`;
+    // 03.11-ից երկու համար՝ 098 888 960 «HayWay» և 044 080 806 «HayWay Park» (երկուսն էլ տաքսոպարկինն են)
+    const sub = !W.hook_at ? '<span class="dot wait"></span>098 888 960 · 044 080 806'
+      : `<span class="dot ${fresh ? 'ok' : 'bad'}"></span>098 · 044 · վերջին նամակը ${ago(W.hook_at)}`;
     const pend = W.pending || [];
     // SendPulse-ի բոտը կանգնած է (03.11-ին՝ վճարը ավարտվել էր 28.10-ին) → մենյուն չի պատասխանում, նամակները կուտակվում են
-    const botOff = W.bot && W.bot.active === false ? `Բոտը կանգնած է՝ SendPulse-ի վճարը (22 $) ավարտվել է։${W.bot.unread ? ` ${fmt(W.bot.unread)} նամակ անպատասխան է։` : ''}` : '';
+    const waNum = (p) => { p = String(p || ''); return p.length === 11 ? `0${p.slice(3, 5)} ${p.slice(5, 8)} ${p.slice(8)}` : p; };
+    const botOff = W.bot && W.bot.active === false ? ((W.bot.off || []).map((b) => `${waNum(b.phone)}-ի բոտը կանգնած է՝ կապը կտրվել է։${b.unread ? ` ${fmt(b.unread)} նամակ անպատասխան է։` : ''}`).join(' ') || 'Բոտը կանգնած է։') : '';
     if (!W.hook_at && !pend.length) {
       mount({ title: 'WhatsApp', tab: 'sections', sub }, page(`${emptyState(I.chat, 'WhatsApp-ը միանում է',
-        'Կերևա, երբ վարորդները գրեն 098 888 960-ին։')}${botOff ? sec('Ուշադրություն', `<div class="card nlist"><div class="nrow"><p>${esc(botOff)}</p></div></div>`) : ''}`));
+        'Կերևա, երբ վարորդները գրեն 098 կամ 044 համարներին։')}${botOff ? sec('Ուշադրություն', `<div class="card nlist"><div class="nrow"><p>${esc(botOff)}</p></div></div>`) : ''}`));
       return;
     }
     // կարևորը՝ միայն երբ ինչ-որ բան կանգնած է
