@@ -1131,29 +1131,68 @@
     };
   });
 
+  // «Օրինակներ» (Գարիկ 03.11). տերը դնում է դուր եկած ռիլ՝ վիդեո հեռախոսից կամ հղում, և գրում՝ ինչ վերցնել; հաջորդ ռիլերը կարդում են դրանք
+  const reelRefsSec = (refs, urls) => sec('Օրինակներ', `<div class="card">
+      <p class="meta">Դրեք ռիլ, որ դուր է գալիս՝ վիդեո հեռախոսից կամ հղում։ Գրեք՝ ինչ վերցնել (ոճ, գաղափար, տեքստ, ձև)։</p>
+      <input class="in" id="rf-url" type="url" inputmode="url" autocomplete="off" placeholder="TikTok կամ Instagram հղում">
+      <label class="btn gray full" for="rf-file" id="rf-pick">${I.film} Ընտրել վիդեո</label><input id="rf-file" type="file" accept="video/*,image/*" hidden>
+      <textarea class="in qtext" id="rf-note" rows="2" placeholder="Ինչն է դուր գալիս"></textarea>
+      <button type="button" class="btn pri full" id="rf-send">Ավելացնել</button>
+      <p class="msgline" id="rf-msg"></p>
+    </div>${refs.length ? `<div style="margin-top:8px">${group(refs.map((f) => cell({ icon: f.kind === 'video' ? I.film : I.link, color: 'p',
+      t: f.note ? esc(f.note) : 'Առանց նշման', s: `${dmy(f.created_at)} · ${f.used_in ? 'օգտագործված ռիլ #' + f.used_in : 'դեռ չի օգտագործվել'}${f.learned ? ' · ' + esc(f.learned) : ''}`,
+      extra: `<span class="act-b" style="margin-top:8px">${(f.kind === 'video' ? urls[f.path] : f.url) ? `<a class="btn sm gray" href="${esc(f.kind === 'video' ? urls[f.path] : f.url)}" target="_blank" rel="noopener">Բացել</a>` : ''}<button type="button" class="btn sm gray" data-rfhide="${f.id}">Հանել</button></span>` })))}</div>` : ''}`,
+    { foot: 'Հաջորդ ռիլերը կվերցնեն դրանցից այն, ինչ նշել եք։' });
+  function bindReelRefs() {
+    const file = document.getElementById('rf-file'), pick = document.getElementById('rf-pick'), msg = document.getElementById('rf-msg'), send = document.getElementById('rf-send');
+    if (!send) return;
+    file.onchange = () => { const f = file.files[0]; if (f) pick.textContent = `${f.name} · ${fmt(f.size / 1048576, 1)} ՄԲ`; };
+    send.onclick = async () => {
+      const f = file.files[0], url = document.getElementById('rf-url').value.trim(), note = document.getElementById('rf-note').value.trim();
+      if (!f && !url) { msg.textContent = 'Ընտրեք վիդեո կամ դրեք հղում'; return; }
+      if (url && !/^https?:\/\//i.test(url)) { msg.textContent = 'Հղումը պետք է սկսվի https://-ով'; return; }
+      if (f && f.size > 50 * 1048576) { msg.textContent = 'Վիդեոն 50 ՄԲ-ից մեծ է. դրեք հղումը'; return; }
+      send.disabled = true; msg.textContent = f ? 'Բեռնվում է…' : '';
+      let path = null;
+      if (f) {
+        const ext = ((f.name.match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'mp4').toLowerCase();
+        path = `refs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const up = await sb.storage.from('reels').upload(path, f, { contentType: f.type || 'video/mp4', upsert: false });
+        if (up.error) { msg.textContent = 'Վիդեոն չբեռնվեց, փորձեք նորից'; send.disabled = false; return; }
+      }
+      const { error } = await sb.rpc('app_reel_ref_add', { p_kind: f ? 'video' : 'link', p_path: path, p_url: url || null, p_note: note || null });
+      if (error) { msg.textContent = 'Չստացվեց, փորձեք նորից'; send.disabled = false; return; }
+      invalidate(); render();
+    };
+    app.querySelectorAll('[data-rfhide]').forEach((b) => b.onclick = async () => { b.disabled = true; await sb.rpc('app_reel_ref_hide', { p_id: +b.dataset.rfhide }); invalidate(); render(); });
+  }
   route('/reels', async (n) => {
     lastTab = 'sections';
-    const [h, R] = await Promise.all([rpc('app_home'), rpc('app_reels')]);
+    const [h, R, refs0] = await Promise.all([rpc('app_home'), rpc('app_reels'), rpc('app_reel_refs').catch(() => [])]);
     pendingCount = h.tasks_pending || 0;
-    const list = R.reels || [], run = R.runner;
+    const list = R.reels || [], run = R.runner, refs = refs0 || [];
     const sub = !run ? '<span class="dot wait"></span>Գործարանը միանում է HayWay-ի համակարգչում'
       : Date.now() - new Date(run.at) < 2 * 864e5 ? `<span class="dot ok"></span>Ամեն օր մեկ ռիլ · ${R.no_ads_left ? `առաջին 10-ում գովազդ չկա` : 'TikTok, Instagram'}`
       : `<span class="dot bad"></span>Գործարանը կանգնած է ${ago(run.at)}`;
     const back = n ? ['#/reels', 'Ռիլեր'] : ['#/sections', 'Բաժիններ'];
+    const urls = {};
+    const signAll = async (paths) => {
+      paths = paths.filter(Boolean);
+      try { const { data } = paths.length ? await sb.storage.from('reels').createSignedUrls(paths, 3 * 3600) : { data: [] }; (data || []).forEach((x) => { urls[x.path] = x.signedUrl; }); } catch (e) {}
+    };
+    const refPaths = refs.filter((f) => f.kind === 'video').map((f) => f.path);
     if (!list.length) {
+      await signAll(refPaths);
       mount({ title: 'Ռիլեր', tab: 'sections', back, sub }, page(emptyState(I.film, 'Առաջին ռիլը պատրաստվում է',
-        'Ամեն օր AI կերպարը՝ Արամը, մեկ կարճ վիդեո է անում TikTok-ի և Instagram-ի համար։ Դուք դիտում եք այստեղ, գրում կարծիք և սեղմում «Հրապարակել»։ Հաջորդ ռիլը գրվում է ձեր կարծիքից։')));
+        'Ամեն օր AI կերպարը՝ Արամը, մեկ կարճ վիդեո է անում TikTok-ի և Instagram-ի համար։ Դուք դիտում եք այստեղ, գրում կարծիք և սեղմում «Հրապարակել»։ Հաջորդ ռիլը գրվում է ձեր կարծիքից։')
+        + reelRefsSec(refs, urls)));
+      bindReelRefs();
       return;
     }
     // գլխավորը՝ ձեզ սպասողներից ամենահինը (հրապարակման հերթով), հետո վերջին հրապարակվածը; #/reels/<n>՝ կոնկրետ ռիլը
     const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find((x) => ['ready', 'changes', 'approved', 'failed'].includes(x.status)) || list[0]);
     if (!r) { location.hash = '#/reels'; return; }
-    const urls = {};
-    try {
-      const paths = [r.video, r.poster].filter(Boolean);
-      const { data } = paths.length ? await sb.storage.from('reels').createSignedUrls(paths, 3 * 3600) : { data: [] };
-      (data || []).forEach((x) => { urls[x.path] = x.signedUrl; });
-    } catch (e) {}
+    await signAll([r.video, r.poster, ...refPaths]);
     const open = ['ready', 'changes', 'approved', 'failed'].includes(r.status);
     const pub = r.status === 'published';
     const views = reelSum(r, 'views');
@@ -1182,11 +1221,13 @@
         </div>${r.days && r.days.length ? `<div class="card" style="margin-top:8px">${barChart('rv' + r.id, reelDays(r), 'views', fmt, 'դիտում')}</div>` : ''}
         ${r.last ? `<div style="margin-top:8px">${group([plat('tiktok', 'TikTok'), plat('instagram', 'Instagram')].filter(Boolean))}</div>` : ''}`,
         { foot: r.last ? 'Թարմանում է օրը մեկ՝ հրապարակումից 7 օր։' : 'Առաջին թվերը՝ հրապարակումից մեկ օր հետո։' }) : ''}
+      ${reelRefsSec(refs, urls)}
       ${others.length ? sec('Բոլոր ռիլերը', group(others.map((x) => cell({ href: '#/reels/' + x.n, icon: I.film, color: 'p', t: `#${x.n} · ${esc(x.title)}`,
         s: x.status === 'published' ? `${fmt(reelSum(x, 'likes'))} հավանում · ${fmt(reelSum(x, 'comments'))} մեկնաբանություն` : (REEL_ST[x.status] || [, x.status])[1],
         v: x.status === 'published' ? `${fmt(reelSum(x, 'views'))}` : '', strong: true }))), { foot: x0foot(R) }) : ''}
     `));
     sc.querySelectorAll('.ans-more').forEach((b) => b.onclick = () => { b.previousElementSibling.classList.remove('clip'); b.remove(); });
+    bindReelRefs();
     const ta = document.getElementById('rc'), msg = document.getElementById('rmsg');
     sc.querySelectorAll('[data-v]').forEach((b) => b.onclick = async () => {
       const v = b.dataset.v || null, txt = ta.value.trim();
