@@ -1111,6 +1111,10 @@
     const mrows = Object.keys(meta).filter((k) => mk[k]).map((k) => cell({ t: `${meta[k].flag} ${esc(meta[k].name)}`, s: `${mk[k].hit} հարցում ${mk[k].n}-ից`,
       v: `${fmt(mk[k].pct)}%`, strong: true, extra: bar(mk[k].pct || 0, 100) }));
     const ours = (S.our_links || []).map((o) => esc(o.t || o.u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)));
+    // «Ում է առաջարկում»-ում HayWay-ն էլ՝ նույն հաշվով, ինչ մրցակիցները (նշված պատասխաններ / բոլոր պատասխանները, առանց brand հարցերի)
+    const selfN = gen.reduce((a, q) => a + (q.n || 0), 0), selfHit = gen.reduce((a, q) => a + (q.hit || 0), 0);
+    const recs = [...(selfN ? [{ name: 'HayWay', n: selfHit, pct: Math.round(100 * selfHit / selfN), me: true }] : []), ...(S.rivals || []).slice(0, 3)]
+      .sort((a, b) => (b.pct || 0) - (a.pct || 0));
     mount({ title: 'ChatGPT', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(`
       ${sec('', `<div class="card">
         <div class="hero"><span class="n">${M.yes}${NB}/${NB}${M.goal}</span><span class="u">հարցում ChatGPT-ն նշում է HayWay-ը</span></div>
@@ -1124,7 +1128,8 @@
       ${tops.length ? sec('Պլանը՝ ըստ թեմաների', group(tops)) : ''}
       ${sec('Ինչ ենք արել և անում', acts.length ? group(acts) : '<div class="group"><p class="none">Քայլերը կգրվեն ստուգումից հետո։</p></div>')}
       ${sec('Ըստ երկրի և լեզվի', group(mrows))}
-      ${(S.rivals || []).length ? sec('Ում է ChatGPT-ն առաջարկում', group(S.rivals.slice(0, 3).map((r) => cell({ t: esc(r.name), s: `${r.n} պատասխանում`, v: `${fmt(r.pct)}%`, strong: true })))) : ''}
+      ${recs.length ? sec('Ում է ChatGPT-ն առաջարկում', group(recs.map((r) => cell({ t: r.me ? 'HayWay <span class="tag pos">մենք</span>' : esc(r.name), bold: r.me,
+        s: `${r.n} պատասխանում`, v: `${fmt(r.pct)}%`, strong: true })))) : ''}
       ${(S.sources || []).length ? sec('Որտեղից է ChatGPT-ն վերցնում', group(S.sources.slice(0, 4).map((s) => cell({ t: esc(s.domain), v: fmt(s.n), strong: true,
         trail: s.ours ? '<span class="tag pos">մերն էլ կա</span>' : '' }))),
         { foot: 'Այստեղ լինել = ChatGPT-ում լինել։' }) : ''}
