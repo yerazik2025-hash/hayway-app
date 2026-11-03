@@ -810,7 +810,7 @@
         ${kpi('Yandex-ի գովազդ', fmt(mk.yandex_ads), `${fmt(mk.sellers)} մրցակից`)}
         ${kpi('Մեր լավագույն տեղը', lastPos.best ? '#' + lastPos.best : '—', 'ցուցակում')}
       </div>`
-        + (rivals.length ? `<div class="chips">${[[nUpd, 'թարմացրել են', 'warn'], [nNew, 'նոր', 'pos'], [nTopNew, 'նոր Թոփ', 'info']].map(([n, t]) => `<span class="chip">${fmt(n)} ${t}</span>`).join('')}</div>` + group(rivRows, 'avs')
+        + (rivals.length ? (L.rivals_prev ? `<div class="chips">${[[nUpd, 'թարմացրել են', 'warn'], [nNew, 'նոր', 'pos'], [nTopNew, 'նոր Թոփ', 'info']].map(([n, t]) => `<span class="chip">${fmt(n)} ${t}</span>`).join('')}</div>` : '') + group(rivRows, 'avs')
           : '<p class="none">Քարտերը կերևան մրցակիցների հաջորդ ստուգումից հետո</p>'), { foot: rivals.length ? `Ստուգումը՝ ${dmy(L.rivals_day)}${L.rivals_prev ? `, համեմատած ${dmy(L.rivals_prev)}-ի հետ` : ''}։` : '' })}
       ${sec('Մանրամասներ', group([
         proc(I.chat, 'b', 'Նամակներին պատասխան', ib.last_at, 2),
