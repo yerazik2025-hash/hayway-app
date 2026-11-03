@@ -2,7 +2,7 @@
    Աշխատում է ՄԻԱՅՆ ≥ 1024px էկրանին ու մկնիկով (hover + pointer:fine). touch iPad-ը, նույնիսկ լայն, մնում է հեռախոսի տեսքով։
    Այդ դեպքում ներքևի շարքը դառնում է ձախ մենյու (#dkSide), էջերը՝ լայն (desktop.css), իսկ GTH-ը (Գարիկ) բացվում է աջում՝ թվերի կողքին.
    դա նույն հավելվածի GTH էջն է iframe-ում (#dkGth), այսինքն զրույցը, «Այո»-ի քարտերն ու հարցի հերթը նույն կոդն են, ինչ հեռախոսում։
-   Ctrl+K (Mac-ում ⌘K)՝ բացել/փակել GTH-ը, «/»՝ բացել (երբ ոչինչ չես գրում), Esc՝ փակել։
+   GTH-ը ինքն է բաց (Երազը փակեց՝ փակ է մնում). Ctrl+K (Mac-ում ⌘K) կամ «/»՝ GTH-ի գրելու դաշտը, Esc՝ փակել։
    Հեռախոսում այստեղ ոչինչ չի աշխատում. ոչ մենյու, ոչ class, ոչ ունկնդիր։ app.js-ից՝ HW.DOCK / HW.I / HW.pending() / HW.todayLong
    (նույն բաժինները, նույն պատկերակները) և render()-ի մեկ տող՝ HWD.route(seg)։ */
 (() => {
@@ -104,7 +104,7 @@
   function teardown() {
     tipOff();
     if (side) side.remove(); side = null;
-    if (S.open) close();
+    if (S.open) close(true);
     root.classList.remove('dk', 'dk-in', 'dk-ai');
     delete root.dataset.dkTab; delete root.dataset.dkArg;
   }
@@ -129,11 +129,18 @@
   // մենյուն միայն մուտքից հետո (մուտքի էկրանը մնում է նույնը, ինչ հեռախոսում)
   function inState() {
     if (!app) return;
+    const was = S.seen;
     if (app.querySelector('.login')) S.seen = false;
     else if (app.querySelector('.top')) S.seen = true;
     root.classList.toggle('dk-in', S.seen);
-    if (!S.seen && S.open) close();
+    if (!S.seen && S.open) close(true);
+    if (S.seen && !was) autoOpen();
   }
+  // Գարիկ 03.11. «ինչու AI օգնականը չի երևում» → համակարգչում GTH-ը ինքն է բաց աջում;
+  // Երազը փակեց՝ հաջորդ անգամ էլ փակ է մնում (միայն այս բրաուզերում), բացեց՝ բաց
+  const PREF = 'hw_gth';
+  const pref = (v) => { try { if (v === undefined) return localStorage.getItem(PREF) || ''; localStorage.setItem(PREF, v); } catch (e) {} return ''; };
+  function autoOpen() { if (!S.open && on() && S.seen && pref() !== '0') open('', true); }
 
   // ───────── GTH-ը աջում ─────────
   const base = () => location.href.split('#')[0];
@@ -154,15 +161,17 @@
   }
   // գրելու դաշտը՝ պատրաստ (էջը տվյալները բերում է մի քանի վայրկյանում)
   function focusQ(tries = 16) {
-    if (!S.open || !frame) return;
+    if (!S.open || !frame || S.quiet) return;   // ինքը բացվելիս՝ գրելու դաշտը չի «խլում» ստեղնաշարը
     try {
       const q = frame.contentWindow.document.getElementById('q');
       if (q) { frame.focus(); q.focus({ preventScroll: true }); return; }
     } catch (e) { return; }
     if (tries > 0) setTimeout(() => focusQ(tries - 1), 250);
   }
-  function open(h) {
+  function open(h, auto) {
     if (!on() || !S.seen) { location.hash = h || '#/garik'; return; }
+    S.quiet = !!auto;
+    if (!auto) pref('1');
     const ask = h && h !== '#/garik' ? h : '';
     if (!panel) makePanel(ask);
     else if (S.loaded) {
@@ -172,12 +181,14 @@
         else if (!S.open && !(q && q.value.trim())) { w.HW.invalidate(); w.HW.render(); }   // նորից բացելիս՝ թարմ (կիսատ գրածը չի կորչում)
       } catch (e) {}
     }
-    if (!S.open) { S.open = true; S.openedAt = Date.now(); panel.hidden = false; root.classList.add('dk-ai'); }
+    if (!auto) S.openedAt = Date.now();
+    if (!S.open) { S.open = true; panel.hidden = false; root.classList.add('dk-ai'); }
     paint(); focusQ();
   }
-  function close() {
+  function close(auto) {
     if (!S.open) return;
-    S.open = false;
+    S.open = false; S.quiet = false;
+    if (auto !== true) pref('0');
     if (panel) panel.hidden = true;
     root.classList.remove('dk-ai');
     try { A().invalidate(); } catch (e) {}   // «Այո»-ից հետո թվերը նորից բերվեն
@@ -213,8 +224,9 @@
     addEventListener('keydown', (e) => {
       if (!on() || !S.seen) return;
       const a = document.activeElement, typing = !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable);
-      if (isKey(e)) { e.preventDefault(); if (!e.repeat) { if (S.open) close(); else open(); } return; }
-      if ((e.key === '/' || (e.code === 'Slash' && !e.shiftKey)) && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && !S.open) { e.preventDefault(); open(); return; }
+      // GTH-ը արդեն բաց է (ինքն է բացվել)՝ Ctrl+K / «/» տանում են նրա գրելու դաշտը; փակել՝ նրա ներսից Ctrl+K, Esc կամ ×
+      if (isKey(e)) { e.preventDefault(); if (!e.repeat) open(); return; }
+      if ((e.key === '/' || (e.code === 'Slash' && !e.shiftKey)) && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); open(); return; }
       if (e.key === 'Escape' && !e.isComposing && S.open) { e.preventDefault(); close(); }
     }, true);
     // ծալված մենյուն (GTH-ը բաց է, էկրանը՝ փոքր) ցույց է տալիս միայն պատկերակները. անունը՝ մկնիկը վրան պահելիս
