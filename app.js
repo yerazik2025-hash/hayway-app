@@ -96,8 +96,9 @@
   // աջում՝ GTH կոճակը → Գարիկ (օգնականը)։ Աղյուսակով «Բոլորը»՝ վերևի կոճակով (#/sections)։
   // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
-  const DOCK = [['', I.home, 'Այսօր'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'], ['finance', I.money, 'Ֆինանս'], ['tasks', I.tasks, 'Գործեր'],
-    ['quality', I.quality, 'Որակ'], ['terms', I.percent, 'Պայմաններ'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT']];
+  // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»
+  const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
+    ['finance', I.money, 'Ֆինանս'], ['tasks', I.tasks, 'Գործեր'], ['quality', I.quality, 'Որակ'], ['terms', I.percent, 'Պայմաններ']];
   const hashParts = () => (location.hash || '#/').slice(1).split('?')[0].split('/');
   let chatBack = '#/';
   function tabbar() {
