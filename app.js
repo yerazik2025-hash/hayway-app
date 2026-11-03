@@ -273,7 +273,7 @@
       const d = days[i], isT = d.day === today();
       bars.classList.add('sel');
       bars.querySelectorAll('i').forEach((b, k) => b.classList.toggle('on', k === i));
-      out.innerHTML = `<span>${isT ? 'Այսօր' : DAYS_L[dayIdx(d.day)]}<small>${dmy(d.day)} · ${fmt(d.orders)} պատվեր · ${fmt(d.active)} վարորդ</small></span><b>${amd(Math.round(+d.commission || 0))}</b>`;
+      out.innerHTML = `<span>${isT ? 'Այսօր' : DAYS_L[dayIdx(d.day)]}<small>${dmy(d.day)} · ${fmt(d.orders)} պատվեր · ${fmt(d.active)} վարորդ${d.net != null ? ` · ծախս ${amd(Math.round(+d.costs || 0))}` : ''}</small></span><b>${amd(Math.round(d.net != null ? +d.net : +d.commission || 0))}</b>`;
     };
     const at = (x) => { const r = bars.getBoundingClientRect(); return Math.floor((x - r.left) / r.width * days.length); };
     bars.addEventListener('pointerdown', (e) => { pick(at(e.clientX)); });
@@ -463,7 +463,7 @@
     lastTab = 'home';
     // 03.11, Գարիկ. «հավելվածը բացելուց միանգամից երևա ֆինանսական կտորը» → Գլխավորը սկսվում է եկամտով;
     // «Այո»-ն, հիշեցումները, «Հարց ձեզ»-ը ու ծանուցումների միացումը՝ GTH էջում (gthCards), թիվը՝ GTH կոճակի վրա
-    const [h, notes] = await Promise.all([rpc('app_home'), rpc('app_notes')]);
+    const [h, notes, ni] = await Promise.all([rpc('app_home'), rpc('app_notes'), rpc('app_net_income', { p_days: 14 }).catch(() => null)]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     // Համեմատում ենք միայն լրիվ օրերը (առանց այսօրվա). վերջին 7-ը՝ նախորդ 7-ի հետ
@@ -477,17 +477,24 @@
     const active = h.active_30d || 0;
     const vsWeek = (cur, prev) => { if (!prev) return ''; const d = Math.round((cur - prev) / prev * 100); if (!d) return '<span class="delta mut">նույնը, ինչ նախորդ 7 օրը</span>'; return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '▲' : '▼'}${NB}${Math.abs(d)}%</span> <span class="mut">նախորդ 7 օրից</span>`; };
     // Գլխավոր թիվը՝ պարկի եկամուտը 7 օրում + վերջին 14 օրը ըստ օրերի (Դավիթի АРОМАТИКА-ի պես). սեղմել օրը → այդ օրվա թվերը
-    const d14 = (h.days || []).slice(-14);
-    const max14 = Math.max(1, ...d14.map((d) => +d.commission || 0));
-    const dPct = P7.commission ? Math.round((W7.commission - P7.commission) / P7.commission * 100) : null;
+    // 03.11, Գարիկ. «ոչ թե շրջանառությունը, այլ մաքուր եկամուտը». մաքուր = պարկի միջնորդավճար − վճարային ծախսեր − այլ ծախսեր (db\0019, app_net_income)
+    const netBy = {}; if (ni) (ni.days || []).forEach((d) => { netBy[d.day] = d; });
+    const NET = !!(ni && ni.last7 && ni.last7.net != null);
+    const d14 = (h.days || []).slice(-14).map((d) => netBy[d.day] ? { ...d, net: netBy[d.day].net, costs: netBy[d.day].payment_costs + netBy[d.day].other_costs } : d);
+    const val = (d) => NET ? (+d.net || 0) : (+d.commission || 0);
+    if (NET) { W7.net = +ni.last7.net; P7.net = +(ni.prev7 && ni.prev7.net) || 0; }
+    const KEY = NET ? 'net' : 'commission';
+    const max14 = Math.max(1, ...d14.map(val));
+    const dPct = P7[KEY] ? Math.round((W7[KEY] - P7[KEY]) / P7[KEY] * 100) : null;
     const lastLb = d14.length && d14[d14.length - 1].day === today() ? 'այսօր' : dmy(d14.length ? d14[d14.length - 1].day : '');
     const hc = `<div class="card hc">
-        <div class="lab"><span>Պարկի եկամուտ · 7 օր</span><span class="aux">թարմ՝ ${ago(h.last_sync)}</span></div>
-        <div class="val"><span data-n="${Math.round(W7.commission)}">${fmt(W7.commission)}</span><small>֏</small></div>
-        <div class="cmp">${dPct === null ? '' : `<span class="pill ${dPct > 0 ? 'up' : dPct < 0 ? 'down' : ''}">${dPct > 0 ? '+' : dPct < 0 ? '−' : ''}${Math.abs(dPct)}%</span>`}<span>նախորդ 7 օրը՝ ${short(P7.commission)}</span></div>
+        <div class="lab"><span>${NET ? 'Մաքուր եկամուտ' : 'Պարկի եկամուտ'} · 7 օր</span><span class="aux">թարմ՝ ${ago(h.last_sync)}</span></div>
+        <div class="val"><span data-n="${Math.round(W7[KEY])}">${fmt(W7[KEY])}</span><small>֏</small></div>
+        <div class="cmp">${dPct === null ? '' : `<span class="pill ${dPct > 0 ? 'up' : dPct < 0 ? 'down' : ''}">${dPct > 0 ? '+' : dPct < 0 ? '−' : ''}${Math.abs(dPct)}%</span>`}<span>նախորդ 7 օրը՝ ${short(P7[KEY])}</span></div>
+        ${NET ? `<div class="cmp"><span>միջնորդավճար ${short(ni.last7.commission)} − ծախսեր ${short(+ni.last7.payment_costs + +ni.last7.other_costs)}</span>${ni.all_rates_verified ? '' : '<a class="tag warn" href="#/finance">մոտավոր</a>'}</div>` : ''}
         ${d14.length ? `<div class="d14">
-          <div class="d14-h"><span>Վերջին 14 օրը</span><b>${short(sum(d14, 'commission'))}</b></div>
-          <div class="bars grow" id="d14">${d14.map((d, i) => `<i class="${d.day === today() ? 't' : ''}" style="--h:${Math.max(4, Math.round((+d.commission || 0) / max14 * 100))}%;--k:${i}"></i>`).join('')}</div>
+          <div class="d14-h"><span>Վերջին 14 օրը</span><b>${short(d14.reduce((s, d) => s + val(d), 0))}</b></div>
+          <div class="bars grow" id="d14">${d14.map((d, i) => `<i class="${d.day === today() ? 't' : ''}" style="--h:${Math.max(4, Math.round(val(d) / max14 * 100))}%;--k:${i}"></i>`).join('')}</div>
           <div class="axis"><span>${dmy(d14[0].day)}</span><span>${d14.length > 8 ? dmy(d14[7].day) : ''}</span><span>${lastLb}</span></div>
           <div class="dayh" id="d14d"></div>
         </div>` : ''}
@@ -984,19 +991,36 @@
   // ───────── Ֆինանսներ ─────────
   route('/finance', async () => {
     lastTab = 'sections';
-    const [h, f, notes] = await Promise.all([rpc('app_home'), rpc('app_finance'), rpc('app_notes')]);
+    const [h, f, notes, fe] = await Promise.all([rpc('app_home'), rpc('app_finance'), rpc('app_notes'), rpc('app_fees', { p_days: 30 }).catch(() => null)]);
     pendingCount = h.tasks_pending || 0;
     const m = f.month, b = f.balances;
+    // Միջնորդավճարներ և մաքուր եկամուտ 30 օրում (db\0018, app_fees). չհաստատված տոկոսը՝ «մոտավոր»
+    const kv = (t, v, s) => cell({ t, s, v, strong: true });
+    const rateS = (r) => r ? `${String(r.pct).replace('.', ',')}% ${r.verified ? '' : '<span class="tag warn">մոտավոր</span>'}` : '';
+    const pc = fe && fe.park_payment_costs;
+    const feeSec = fe ? sec('Մաքուր եկամուտ · 30 օր', `<div class="kpis">
+        ${kpi('Պարկի եկամուտ', short(fe.park_commission_amd), `${String(fe.park_commission_pct).replace('.', ',')}% պատվերներից`)}
+        ${kpi('Վճարային ծախսեր', short(pc.total_amd), `${String(fe.costs_pct_of_park_commission).replace('.', ',')}% եկամտից`)}
+        ${kpi('Մաքուր', short(fe.park_net_after_costs_amd), 'եկամուտ − ծախսեր')}
+      </div>`, { foot: 'Այլ ծախսերը (վարձ, աշխատավարձ…) դեռ ավելացված չեն։' })
+      + sec('Ով ինչքան է վերցնում · 30 օր', group([
+        kv('Idram · լիցքավորում', `<span class="neg">${short(pc.idram_topups.cost_amd)}</span>`, `${rateS(pc.idram_topups.rate)} · ${short(pc.idram_topups.volume_amd)}-ից`),
+        kv('Telcell · լիցքավորում', `<span class="neg">${short(pc.telcell_topups.cost_amd)}</span>`, `${rateS(pc.telcell_topups.rate)} · ${short(pc.telcell_topups.volume_amd)}-ից`),
+        kv('EasyPay · լիցքավորում', `<span class="neg">${short(pc.easypay_topups.cost_amd)}</span>`, `${rateS(pc.easypay_topups.rate)} · ${short(pc.easypay_topups.volume_amd)}-ից`),
+        kv('PrimeBridge · փոխանցում', `<span class="neg">${short(pc.primebridge_payouts.cost_amd)}</span>`, `${rateS(pc.primebridge_payouts.rate)} · ${short(pc.primebridge_payouts.volume_amd)}-ից`),
+        kv('Yandex · վարորդից', short(+fe.yandex.fee_amd + +fe.yandex.vat_amd + +fe.yandex.other_amd), `≈${String(fe.yandex.pct_of_gross).replace('.', ',')}% պատվերներից, ԱԱՀ-ով`),
+        kv('Պատենտի տուրք · վարորդից', short(fe.state_duty_amd), 'պետությանը'),
+      ]), { foot: '«Մոտավոր» տոկոսները դեռ ճշտվում են։' }) : '';
     const fd = (f.days || []).filter((d) => d.day < today());
     const sm = (a, k) => a.reduce((s, d) => s + (+d[k] || 0), 0);
     const w = { gmv: sm(fd.slice(-7), 'gmv'), commission: sm(fd.slice(-7), 'commission') }, p = { gmv: sm(fd.slice(-14, -7), 'gmv'), commission: sm(fd.slice(-14, -7), 'commission') };
     const tops = (f.topups_by_provider || []);
-    const kv = (t, v, s) => cell({ t, s, v, strong: true });
     mount({ title: 'Ֆինանսներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot ok"></span>Ֆինանսիստ · Fleet-ի գործարքներից' }, page(`
       ${sec('Վերջին 7 օր', `<div class="kpis">
         ${kpi('Շրջանառություն', short(w.gmv), delta(w.gmv, p.gmv))}
         ${kpi('Պարկի եկամուտ', short(w.commission), delta(w.commission, p.commission))}
       </div>`, { foot: ('Լրիվ օրեր՝ առանց այսօրվա, նախորդ 7 օրվա համեմատ։ ' + estNote(notes, 15)).trim() })}
+      ${feeSec}
       ${sec('Եկամուտ ըստ օրերի', `<div class="card">${barChart('ch-comm', f.days, 'commission', (v) => amd(Math.round(v)), '')}</div>`)}
       ${sec('Վերջին 30 օր', group([
         kv('Շրջանառություն', short(m.gmv)),
