@@ -1420,13 +1420,15 @@
   const SEGS =[['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];
   const SEG_DESC = {
     active: '30 օրում գոնե 1 պատվեր։',
-    top: '30 օրում ամենաշատ պատվերով։',
+    top: '30 օրում ամենաշատ պատվերով. «պարկին»՝ քանի % է վերցրել պարկը։',
     risk: '5+ օր պատվեր չկա. զանգեք։',
     new: 'Գրանցվել են 30 օրում։',
     churned: 'Վերջին պատվերը՝ 10–90 օր առաջ։',
     debt: 'Բացասական հաշվեկշիռ։',
     cancellers: 'Չեղարկում են 25%-ից շատ։',
   };
+  // Պարկի իրական մասը 30 օրում (db\0028, Fleet-ի գործարքներից), ոչ թե պայմանի անվան թիվը
+  const parkTxt = (d) => { const p = d.park_pct ?? d.rule_pct; return p == null ? '' : ` · պարկին ${p}%`; };
   const callBtn = (d) => { const tel = phone(d); return tel ? `<a class="callb" href="tel:${esc(tel)}" aria-label="Զանգել ${esc(name(d))}">${I.call}</a>` : ''; };
   route('/drivers', async (seg) => {
     lastTab = 'sections';
@@ -1436,8 +1438,8 @@
     const w = h.week;
     const line = (d) => {
       let tag = '', meta = '';
-      if (seg === 'active') { tag = d.current_status === 'offline' ? '<span class="tag n">անջատ</span>' : '<span class="tag pos">գծում</span>'; meta = `${d.orders_7d} պատվեր այս շաբաթ · ${d.rule_pct ?? '—'}%`; }
-      if (seg === 'top') { tag = `<span class="tag pos">${fmt(d.orders_30d)} պատվեր</span>`; meta = `${short(d.gmv_30d)} · ${d.rule_pct ?? '—'}% · չեղարկում ${pct(d.cancels_30d, d.offers_30d)}%`; }
+      if (seg === 'active') { tag = d.current_status === 'offline' ? '<span class="tag n">անջատ</span>' : '<span class="tag pos">գծում</span>'; meta = `${d.orders_7d} պատվեր այս շաբաթ${parkTxt(d)}`; }
+      if (seg === 'top') { tag = `<span class="tag pos">${fmt(d.orders_30d)} պատվեր</span>`; meta = `${short(d.gmv_30d)}${parkTxt(d)} · չեղարկում ${pct(d.cancels_30d, d.offers_30d)}%`; }
       if (seg === 'risk') { tag = `<span class="tag neg">${Math.floor(d.idle_days)} օր կանգնած</span>`; meta = `${d.orders_30d} պատվեր 30 օրում · վերջինը ${dmy(d.last_order_at)}`; }
       if (seg === 'new') { tag = `<span class="tag ${d.orders_30d ? 'pos' : 'warn'}">${d.orders_30d ? d.orders_30d + ' պատվեր' : 'դեռ 0 պատվեր'}</span>`; meta = `Գրանցվել է ${dmy(d.hire_date)} · ${d.days_since_hire} օր առաջ`; }
       if (seg === 'churned') { tag = `<span class="tag n">${Math.floor(d.idle_days)} օր</span>`; meta = `Վերջին պատվերը՝ ${dmy(d.last_order_at)} · ընդամենը ${fmt(d.orders_total)}`; }
