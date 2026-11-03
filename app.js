@@ -473,6 +473,7 @@
     if (!session) return renderLogin();
     const path = (location.hash || '#/').slice(1).split('?')[0];
     const [, seg = '', arg = ''] = path.split('/');
+    if (window.HWD && HWD.route(seg)) return;   // (03.11) desktop.js. համակարգչում GTH-ը բացվում է աջում, մեծ էջը մնում է տեղում
     const fn = routes['/' + seg] || routes['/'];
     if (seg !== 'garik') chatBack = '#' + path;
     const sc = document.getElementById('sc');
@@ -1912,7 +1913,7 @@
   }));
 
   // ───────── Սկիզբ ─────────
-  window.HW = { sb, rpc, render, invalidate, cache };
+  window.HW = { sb, rpc, render, invalidate, cache, DOCK, I, todayLong, pending: () => pendingCount };   // DOCK…pending՝ desktop.js-ի մենյուի համար (03.11)
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   render();
 })();

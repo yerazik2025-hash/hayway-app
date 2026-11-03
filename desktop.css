@@ -1,0 +1,131 @@
+/* HayWay · հավելվածը համակարգչով (03.11.2026, Դավիթի АРОМАТИКА-ի ձևով)։ Բեռնվում է միայն ≥ 1024px ու մկնիկով
+   (index.html. media="screen and (min-width:1024px) and (hover:hover) and (pointer:fine)"; touch iPad-ը մնում է հեռախոսի տեսքով),
+   ու ամեն կանոն նորից նույն պայմանի ներսում է. հեռախոսը (375 / 320) սրանից ոչ մի տող չի կարդում։
+   Գույն՝ միայն styles.css-ի :root-ի var(--…)-երը (նոր գույն չկա)։ Շրջանակը՝ ձախում մենյու (#dkSide, desktop.js), մեջտեղում լայն էջ
+   (.scroll-ը container «dk» է), աջում GTH-ը (#dkGth, html.dk-ai)։ Էջերի դասավորությունը կախված է մեջտեղի սյան լայնությունից (@container dk),
+   ոչ թե պատուհանից, որ GTH-ը բացելիս էլ ճիշտ մնա։ Շրջանակը սպասում է html.dk.dk-in-ին (desktop.js, մուտքից հետո). եթե desktop.js-ը
+   չբեռնվի, համակարգիչը կտեսնի աշխատող հեռախոսի տեսքը, ոչ թե առանց մենյուի էջ։ */
+@media screen and (min-width:1024px) and (hover:hover) and (pointer:fine){
+:root{--dk-side:248px;--dk-ai:420px;--dk-max:1180px;--dk-pad:32px}
+@media (max-width:1279px){:root{--dk-side:232px;--dk-ai:384px;--dk-pad:24px} .dk-gth kbd{display:none}}
+@media (min-width:1800px){:root{--dk-ai:460px;--dk-max:1280px}}
+/* GTH-ը բաց է, էկրանը՝ ոչ շատ լայն. մենյուն ծալվում է պատկերակների, որ թվերը տեղ ունենան */
+@media (max-width:1679px){:root.dk-ai{--dk-side:76px}}
+
+/* ---------- շրջանակ ---------- */
+#dkSide,#dkGth{display:none}
+:root.dk.dk-in .app{left:var(--dk-side);right:0;max-width:none;margin:0}
+:root.dk.dk-in.dk-ai .app{right:var(--dk-ai)}
+:root.dk.dk-in .aura{left:var(--dk-side);right:0;width:auto;transform:none}
+:root.dk.dk-in.dk-ai .aura{right:var(--dk-ai)}
+:root.dk.dk-in .dock{display:none}
+:root.dk.dk-in .app.has-dock .scroll{padding-bottom:48px}
+:root.dk.dk-in .scroll{container:dk/inline-size;scrollbar-width:thin;scrollbar-color:var(--fill2) transparent}
+/* վերևի տողը. HayWay-ի անունը մենյուում է, այստեղ մնում են «‹ Հետ»-ը, «Բոլորը»-ն ու «Թարմացնել»-ը */
+:root.dk.dk-in .top .brand{display:none}
+:root.dk.dk-in .top.br .ct{display:block}
+:root.dk.dk-in .top-in{max-width:calc(var(--dk-max) + 2 * var(--dk-pad));margin:0 auto;padding:0 calc(var(--dk-pad) - 12px)}
+:root.dk.dk-in .lt{max-width:calc(var(--dk-max) + 2 * var(--dk-pad));margin:0 auto;padding:6px var(--dk-pad) 20px}
+:root.dk.dk-in .lt h1{font-size:34px}
+:root.dk.dk-in .lt .st{font-size:14.5px}
+:root.dk.dk-in .page:not(.gthc){max-width:calc(var(--dk-max) + 2 * var(--dk-pad));margin:0 auto;padding:6px var(--dk-pad) 40px}
+
+/* ---------- ձախ մենյու ---------- */
+:root.dk.dk-in #dkSide{position:fixed;left:0;top:0;bottom:0;width:var(--dk-side);z-index:30;display:flex;flex-direction:column;gap:4px;padding:18px 14px 16px;
+  overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;background:var(--bg);box-shadow:1px 0 0 var(--line)}
+#dkSide::-webkit-scrollbar{display:none}
+#dkSide svg.i{width:20px;height:20px}
+#dkSide .dk-l{min-width:0;display:flex;flex-direction:column;flex:1;text-align:left}
+#dkSide .dk-l b,#dkSide .dk-l small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-brand{display:flex;align-items:center;gap:11px;padding:2px 8px 16px;border-radius:14px}
+.dk-brand img{width:34px;height:34px;border-radius:10px;display:block;flex:none}
+.dk-brand b{font-size:16px;line-height:20px;font-weight:700;letter-spacing:-.01em}
+.dk-brand small{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--text3)}
+.dk-brand small i{width:6px;height:6px;border-radius:50%;background:var(--pos);flex:none}
+/* GTH (Գարիկ). մեկ հանգիստ տող իր ստեղնով, «Այո» սպասողների թիվը՝ վրան */
+.dk-gth{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;margin:2px 0 6px;padding:6px 10px 6px 8px;border:0;border-radius:16px;
+  background:var(--surface2);box-shadow:var(--edge);color:var(--text);text-align:left;cursor:pointer;position:relative;transition:box-shadow .2s,background-color .2s}
+.dk-gth .dk-logo{flex:none;width:52px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--fill)}
+.dk-gth .dk-logo img{width:40px;height:auto;display:block}
+.dk-gth b{font-size:14.5px;font-weight:600}
+.dk-gth small{font-size:12px;color:var(--text3);margin-top:1px}
+.dk-gth kbd{font:600 11.5px/1 var(--font);color:var(--text3);background:var(--fill);border-radius:6px;padding:4px 6px;white-space:nowrap}
+.dk-gth.on{box-shadow:inset 0 0 0 1.5px var(--acc),var(--edge)}
+/* թիվը՝ կոճակի վերևի աջ անկյունում, լոգոյից հեռու (լոգոն միշտ ամբողջական) */
+.dk-badge{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--badge);color:var(--on-badge);
+  font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg)}
+.dk-badge[hidden]{display:none}
+.dk-nav{display:flex;flex-direction:column;gap:2px}
+.dk-cap{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--text3);padding:16px 10px 6px}
+.dk-item{display:flex;align-items:center;gap:12px;width:100%;min-height:40px;padding:0 10px;border-radius:12px;font-size:15px;font-weight:500;color:var(--text2);
+  position:relative;transition:background-color .15s,color .15s}
+.dk-item svg.i{color:var(--text3);transition:color .15s}
+.dk-item.on{background:var(--acc-soft);color:var(--acc);font-weight:600}
+.dk-item.on svg.i{color:var(--acc)}
+/* ծալված մենյու. միայն պատկերակներ, անունը՝ #dkTip-ով */
+@media (max-width:1679px){
+  :root.dk-ai #dkSide{padding:16px 10px 12px;align-items:center}
+  :root.dk-ai #dkSide .dk-l,:root.dk-ai #dkSide kbd{display:none}
+  :root.dk-ai .dk-brand{padding:2px 0 14px}
+  :root.dk-ai .dk-cap{font-size:0;padding:0;margin:10px 8px;height:1px;width:28px;background:var(--line)}
+  :root.dk-ai .dk-gth{width:56px;min-height:46px;padding:4px;justify-content:center}
+  :root.dk-ai .dk-gth .dk-logo{width:46px;height:36px}
+  :root.dk-ai .dk-badge{right:-8px;top:-8px;min-width:18px;height:18px;padding:0 5px;font-size:11px}
+  :root.dk-ai .dk-item{width:46px;min-height:44px;padding:0;justify-content:center}
+}
+#dkTip{position:fixed;z-index:95;pointer-events:none;background:var(--surface2);color:var(--text);font-size:13px;font-weight:600;padding:6px 10px;border-radius:9px;
+  white-space:nowrap;box-shadow:var(--pop);transform:translateY(-50%)}
+
+/* ---------- GTH-ը աջում (առանց մթնեցման, առանց ծածկելու. էջը մնում է ոլորվող) ---------- */
+:root.dk.dk-in #dkGth:not([hidden]){display:block;position:fixed;top:0;right:0;bottom:0;width:var(--dk-ai);z-index:40;background:var(--bg);
+  box-shadow:-1px 0 0 var(--line),-30px 0 60px -40px var(--bg);animation:dkSlide .26s var(--ease)}
+#dkGth iframe{display:block;width:100%;height:100%;border:0;background:var(--bg)}
+@keyframes dkSlide{from{transform:translateX(28px);opacity:0}}
+
+/* ---------- մկնիկ. ինչ սեղմվում է՝ ընդգծվում է ---------- */
+:is(a,button,label,summary,.chip,.seg button,.cell[id],[data-period]){cursor:pointer}
+@media (hover:hover){
+  .dk-item:not(.on):hover,.dk-brand:hover{background:var(--fill);color:var(--text)}
+  .dk-item:not(.on):hover svg.i{color:var(--text)}
+  .dk-gth:hover{background:var(--fill)}
+  :root .ibtn:hover,:root .backb:hover{background:var(--fill)}
+  :root a.cell:hover,:root button.cell:not(:disabled):hover,:root .sugg button:hover,:root .qopt:not(:disabled):hover{background:var(--fill)}
+  :root .gcell,:root a.kpi,:root a.card,:root .qa a{transition:transform .35s var(--spring),box-shadow .2s}
+  :root .gcell:hover,:root a.kpi:hover,:root a.card:hover,:root .qa a:hover{box-shadow:var(--edge),inset 0 0 0 1px var(--line)}
+  :root .gcell:hover .nm,:root a.kpi:hover .kpi-l{color:var(--acc)}
+  :root .btn:not(:disabled):hover{filter:brightness(1.12)}
+  :root .chip:not(.on):hover,:root .seg button:not(.on):hover{color:var(--text)}
+  :root .sec-h .a:hover,:root .link:hover{text-decoration:underline;text-underline-offset:3px}
+  :root .chart .c:hover .b,:root .bars>i:hover{filter:brightness(1.3)}
+}
+
+/* ---------- էջերը ---------- */
+/* ժապավենները (chips) չեն դուրս գալիս եզրից՝ փաթաթվում են; լայն էջում կոճակը՝ իր լայնությամբ */
+:root.dk.dk-in .page .chips{flex-wrap:wrap;overflow:visible;margin-left:0;margin-right:0;padding-left:0;padding-right:0}
+:root.dk.dk-in .page>.seg{max-width:560px}
+:root.dk.dk-in .page>.btn.full{width:auto;align-self:flex-start;padding:0 26px}
+/* 7 օրվա սյուները լայն էկրանում չեն դառնում մեծ ուղղանկյուն (մեկ օրվա տվյալի դեպքում էլ) */
+:root.dk.dk-in :is(.chart,.chart-x){grid-auto-columns:minmax(0,72px);justify-content:center}
+/* մեկ սյան էջեր (մեկ բաժին, հարցի կամ մրցակցի էջ). տողերը շատ չեն ձգվում */
+:root.dk.dk-in .page:not(.gthc)>*{max-width:860px}
+/* երկար ցուցակով էջերը (վարորդներ, 20 պարկ, բոլոր հայտարարությունները) ամբողջ լայնությամբ */
+:root.dk.dk-in .page:has(.group>.cell:nth-child(13))>*{max-width:none}
+:root.dk.dk-in .page:has(.group>.cell:nth-child(13))>.seg{max-width:560px}
+
+@container dk (min-width:860px){
+  /* երկու սյուն՝ թերթի պես (նախ ձախը վերևից ներքև, հետո աջը). ամեն բլոկ ամբողջական է մնում */
+  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13))){display:block;columns:2;column-gap:24px}
+  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>*{max-width:none;break-inside:avoid;margin:0 0 26px}
+  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>:is(.seg,.kpis.k3){column-span:all;margin-bottom:26px}
+  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>.seg{max-width:560px}
+  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>.btn.full{display:flex;width:100%}
+  /* երկար ցուցակ՝ երկու սյուն տողեր (նույն քարտի ներսում) */
+  :root.dk .group:has(>.cell:nth-child(13)){display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  :root.dk .group:has(>.cell:nth-child(13))>.cell:nth-child(2)::before{display:none}
+  :root.dk .group:has(>.cell:nth-child(13))>.cell:nth-child(even){box-shadow:inset 1px 0 0 var(--line)}
+}
+@container dk (min-width:1100px){
+  /* «Բոլոր բաժինները». սալիկները մեկ շարքում */
+  :root[data-dk-tab="sections"] .page .gcells{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
+}
