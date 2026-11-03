@@ -76,6 +76,7 @@
     send: sv(20, '<path d="M12 19V5M5 12l7-7 7 7"/>', ' style="stroke-width:2.4"'),
     trash: sv(22, '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
     car: sv(20, '<path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>'),
+    film: sv(20, '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>'),
     ai: sv(20, '<path d="M4 5h16v11H9l-5 4z"/><path d="m12 7.5 1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z"/>'),
     logo: '<svg width="44" height="44" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#111113"/><path d="M16 6.5c-4 0-7 3-7 6.8 0 4.9 7 12.2 7 12.2s7-7.3 7-12.2c0-3.8-3-6.8-7-6.8z" fill="#FCE000"/><circle cx="16" cy="13.2" r="2.9" fill="#111113"/></svg>',
   };
@@ -97,7 +98,8 @@
   // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
   // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB)
-  const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
+  // Գարիկ 03.11. «չատ գպտ-ից հետո ուզում եմ այս բաժինը երևա ռիլերի»
+  const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['reels', I.film, 'Ռիլեր'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
     ['finance', I.money, 'Ֆինանս']];
   // ներքևում չեղած էջերի «Հետ»-ը
   const SUB = { quality: ['#/settings', 'Կարգավորում'], terms: ['#/settings', 'Կարգավորում'], tasks: ['#/garik', 'GTH'] };
@@ -519,19 +521,23 @@
 
   // ───────── GTH էջի (օգնականի) քարտերը (03.11, Գարիկ. «այս բաժինները թող լինեն իր AI օգնականի, այսինքն GTH բաժնում») ─────────
   // «Սպասում է «Այո»-ի», Գարիկի հիշեցումները, «Հարց ձեզ», ծանուցումների միացում. նախկինում Գլխավորում էին
+  let reelsW = [];
   async function gthCards() {
     const [tr, qs, nts] = await Promise.all([
       sb.from('tasks').select('id,agent,title,kind').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
       rpc('app_questions').catch(() => null),
       sb.rpc('app_notices').then((r) => r.data || [], () => []),
       sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
-    ]).then((a) => { tgState = a[3]; return a; });
+      rpc('app_reels').catch(() => null),
+    ]).then((a) => { tgState = a[3]; reelsW = ((a[4] && a[4].reels) || []).filter((r) => r.status === 'ready').reverse(); return a; });
     const tasks = tr.data || [];
     pendingCount = tasks.length;
+    // նոր ռիլ, որ սպասում է տիրոջ «Հրապարակել»-ին (db1)
+    const reelCell = reelsW.length ? cell({ href: '#/reels', icon: I.film, color: 'p', t: `Նոր ռիլ #${reelsW[0].n}՝ դիտեք`, s: 'Հրապարակել կամ փոխել' }) : '';
     // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ GTH էջի վերևում, թիվը՝ GTH կոճակի վրա
     const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
     if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
-    const apr = tasks.length ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length}</span></a>${todo.join('')}</div>` : '';
+    const apr = tasks.length || reelCell ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length + reelsW.length}</span></a>${reelCell}${todo.join('')}</div>` : '';
     const hasQ = qs && qs.open && qs.open.length;
     // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
     const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
@@ -618,12 +624,14 @@
   // ───────── Բաժիններ ─────────
   route('/sections', async () => {
     lastTab = 'sections';
-    const [h, lr, geo] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle(), rpc('app_geo').catch(() => null)]);
+    const [h, lr, geo, riv] = await Promise.all([rpc('app_home'), sb.from('channels').select('status,summary').eq('id', 'listam').maybeSingle(), rpc('app_geo').catch(() => null), rpc('app_rivals').catch(() => null)]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     const soon = '<span class="tag n">շուտով</span>';
     const la = lr.data;
     const gl = geo && geo.last;
+    const rvToday = riv ? (riv.changes || []).filter((c) => c.day === today()).length : 0;
+    const rvNv = !riv || !(riv.rivals || []).length ? '20 մեծ պարկ' : rvToday ? `${fmt(rvToday)} փոփոխություն այսօր` : `${fmt(riv.rivals.length)} պարկ`;
     // «Բոլորը» (ԿԱ 2). տաքսի պարկի իրական բաժինները խմբերով, ամեն մեկի տակ՝ իր գլխավոր թիվը; չմիացվածները՝ ներքևում «Շուտով»
     const gc = (href, ic, col, nm, nv, nvCls, badge) => `<a class="gcell" href="${href}"><span class="ico ${col}">${ic}</span><span class="nm">${nm}</span><span class="nv ${nvCls || ''}">${nv}</span>${badge ? `<span class="badge">${badge}</span>` : ''}</a>`;
     const grid = (title, cells) => sec(title, `<div class="gcells">${cells.join('')}</div>`);
@@ -639,13 +647,15 @@
       ${grid('Աճ', [
         gc('#/listam', I.mega, 'o', 'list.am', laNv, la && la.status !== 'ok' && la.status ? (la.status === 'off' ? 'neg' : 'warn') : ''),
         gc('#/geo', I.ai, 't', 'ChatGPT', gl ? `${fmt(gl.score)}% երևում ենք` : 'չափում չկա'),
+        gc('#/rivals', I.trophy, 'r', 'Մրցակիցներ', rvNv),
+        gc('#/reels', I.film, 'p', 'Ռիլեր', 'TikTok, Instagram'),
       ])}
       ${grid('Կառավարում', [
         gc('#/garik', I.star, 'b', 'Գարիկ', 'GTH օգնական'),
         gc('#/settings', I.cfg, 's', 'Կարգավորում', 'միացումներ, մուտք'),
       ])}
       ${sec('Շուտով', group([
-        cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ, մրցակիցներ', trail: soon }),
+        cell({ href: '#/marketing', icon: I.mega, color: 'o', t: 'Մարքեթինգ', s: '10 ալիք, արշավներ', trail: soon }),
         cell({ href: '#/leads', icon: I.userplus, color: 'b', t: 'Հայտեր', s: 'Հայտից մինչև 50-րդ պատվեր', trail: soon }),
         cell({ href: '#/contact', icon: I.chat, color: 's', t: 'Կապ', s: 'Հայտարարություններ և նամակներ', trail: soon }),
         cell({ href: '#/delivery', icon: I.box, color: 't', t: 'Առաքում', s: 'HayWay Delivery', trail: soon }),
@@ -828,6 +838,92 @@
     `));
   });
 
+  // ───────── Մրցակիցներ (db\0022_rivals.sql, 2026-11-03, Գարիկ. «20 մեծին», ծանուցում՝ միայն 3 դեպքում) ─────────
+  // Տվյալները՝ app_rivals() / app_rival(). լցնում է HayWay-ի համակարգչի «Garik-Rivals» task-ը ամեն օր (scripts\rivals-check.ps1)։
+  // list.am-ի մյուս փոքր պարկերը մնում են list.am բաժնում։
+  const OFFER = [['taxi_pct', 'Տաքսի՝ պարկի տոկոս'], ['delivery_pct', 'Առաքում՝ պարկի տոկոս'], ['flat_fee', 'Ֆիքսված վճար'], ['bonus', 'Բոնուս նորեկին'],
+    ['first_week', 'Առաջին շաբաթ'], ['cashback', 'Վերադարձ (cashback)'], ['referral', 'Ընկեր բերելու բոնուս'], ['car_rent', 'Մեքենա վարձով'],
+    ['payout', 'Վճարում'], ['languages', 'Լեզուներ'], ['other', 'Այլ']];
+  const WHY = { price_below: 'մեզնից էժան', bonus: 'նոր բոնուս', big_ad: 'մեծ գովազդ' };
+  const numPct = (v) => { const m = String(v ?? '').replace(',', '.').match(/\d+(\.\d+)?/); return m ? +m[0] : null; };
+  const refPct = (v) => String(v ?? '—').replace('.', ',');
+  const rivalOffer = (o) => { o = o || {}; return [o.taxi_pct && `տաքսի ${o.taxi_pct}`, o.delivery_pct && `առաքում ${o.delivery_pct}`, o.flat_fee, o.bonus && `բոնուս ${o.bonus}`]
+    .filter(Boolean).slice(0, 3).map((x) => esc(x)).join(' · ') || 'պայմանները դեռ չգիտենք'; };
+  const rvLead = (n) => `<span class="av">${esc(String(n || '').slice(0, 2))}</span>`;
+  const chCell = (c, withDay) => cell({ href: `#/rivals/${encodeURIComponent(c.rival)}`, lead: rvLead(c.name),
+    t: `<span class="nm"><span class="t b">${esc(c.name)}</span>${c.important ? `<span class="tag warn">${esc(WHY[c.why] || 'կարևոր')}</span>` : ''}</span>`,
+    s: esc(c.title), v: withDay ? dmy(c.day) : undefined });
+  route('/rivals', async (id) => {
+    lastTab = 'sections';
+    if (id) return rivalPage(decodeURIComponent(id));
+    const [h, R] = await Promise.all([rpc('app_home'), rpc('app_rivals')]);
+    pendingCount = h.tasks_pending || 0;
+    const rv = R.rivals || [], ch = R.changes || [], ref = R.ref || {}, td = today();
+    const now = ch.filter((c) => c.day === td), before = ch.filter((c) => c.day !== td).slice(0, 15);
+    const ads = rv.filter((r) => r.state && +r.state.meta_ads > 0).length;
+    const sub = R.checked_at ? `<span class="dot ok"></span>ստուգված՝ ${ago(R.checked_at)}` : '<span class="dot wait"></span>առաջին ստուգումը շուտով';
+    if (!rv.length) return mount({ title: 'Մրցակիցներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub },
+      page(emptyState(I.trophy, 'Ցուցակը լցվում է', '20 ամենամեծ պարկը կերևա այստեղ առաջին ստուգումից հետո։')));
+    const rows = rv.map((r) => {
+      const o = r.offer || {}, st = r.state || {}, c = r.channels || {};
+      const cheaper = numPct(o.taxi_pct) !== null && ref.taxi_pct && numPct(o.taxi_pct) < ref.taxi_pct;
+      const where = [+st.meta_ads ? `գովազդ ${fmt(st.meta_ads)}` : '', +st.listam_ads ? `list.am ${fmt(st.listam_ads)}` : '',
+        c.instagram ? 'Instagram' : '', c.tiktok ? 'TikTok' : '', c.site ? 'կայք' : ''].filter(Boolean).join(' · ');
+      return cell({ href: `#/rivals/${encodeURIComponent(r.id)}`, lead: rvLead(r.name),
+        t: `<span class="nm"><span class="t b">${esc(r.name)}</span>${r.imp7 ? '<span class="tag warn">կարևոր</span>' : r.ch7 ? `<span class="tag info">${fmt(r.ch7)} փոփոխ.</span>` : ''}${cheaper ? '<span class="tag neg">մեզնից էժան</span>' : ''}</span>`,
+        s: rivalOffer(o) + (where ? `<br>${esc(where)}` : '') });
+    });
+    mount({ title: 'Մրցակիցներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub }, page(`
+      <div class="kpis k3">
+        ${kpi('Փոխվեց այսօր', fmt(now.length), '')}
+        ${kpi('Կարևոր', fmt(now.filter((c) => c.important).length), 'ծանուցում')}
+        ${kpi('Գովազդ են անում', fmt(ads), `${fmt(rv.length)} պարկից`)}
+      </div>
+      ${sec('Այսօր փոխվեց', now.length ? group(now.map((c) => chCell(c)), 'avs') : `<p class="none">${R.checked_at ? 'Այսօր փոփոխություն չկա' : 'Առաջին ստուգումից հետո այստեղ կերևա, թե ով ինչ փոխեց'}</p>`,
+        { foot: `Ծանուցում գալիս է միայն 3 դեպքում՝ մրցակիցը մեզնից (տաքսի ${refPct(ref.taxi_pct)}%) էժան դարձավ, նոր բոնուս կամ 0%, նոր մեծ գովազդ։` })}
+      ${sec(`Բոլոր ${fmt(rv.length)} պարկը`, group(rows, 'avs'), { foot: 'Սեղմել՝ պայմանները, որտեղ են, ուժեղ ու թույլ կողմերը։' })}
+      ${before.length ? sec('Նախորդ օրերը', group(before.map((c) => chCell(c, true)), 'avs')) : ''}
+      ${(R.others || []).length ? sec('list.am-ում մեծանում են', group(R.others.map((o) => cell({ href: `#/listam/rival/${encodeURIComponent(o.seller)}`, t: esc(o.seller), v: `${fmt(o.n)} հայտ.` }))),
+        { foot: 'Սրանք 20-ի մեջ չեն, բայց list.am-ում շատ հայտարարություն ունեն։ Շարունակեն մեծանալ՝ կավելացնենք ցուցակում։' }) : ''}
+    `));
+  });
+  async function rivalPage(id) {
+    const [h, r] = await Promise.all([rpc('app_home'), rpc('app_rival', { p_id: id })]);
+    pendingCount = h.tasks_pending || 0;
+    const o = r.offer || {}, c = r.channels || {}, st = r.state || {}, ref = r.ref || {}, la = r.listam || {};
+    const ext = (href, icon, color, t, s, v) => `<a class="cell" href="${esc(href)}" target="_blank" rel="noopener"><span class="ico ${color}">${icon}</span><span class="bd"><span class="t">${t}</span>${s ? `<span class="s">${s}</span>` : ''}</span>${v ? `<span class="v">${v}</span>` : ''}<span class="chev">${I.chev}</span></a>`;
+    const terms = OFFER.filter(([k]) => o[k]).map(([k, l]) => {
+      const lower = (k === 'taxi_pct' || k === 'delivery_pct') && numPct(o[k]) !== null && ref[k] && numPct(o[k]) < ref[k];
+      return cell({ t: l, s: esc(o[k]), v: lower ? '<span class="tag neg">մեզնից ցածր</span>' : undefined });
+    });
+    const ig = String(c.instagram || '').replace(/^@/, ''), tt = String(c.tiktok || '').replace(/^@/, ''), tg = String(c.telegram || '').replace(/^@|^https?:\/\/t\.me\//g, '');
+    const metaUrl = c.fb_page_id ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=AM&view_all_page_id=${encodeURIComponent(c.fb_page_id)}`
+      : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=AM&search_type=keyword_unordered&q=${encodeURIComponent(c.fb_name || r.name)}`;
+    const seller = (c.listam_sellers || [])[0] || r.name;
+    const where = [
+      c.site && ext(c.site, I.link, 'b', 'Կայք', esc(String(c.site).replace(/^https?:\/\//, '').replace(/\/$/, ''))),
+      (c.fb_name || c.facebook || c.fb_page_id) && ext(metaUrl, I.mega, 'o', 'Facebook և Instagram գովազդ', st.meta_ads != null ? `${fmt(st.meta_ads)} ակտիվ գովազդ` : 'Meta-ի գովազդների գրադարան'),
+      c.facebook && ext(c.facebook, I.users, 'b', 'Facebook էջ', esc(c.fb_name || '')),
+      ig && ext(`https://www.instagram.com/${ig}/`, I.star, 'p', 'Instagram', '@' + esc(ig), st.ig_followers ? tiny(st.ig_followers) : ''),
+      tt && ext(`https://www.tiktok.com/@${tt}`, I.star, 's', 'TikTok', '@' + esc(tt), st.tiktok_followers ? tiny(st.tiktok_followers) : ''),
+      tg && ext(`https://t.me/${tg}`, I.chat, 't', 'Telegram', '@' + esc(tg)),
+      la.n ? cell({ href: `#/listam/rival/${encodeURIComponent(seller)}`, icon: I.mega, color: 'y', t: 'list.am', s: `${fmt(la.n)} հայտարարություն${la.top ? ` · Թոփ ${fmt(la.top)}` : ''}` }) : '',
+      ...(c.jobs || []).filter((j) => j && j.url).map((j) => ext(j.url, I.userplus, 'g', esc(j.site || 'Աշխատանքի կայք'), 'աշխատանքի հայտարարություն')),
+    ].filter(Boolean);
+    const list = (xs) => group(xs.map((x) => cell({ t: esc(x) })));
+    const changes = (r.changes || []).map((x) => cell({ t: `<span class="nm"><span class="t">${esc(x.title)}</span>${x.important ? '<span class="tag warn">կարևոր</span>' : ''}</span>`,
+      s: [x.before && `առաջ՝ ${esc(x.before)}`, x.after && `հիմա՝ ${esc(x.after)}`].filter(Boolean).join('<br>'), v: dmy(x.day) }));
+    const subParts = [KIND[r.kind] || '', (r.phones || [])[0] || ''].filter(Boolean).map(esc).join(' · ');
+    mount({ title: esc(r.name), tab: 'sections', back: ['#/rivals', 'Մրցակիցներ'], sub: subParts }, page(`
+      ${sec('Պայմանները', terms.length ? group(terms) : '<p class="none">Պայմանները դեռ չգիտենք</p>', { foot: `HayWay՝ տաքսի ${refPct(ref.taxi_pct)}%, առաջին 7 օրը՝ 0%։` })}
+      ${sec('Որտեղ են', where.length ? group(where, 'ic') : '<p class="none">Խողովակներ չեն գտնվել</p>', { foot: r.checked_at ? `Ստուգված՝ ${dmyhm(r.checked_at)}` : '' })}
+      ${(r.strong || []).length ? sec('Ուժեղ կողմերը', list(r.strong)) : ''}
+      ${(r.weak || []).length ? sec('Թույլ կողմերը', list(r.weak)) : ''}
+      ${sec('Փոփոխություններ', changes.length ? group(changes) : '<p class="none">Դեռ փոփոխություն չի եղել</p>')}
+      ${r.size_note ? `<p class="sec-f">${esc(r.size_note)}</p>` : ''}
+    `));
+  }
+
   // ───────── ChatGPT (AI տեսանելիություն) ─────────
   // Տվյալները՝ app_geo() / app_geo_answers() (db\0012_geo.sql). լցնում է HayWay-ի համակարգչի «Garik-GEO» task-ը շաբաթը մեկ
   // (scripts\geo-weekly.ps1). ChatGPT-ին հարցնում է առանց մուտքի՝ ինչպես աշխատանք փնտրող նոր վարորդը կամ առաքիչը։
@@ -912,6 +1008,83 @@
     `));
     sc.querySelectorAll('.ans-more').forEach((b) => b.onclick = () => { b.previousElementSibling.classList.remove('clip'); b.remove(); });
   }
+
+  // ───────── Ռիլեր (db\0021_reels.sql, 03.11). ամեն օր AI կերպարով մեկ ռիլ TikTok-ի և Instagram-ի համար. տերը դիտում է,
+  // գրում կարծիք և սեղմում «Հրապարակել» կամ «Փոխել»; հրապարակվածների տակ՝ թվերը 7 օրով. ⛔ առաջին 10-ում գովազդ չկա ─────────
+  const REEL_ST = { ready: ['info', 'սպասում է ձեզ'], approved: ['pos', 'կհրապարակվի'], changes: ['warn', 'փոխում ենք'], publishing: ['info', 'հրապարակվում է'],
+    published: ['pos', 'հրապարակված'], failed: ['neg', 'չհրապարակվեց'], skipped: ['n', 'բաց թողնված'] };
+  const reelTag = (r) => { const [c, t] = REEL_ST[r.status] || ['n', r.status]; return `<span class="tag ${c}">${t}${r.status === 'published' && r.published_at ? ' ' + dmy(r.published_at) : ''}</span>`; };
+  const reelSum = (r, k) => ['tiktok', 'instagram'].reduce((a, p) => a + (r.last && r.last[p] ? +r.last[p][k] || 0 : 0), 0);
+  // օրվա դիտումները՝ կուտակային թվերի տարբերությունից
+  const reelDays = (r) => (r.days || []).map((d, i, a) => ({ day: d.day, views: Math.max(0, d.views - (i ? a[i - 1].views : 0)) }));
+  route('/reels', async (n) => {
+    lastTab = 'sections';
+    const [h, R] = await Promise.all([rpc('app_home'), rpc('app_reels')]);
+    pendingCount = h.tasks_pending || 0;
+    const list = R.reels || [], run = R.runner;
+    const sub = !run ? '<span class="dot wait"></span>Գործարանը միանում է HayWay-ի համակարգչում'
+      : Date.now() - new Date(run.at) < 2 * 864e5 ? `<span class="dot ok"></span>Ամեն օր մեկ ռիլ · ${R.no_ads_left ? `առաջին 10-ում գովազդ չկա` : 'TikTok, Instagram'}`
+      : `<span class="dot bad"></span>Գործարանը կանգնած է ${ago(run.at)}`;
+    const back = n ? ['#/reels', 'Ռիլեր'] : ['#/sections', 'Բաժիններ'];
+    if (!list.length) {
+      mount({ title: 'Ռիլեր', tab: 'sections', back, sub }, page(emptyState(I.film, 'Առաջին ռիլը պատրաստվում է',
+        'Ամեն օր AI կերպարը՝ Արամը, մեկ կարճ վիդեո է անում TikTok-ի և Instagram-ի համար։ Դուք դիտում եք այստեղ, գրում կարծիք և սեղմում «Հրապարակել»։ Հաջորդ ռիլը գրվում է ձեր կարծիքից։')));
+      return;
+    }
+    // գլխավորը՝ ձեզ սպասողներից ամենահինը (հրապարակման հերթով), հետո վերջին հրապարակվածը; #/reels/<n>՝ կոնկրետ ռիլը
+    const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find((x) => ['ready', 'changes', 'approved', 'failed'].includes(x.status)) || list[0]);
+    if (!r) { location.hash = '#/reels'; return; }
+    const urls = {};
+    try {
+      const paths = [r.video, r.poster].filter(Boolean);
+      const { data } = paths.length ? await sb.storage.from('reels').createSignedUrls(paths, 3 * 3600) : { data: [] };
+      (data || []).forEach((x) => { urls[x.path] = x.signedUrl; });
+    } catch (e) {}
+    const open = ['ready', 'changes', 'approved', 'failed'].includes(r.status);
+    const pub = r.status === 'published';
+    const views = reelSum(r, 'views');
+    const links = [r.tiktok && `<a class="btn sm gray" href="${esc(r.tiktok)}" target="_blank" rel="noopener">TikTok</a>`, r.instagram && `<a class="btn sm gray" href="${esc(r.instagram)}" target="_blank" rel="noopener">Instagram</a>`].filter(Boolean);
+    const plat = (p, nm) => { const s = r.last && r.last[p]; return s ? cell({ t: nm, s: `${fmt(s.likes)} հավանում · ${fmt(s.comments)} մեկնաբանություն · ${fmt(s.shares)} կիսվել${s.saves != null ? ' · ' + fmt(s.saves) + ' պահել' : ''}`, v: fmt(s.views), strong: true }) : ''; };
+    const others = list.filter((x) => x.id !== r.id);
+    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(`
+      ${sec('', `<div class="card">
+        ${r.video && urls[r.video] ? `<video class="reel-v" src="${esc(urls[r.video])}" ${r.poster && urls[r.poster] ? `poster="${esc(urls[r.poster])}"` : ''} controls playsinline preload="metadata"></video>` : '<p class="none">Վիդեոն դեռ բեռնվում է</p>'}
+        <div>${reelTag(r)}${r.ad ? '' : ' <span class="tag n">առանց գովազդի</span>'}</div>
+        <h3>#${r.n} · ${esc(r.title)}</h3>
+        ${r.learned ? `<p class="meta">Ձեր կարծիքից՝ ${esc(r.learned)}</p>` : ''}
+        ${r.script ? `<div class="ans clip" dir="auto">${esc(r.script)}</div><button class="btn full ans-more" type="button">Կարդալ տեքստը</button>` : ''}
+        ${links.length ? `<div class="act-b">${links.join('')}</div>` : ''}
+      </div>`, { foot: r.status === 'approved' ? 'Կհրապարակվի TikTok-ում և Instagram-ում մոտակա ժամերին։' : r.status === 'changes' ? 'Ձեր կարծիքով նոր տարբերակ է պատրաստվում։'
+        : r.status === 'failed' ? esc(r.note || 'Հրապարակումը չստացվեց, նորից կփորձենք։') : '' })}
+      ${sec(open ? 'Ձեր կարծիքը' : 'Կարծիք հաջորդ ռիլի համար', `<div class="card">
+        <textarea class="in qtext" id="rc" rows="3" placeholder="${open ? 'Ի՞նչ դուր եկավ, ի՞նչ փոխել' : 'Ի՞նչ դուր եկավ, ի՞նչ անել հաջորդում'}">${esc(r.comment || '')}</textarea>
+        <div class="act-b">${open ? `<button type="button" class="btn pri" data-v="publish" ${r.status === 'approved' ? 'disabled' : ''}>Հրապարակել</button><button type="button" class="btn gray" data-v="change">Փոխել</button>`
+          : '<button type="button" class="btn pri" data-v="">Պահել</button>'}</div>
+        <p class="msgline" id="rmsg">${r.owner_at ? `Վերջին կարծիքը՝ ${ago(r.owner_at)}` : ''}</p>
+      </div>`, { foot: 'Ամեն հաջորդ ռիլը գրվում է ձեր կարծիքներից և թվերից։' })}
+      ${pub ? sec('Թվեր', `<div class="kpis">
+          ${kpi('Դիտում', fmt(views), '')}${kpi('Հավանում', fmt(reelSum(r, 'likes')), '')}
+          ${kpi('Մեկնաբանություն', fmt(reelSum(r, 'comments')), '')}${kpi('Կիսվել', fmt(reelSum(r, 'shares')), '')}
+        </div>${r.days && r.days.length ? `<div class="card" style="margin-top:8px">${barChart('rv' + r.id, reelDays(r), 'views', fmt, 'դիտում')}</div>` : ''}
+        ${r.last ? `<div style="margin-top:8px">${group([plat('tiktok', 'TikTok'), plat('instagram', 'Instagram')].filter(Boolean))}</div>` : ''}`,
+        { foot: r.last ? 'Թարմանում է օրը մեկ՝ հրապարակումից 7 օր։' : 'Առաջին թվերը՝ հրապարակումից մեկ օր հետո։' }) : ''}
+      ${others.length ? sec('Բոլոր ռիլերը', group(others.map((x) => cell({ href: '#/reels/' + x.n, icon: I.film, color: 'p', t: `#${x.n} · ${esc(x.title)}`,
+        s: x.status === 'published' ? `${fmt(reelSum(x, 'likes'))} հավանում · ${fmt(reelSum(x, 'comments'))} մեկնաբանություն` : (REEL_ST[x.status] || [, x.status])[1],
+        v: x.status === 'published' ? `${fmt(reelSum(x, 'views'))}` : '', strong: true }))), { foot: x0foot(R) }) : ''}
+    `));
+    sc.querySelectorAll('.ans-more').forEach((b) => b.onclick = () => { b.previousElementSibling.classList.remove('clip'); b.remove(); });
+    const ta = document.getElementById('rc'), msg = document.getElementById('rmsg');
+    sc.querySelectorAll('[data-v]').forEach((b) => b.onclick = async () => {
+      const v = b.dataset.v || null, txt = ta.value.trim();
+      if (v === 'change' && !txt) { msg.textContent = 'Գրեք՝ ինչ փոխել'; ta.focus(); return; }
+      if (!v && !txt) { ta.focus(); return; }
+      sc.querySelectorAll('[data-v]').forEach((x) => { x.disabled = true; });
+      const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: v, p_comment: txt });
+      if (error) { msg.textContent = 'Չստացվեց, փորձեք նորից'; sc.querySelectorAll('[data-v]').forEach((x) => { x.disabled = false; }); return; }
+      invalidate(); render();
+    });
+  });
+  const x0foot = (R) => R.no_ads_left ? `Առաջին 10 ռիլում գովազդ չկա. մնաց ${R.no_ads_left}։` : 'Թիվը՝ դիտումներ TikTok-ում և Instagram-ում միասին։';
 
   // ───────── Վարորդներ ─────────
   const SEGS =[['active', 'Ակտիվ'], ['top', 'Լավագույն 30'], ['risk', 'Կանգնածներ'], ['new', 'Նորեկներ'], ['churned', 'Հեռացած'], ['debt', 'Պարտքով'], ['cancellers', 'Չեղարկողներ']];

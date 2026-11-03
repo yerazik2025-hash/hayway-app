@@ -470,6 +470,8 @@ body.kb .composer { padding-bottom: 10px; }
 .qcard .btn.pri { min-height: 54px; font-size: 17px; font-weight: 600; transition: transform .14s ease, opacity .18s ease; }
 .qcard .btn.pri:active { transform: scale(.98); }
 .qtext { resize: none; font: inherit; font-size: 16px; }
+/* Ռիլեր (03.11). 9:16 վիդեո, ամբողջը երևում է */
+.reel-v { display: block; width: 100%; max-height: 58vh; aspect-ratio: 9 / 16; border-radius: 14px; background: var(--fill); object-fit: contain; }
 .qcard .msgline:empty { display: none; }
 .qdone { align-items: center; text-align: center; padding: 24px 16px; }
 .qok { width: 52px; height: 52px; border-radius: 26px; background: var(--pos-bg); color: var(--pos); display: flex; align-items: center; justify-content: center; }
