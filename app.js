@@ -83,9 +83,7 @@
   };
 
   // ───────── Տվյալներ ─────────
-  async function rpc(fn, args, key) {
-    key = key || fn + JSON.stringify(args || {});
-    if (cache[key] && Date.now() - cache[key].t < 60000) return cache[key].v;
+  async function fetchRpc(fn, args) {
     let { data, error } = await sb.rpc(fn, args || {});
     // 03.11. Բազան երբեմն զբաղված է (Fleet-ի համաժամացումը 15 րոպեն մեկ) → 8 վրկ սահմանը անցնում է. մեկ անգամ նորից, մինչև սխալը ցույց տալը
     if (error && (error.code === '57014' || /statement timeout/i.test(error.message || ''))) {
@@ -93,10 +91,33 @@
       ({ data, error } = await sb.rpc(fn, args || {}));
     }
     if (error) throw new Error(error.message);
-    cache[key] = { t: Date.now(), v: data };
     return data;
   }
-  function invalidate() { for (const k in cache) delete cache[k]; }
+  // 03.11 (Գարիկ. «շատ բաժիններ դանդաղ են բացվում»). Կարդալու պատասխանները պահվում են նաև այս սարքում (localStorage, 12 ժամ).
+  // Էկրանը նկարելիս (render) հին պատասխանը տրվում է անմիջապես, թարմը բերվում է ետևում, և եթե փոխվել է՝ էկրանը լուռ թարմանում է
+  // նույն տեղում (render(true)). Գործողությունից հետո invalidate()-ը ջնջում է պահածը, որ հին վիճակ չերևա։ Դուրս գալիս՝ նույնպես։
+  const LS = 'hw_rc:', LS_AGE = 12 * 3600e3;
+  const SWR = /^app_(home|notes|dash|geo|rivals?|dlv|listam|funnel|drivers|quality|finance|fees|net_income|terms|reels|reel_refs|wa)$/;
+  let rendering = 0, bg = [];
+  const lsGet = (k) => { try { const x = JSON.parse(localStorage.getItem(LS + k)); return x && Date.now() - x.t < LS_AGE ? x : null; } catch (e) { return null; } };
+  const lsClear = () => { try { Object.keys(localStorage).forEach((k) => { if (k.startsWith(LS)) localStorage.removeItem(k); }); } catch (e) {} };
+  const lsSet = (k, x) => { const s = JSON.stringify(x); try { localStorage.setItem(LS + k, s); } catch (e) { lsClear(); try { localStorage.setItem(LS + k, s); } catch (e2) {} } };
+  async function rpc(fn, args, key) {
+    key = key || fn + JSON.stringify(args || {});
+    if (cache[key] && Date.now() - cache[key].t < 60000) return cache[key].v;
+    const keep = SWR.test(fn);
+    const old = rendering && keep ? (cache[key] || lsGet(key)) : null;
+    const p = fetchRpc(fn, args).then((v) => {
+      const changed = !old || JSON.stringify(v) !== JSON.stringify(old.v);
+      cache[key] = { t: Date.now(), v };
+      if (keep) lsSet(key, { t: Date.now(), v });
+      return changed;
+    });
+    if (old) { bg.push(p); return old.v; }
+    await p;
+    return cache[key].v;
+  }
+  function invalidate() { for (const k in cache) delete cache[k]; lsClear(); }
 
   // ───────── Շրջանակ (ԿԱ 2-ի պատյան, 03.11.2026) ─────────
   // Ներքևում՝ պարկի ԲՈԼՈՐ բաժինները մեկ սահող շարքում (Գարիկ. «ինչպես իմ հավելվածինը»՝ gth.robi.am/v2, iOS 26-ի Telegram-ի պես),
@@ -476,8 +497,11 @@
   // ───────── Երթուղավորում ─────────
   const routes = {};
   function route(path, fn) { routes[path] = fn; }
-  let lastTab = '';
-  async function render() {
+  let lastTab = '', renderSeq = 0;
+  // silent = նույն էկրանը ետևում եկած թարմ թվերով. առանց պտտվող նշանի, նույն ոլորման տեղում (տե՛ս rpc-ի պահածը)
+  async function render(silent) {
+    silent = silent === true;   // hashchange-ը Event է տալիս
+    const seq = ++renderSeq;
     const session = (await sb.auth.getSession()).data.session;
     if (!session) return renderLogin();
     const path = (location.hash || '#/').slice(1).split('?')[0];
@@ -485,17 +509,32 @@
     if (window.HWD && HWD.route(seg)) return;   // (03.11) desktop.js. համակարգչում GTH-ը բացվում է աջում, մեծ էջը մնում է տեղում
     const fn = routes['/' + seg] || routes['/'];
     if (seg !== 'garik') chatBack = '#' + path;
-    const sc = document.getElementById('sc');
+    const sc = document.getElementById('sc'), y = silent && sc ? sc.scrollTop : 0;
     app.querySelectorAll('.composer').forEach((e) => e.remove());
-    if (sc && app.querySelector('.dock')) sc.innerHTML = '<div class="loading" style="height:60vh"><span class="spin"></span></div>';
-    else app.innerHTML = '<div class="loading"><span class="spin"></span></div>';
+    if (!silent) {
+      if (sc && app.querySelector('.dock')) sc.innerHTML = '<div class="loading" style="height:60vh"><span class="spin"></span></div>';
+      else app.innerHTML = '<div class="loading"><span class="spin"></span></div>';
+    }
+    const mine = bg = [];
+    rendering++;
     try {
       await fn(arg);
+      if (y) { const s2 = document.getElementById('sc'); if (s2) s2.scrollTop = y; }
     } catch (e) {
       const msg = String(e.message || e);
       mount({ title: 'Սխալ', tab: lastTab || 'home' }, page(`<div class="err">${esc(msg === 'no access' ? 'Այս փոստը հավելվածի մուտքի ցուցակում չէ։' : msg)}</div><button class="btn full" id="signout">Դուրս գալ</button>`));
       document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
-    }
+    } finally { rendering--; }
+    // հին թվերով նկարվեց → սպասում ենք թարմին (վերևի կոճակը պտտվում է) և փոխվելու դեպքում նկարում ենք նորից. զրույցը՝ ոչ
+    if (!mine.length || seg === 'garik') return;
+    const rb = document.getElementById('refresh');
+    if (rb) rb.classList.add('spinning');
+    const res = await Promise.allSettled(mine);
+    if (seq !== renderSeq) return;
+    const rb2 = document.getElementById('refresh');
+    if (rb2) rb2.classList.remove('spinning');
+    const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (!typing && res.some((r) => r.status === 'fulfilled' && r.value)) render(true);
   }
   window.addEventListener('hashchange', render);
   sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' || ev === 'SIGNED_OUT') { invalidate(); render(); } });
@@ -1344,6 +1383,7 @@
     };
     app.querySelectorAll('[data-rfhide]').forEach((b) => b.onclick = async () => { b.disabled = true; await sb.rpc('app_reel_ref_hide', { p_id: +b.dataset.rfhide }); invalidate(); render(); });
   }
+  const signedUrls = {};
   route('/reels', async (n) => {
     lastTab = 'sections';
     const [h, R, refs0] = await Promise.all([rpc('app_home'), rpc('app_reels'), rpc('app_reel_refs').catch(() => [])]);
@@ -1354,9 +1394,12 @@
       : `<span class="dot bad"></span>Գործարանը կանգնած է ${ago(run.at)}`;
     const back = n ? ['#/reels', 'Ռիլեր'] : ['#/sections', 'Բաժիններ'];
     const urls = {};
+    // ստորագրված հղումները գործում են 3 ժամ → 2 ժամ վերցնում ենք պահածից, որ ամեն բացելիս Storage-ին չսպասենք (03.11)
     const signAll = async (paths) => {
       paths = paths.filter(Boolean);
-      try { const { data } = paths.length ? await sb.storage.from('reels').createSignedUrls(paths, 3 * 3600) : { data: [] }; (data || []).forEach((x) => { urls[x.path] = x.signedUrl; }); } catch (e) {}
+      const now = Date.now(), need = paths.filter((p) => !(signedUrls[p] && now - signedUrls[p].t < 2 * 3600e3));
+      try { const { data } = need.length ? await sb.storage.from('reels').createSignedUrls(need, 3 * 3600) : { data: [] }; (data || []).forEach((x) => { if (x.signedUrl) signedUrls[x.path] = { u: x.signedUrl, t: now }; }); } catch (e) {}
+      paths.forEach((p) => { if (signedUrls[p]) urls[p] = signedUrls[p].u; });
     };
     const refPaths = refs.filter((f) => f.kind === 'video').map((f) => f.path);
     if (!list.length) {
@@ -1655,10 +1698,14 @@
     if (!r.ok && !j.answer) throw new Error(j.error || ('HTTP ' + r.status));
     return j;
   }
+  // 03.11. GET-ը «սառը» ֆունկցիա է (առաջին կանչը՝ մինչև 3 վրկ) → վերջին հայտնի վիճակը՝ անմիջապես, թարմը՝ ետևում
   async function garikState() {
     if (garikStatus) return garikStatus;
-    try { garikStatus = await garikCall('GET'); } catch (e) { garikStatus = { ok: false, key: false }; }
-    return garikStatus;
+    let old = null;
+    try { old = JSON.parse(localStorage.getItem('hw_garik_st')); } catch (e) {}
+    const p = garikCall('GET').then((s) => { try { localStorage.setItem('hw_garik_st', JSON.stringify(s)); } catch (e) {} return s; })
+      .catch(() => ({ ok: false, key: false })).then((s) => (garikStatus = s));
+    return old || p;
   }
   async function assistantNow() { const { data, error } = await sb.rpc('app_assistant'); if (error) throw new Error(error.message); return data || { msgs: [] }; }
   // Excel (CSV, Excel-ը բացում է). հեռախոսները գալիս են միայն այս սարքին, Claude-ին չեն գնում
