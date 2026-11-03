@@ -253,6 +253,47 @@
     });
   }
 
+  // ───────── Ծանուցումներ այս հեռախոսում (Web Push, db\0014. ուղարկում է owner-bot-ը) ─────────
+  // iPhone-ում աշխատում է միայն Home Screen-ին ավելացված հավելվածում (iOS 16.4+), թույլտվությունը՝ միայն կոճակ սեղմելով
+  const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const pushStandaloneNeeded = () => /iP(hone|ad|od)/.test(navigator.userAgent) && !(window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true);
+  // getRegistration()-ը, ոչ ready-ն. ready-ն երբեք չի վերջանում, եթե service worker չկա, ու Գլխավորը կկախվեր
+  async function pushSub() { if (!pushOk()) return null; try { const r = await navigator.serviceWorker.getRegistration(); return r ? await r.pushManager.getSubscription() : null; } catch (e) { return null; } }
+  async function pushState() {
+    const sub = await pushSub();
+    return { ok: pushOk() && !pushStandaloneNeeded(), on: !!sub && Notification.permission === 'granted', denied: pushOk() && Notification.permission === 'denied', sub };
+  }
+  async function pushEnable() {
+    const { data, error } = await sb.rpc('app_push');
+    if (error || !data || !data.public_key) throw new Error(error ? error.message : 'բանալի չկա');
+    if (await Notification.requestPermission() !== 'granted') throw new Error('Թույլտվություն չտրվեց');
+    const k = data.public_key.replace(/-/g, '+').replace(/_/g, '/');
+    const key = Uint8Array.from(atob(k + '='.repeat((4 - k.length % 4) % 4)), (c) => c.charCodeAt(0));
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, rj) => setTimeout(() => rj(new Error('service worker չկա')), 10000))]);
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const j = sub.toJSON();
+    const r = await sb.rpc('app_push_subscribe', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent });
+    if (r.error) throw new Error(r.error.message);
+  }
+  async function pushDisable() {
+    const sub = await pushSub();
+    if (!sub) return;
+    await sb.rpc('app_push_unsubscribe', { p_endpoint: sub.endpoint });
+    await sub.unsubscribe();
+  }
+  function bindPush() {
+    app.querySelectorAll('[data-pushon]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      try { await pushEnable(); render(); } catch (e) { b.disabled = false; alert('Չստացվեց՝ ' + e.message); }
+    });
+    app.querySelectorAll('[data-pushoff]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Անջատե՞լ ծանուցումները այս հեռախոսում։')) return;
+      await pushDisable(); render();
+    });
+  }
+  // Ծանուցումը սեղմելիս service worker-ը ասում է, որ էջը բացենք
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.go) location.hash = e.data.go; });
+
   // ───────── Գլխավոր (պարզ. այսօր անել · 4 թիվ · 1000-ի նպատակը) ─────────
   route('/', async () => {
     lastTab = 'home';
@@ -283,9 +324,14 @@
     // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
     const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
         <p>${esc(n.text)}</p><button type="button" class="btn sm gray" data-seen="${n.id}">Լավ</button></div>`).join('')}</div>`) : '';
-    // Telegram-ի միացում (db\0013). մինչև տերը չմիացնի, Գլխավորում փոքր քարտ («Հետո»-ն թաքցնում է 7 օրով)
+    // Գարիկի ծանուցումները. նախ՝ հենց հավելվածում (push), իսկ եթե հեռախոսը չի կարող՝ Telegram (db\0013). «Հետո»-ն թաքցնում է 7 օրով
     let tgLater = 0; try { tgLater = +localStorage.getItem('hw_tg_later') || 0; } catch (e) {}
-    const tgCard = tgState.username && !tgState.linked && Date.now() > tgLater ? sec('', `<div class="card tgcard">
+    const ps = await pushState();
+    const tgCard = Date.now() <= tgLater || ps.on || tgState.linked ? ''
+      : ps.ok && !ps.denied ? sec('', `<div class="card tgcard">
+        <p><b>Գարիկի ծանուցումները՝ այս հեռախոսում</b><br><span class="meta">Երբ Գարիկը պատասխանի, հիշեցնի կամ «Կատարե՞մ» քարտ պատրաստի, հեռախոսը ձեզ կտեղեկացնի։</span></p>
+        <div class="act-b"><button type="button" class="btn pri sm" data-pushon>Միացնել ծանուցումները</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`)
+      : tgState.username ? sec('', `<div class="card tgcard">
         <p><b>Գարիկի պատասխանները՝ Telegram-ում</b><br><span class="meta">Հիշեցումներն ու «Կատարե՞մ» քարտերը կգան Telegram-ում, «Այո»-ն կարող եք սեղմել հենց այնտեղ։</span></p>
         <div class="act-b"><button type="button" class="btn pri sm" data-tglink>Միացնել Telegram-ը</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`) : '';
     mount({ title: 'HayWay', tab: 'home', sub: `${todayLong()} <span class="mut3">· թարմ՝ ${ago(h.last_sync)}</span>` }, page(`
@@ -308,6 +354,7 @@
     `));
     if (hasQ) questionCard(document.getElementById('qa'), qs);
     bindTg();
+    bindPush();
     const later = app.querySelector('[data-tglater]');
     if (later) later.onclick = () => { try { localStorage.setItem('hw_tg_later', String(Date.now() + 7 * 864e5)); } catch (e) {} later.closest('.sec').remove(); };
     app.querySelectorAll('[data-seen]').forEach((b) => b.onclick = async () => {
@@ -976,7 +1023,9 @@
     if (l.action === 'notice') return ['Գարիկ · հիշեցում', ''];
     if (l.action === 'tg_link') return ['Դու · միացրիր Telegram-ը', d.name || ''];
     if (l.action === 'tg_unlink') return ['Դու · անջատեցիր Telegram-ը', ''];
-    if (l.agent === 'owner-bot' && l.action === 'flush') return ['Գարիկ · Telegram', `ուղարկվեց ${d.sent || 0} հաղորդագրություն`];
+    if (l.action === 'push_on') return ['Դու · միացրիր ծանուցումները', ''];
+    if (l.action === 'push_off') return ['Դու · անջատեցիր ծանուցումները', ''];
+    if (l.agent === 'owner-bot' && l.action === 'flush') return ['Գարիկ · ծանուցում', `Telegram՝ ${d.sent || 0}, հեռախոս՝ ${d.pushed || 0}`];
     if (l.action === 'error') return [`${l.agent} · սխալ`, String(d.msg || '').slice(0, 90)];
     if (l.action.startsWith('task_')) return [`Դու · ${{ task_approve: 'հաստատեցիր', task_reject: 'մերժեցիր', task_undo: 'չեղարկեցիր' }[l.action] || l.action}`, d.title || ''];
     if (l.action === 'agents_off') return ['Գործակալները կանգնեցվեցին', ''];
@@ -997,6 +1046,7 @@
       sb.rpc('app_brain').then((r) => r.data || [], () => []),
       sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
     ]);
+    const ps = await pushState();
     pendingCount = h.tasks_pending || 0;
     const agentsOn = !(agR.data && agR.data.value && agR.data.value.enabled === false);
     const session = sessR.data.session;
@@ -1011,6 +1061,9 @@
         cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', s: st.mode === 'pc' ? `Ձեր Claude-ով, HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
           v: !st.ok ? '<span class="tag warn">կապ չկա</span>' : st.mode !== 'pc' ? '<span class="tag pos">միացված</span>'
             : runnerOn(asR && asR.runner) ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">անջատված</span>' }),
+        cell({ icon: I.star, color: 'y', t: 'Ծանուցումներ այս հեռախոսում',
+          s: ps.on ? 'Պատասխաններ, հիշեցումներ և «Կատարե՞մ» քարտեր' : ps.denied ? 'Արգելված է հեռախոսի կարգավորումներում' : !ps.ok ? 'iPhone-ում՝ միայն Home Screen-ին ավելացված հավելվածում' : 'Գարիկը կտեղեկացնի, երբ պատասխանի',
+          trail: ps.on ? '<button type="button" class="btn plain sm" data-pushoff>Անջատել</button>' : ps.ok && !ps.denied ? '<button type="button" class="btn pri sm" data-pushon>Միացնել</button>' : '' }),
         ...(tgS.username ? [cell({ icon: I.chat, color: 'b', t: 'Telegram · Գարիկի ծանուցումներ',
           s: tgS.linked ? `@${esc(tgS.username)}${tgS.name ? ' · ' + esc(tgS.name) : ''}` : 'Պատասխաններ, հիշեցումներ և «Այո/Ոչ» քարտեր',
           trail: tgS.linked ? '<button type="button" class="btn plain sm" data-tgunlink>Անջատել</button>' : '<button type="button" class="btn pri sm" data-tglink>Միացնել</button>' })] : []),
@@ -1029,10 +1082,11 @@
         <button class="btn dark full" id="setpw">Պահել գաղտնաբառը</button>
         <p id="pwmsg" class="meta"></p>
       </div>`)}
-      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.11` })}
+      ${sec('', group([`<button class="cell" id="signout" style="justify-content:center"><span class="t neg" style="text-align:center">Դուրս գալ</span></button>`]), { foot: `Մուտք՝ ${esc(session?.user?.email || '')} · տարբերակ 0.12` })}
     `));
     document.getElementById('signout').onclick = () => sb.auth.signOut().then(render);
     bindTg();
+    bindPush();
     app.querySelectorAll('[data-forget]').forEach((b) => b.onclick = async () => {
       if (!confirm('Մոռանա՞լ սա։')) return;
       b.disabled = true;
