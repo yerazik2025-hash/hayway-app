@@ -268,22 +268,154 @@
   }
   addEventListener('resize', () => { const tr = app.querySelector('.track'); if (tr) { edges(tr); glassPlace(tr, tr.querySelector('.tab.on'), false); } });
 
-  // Գլխավորի 14 օրը. սեղմել կամ մատը սահեցնել → ներքևում այդ օրը (սկզբում՝ վերջին լրիվ օրը)
-  function bindDays(days) {
-    const bars = document.getElementById('d14'), out = document.getElementById('d14d');
-    if (!bars || !out) return;
+  // ───────── Գլխավորի եկամտի վահանակ (db\0025, app_dash). 03.11, Գարիկ. «ժամկետները փոխել՝ 7 օր, 14 օր, 1 ամիս, նաև ըստ ամիսների;
+  // օրվա վրա սեղմելով՝ շրջանառությունը առանց ծախսերի, փոքր՝ ետևից երևացող; աղյուսակ՝ գրանցվողներ և դուրս եկողներ (отток);
+  // ներքևում՝ նույն վահանակը առաքման համար» ─────────
+  const PERIODS = [['d7', '7 օր'], ['d14', '14 օր'], ['d30', '1 ամիս'], ['months', 'Ամիսներ']];
+  const MON_S = ['Հնվ', 'Փտր', 'Մրտ', 'Ապր', 'Մյս', 'Հնս', 'Հլս', 'Օգս', 'Սեպ', 'Հոկ', 'Նոյ', 'Դեկ'];
+  const MON_N = ['Հունվար', 'Փետրվար', 'Մարտ', 'Ապրիլ', 'Մայիս', 'Հունիս', 'Հուլիս', 'Օգոստոս', 'Սեպտեմբեր', 'Հոկտեմբեր', 'Նոյեմբեր', 'Դեկտեմբեր'];
+  const PARKS = [['taxi', 'Տաքսի'], ['delivery', 'Առաքում']];
+  let period = 'd14';
+  try { period = localStorage.getItem('hw_period') || 'd14'; } catch (e) {}
+  if (!PERIODS.some((p) => p[0] === period)) period = 'd14';
+  const num = (v) => Math.round(+v || 0);
+  // օրերն ու ամիսները՝ մեկ տեսքով (սյուն + աղյուսակ)
+  function dashRows(D) {
+    const td = today();
+    if (D.mode === 'months') return (D.months || []).map((m) => {
+      const mi = +m.m.slice(5) - 1, full = m.from.slice(8) === '01' && m.days >= 28 && m.to !== td;
+      return { ax: MON_S[mi], nm: MON_N[mi].toLowerCase(), title: MON_N[mi] + (full ? '' : ` · ${dmy(m.from)}–${dmy(m.to)}`), from: m.from, to: m.to, now: m.m === td.slice(0, 7),
+        has: m.cov_days > 0, part: m.cov_days > 0 && m.cov_days < m.days ? m.cov_days : 0, commission: m.commission, net: m.net, gmv: m.gmv, orders: m.orders,
+        active: m.active_avg, avg: true, new: m.new, churn: m.churn, pay: m.pay, tax: m.tax, ads: m.ads, fixed: m.fixed, costs: m.costs, est: m.est };
+    });
+    return (D.days || []).map((d) => ({ ax: dmy(d.day), title: `${d.day === td ? 'Այսօր' : DAYS_L[dayIdx(d.day)]} · ${dmy(d.day)}`, from: d.day, to: d.day,
+      now: d.day === td, has: d.has_comm, commission: d.commission, net: d.net, gmv: d.gmv, orders: d.orders, active: d.active,
+      new: d.new, churn: d.churn, pay: d.pay, tax: d.tax, ads: d.ads, fixed: d.fixed, costs: d.costs, est: d.est }));
+  }
+  // մեծ քարտը. գլխավոր թիվ + սյուներ (առջևում՝ մաքուրը, ետևում՝ շրջանառությունը ծախսերից առաջ) + ընտրված օրը
+  function dashCard(park, D) {
+    if (!D || !D.connected) return `<div class="card hc dash-off">
+        <div class="lab"><span>HayWay Delivery</span><span class="tag n">միացվում է</span></div>
+        <p class="meta">Այստեղ կերևան առաքման նույն թվերը՝ մաքուր եկամուտ, ծախսեր, պատվերներ, գրանցվածներ և դուրս եկածներ, ըստ օրերի և ամիսների։</p>
+        <p class="meta mut3">Առաքման պարկը Fleet-ում առանձին է, թվերը կգան, երբ այն միացվի հավելվածին։</p>
+      </div>`;
+    const M = D.mode === 'months', rows = dashRows(D);
+    let lab, val, cmp, sub;
+    if (M) {
+      const k = rows.map((r) => r.has).lastIndexOf(true), cur = rows[k] || {}, prev = rows[k - 1];
+      lab = `Մաքուր եկամուտ · ${cur.nm || ''}`; val = num(cur.net);
+      cmp = prev && prev.has ? `<span>${prev.nm}՝ ${short(prev.net)}${prev.part ? ` (${prev.part} օր)` : ''}</span>` : '';
+      sub = cur.has ? `շրջանառություն ${short(cur.commission)} − ծախսեր ${short(cur.costs)}` : '';
+    } else {
+      const c = D.cur || {}, p = D.prev || {}, pOk = p.days && p.cov_days === p.days && +p.net;
+      const dp = pOk ? Math.round((c.net - p.net) / Math.abs(p.net) * 100) : null;
+      lab = `Մաքուր եկամուտ · ${D.n === 30 ? '30' : D.n} օր`; val = num(c.net);
+      cmp = (dp === null ? '' : `<span class="pill ${dp > 0 ? 'up' : dp < 0 ? 'down' : ''}">${dp > 0 ? '+' : dp < 0 ? '−' : ''}${Math.abs(dp)}%</span>`)
+        + (pOk ? `<span>նախորդ ${D.n} օրը՝ ${short(p.net)}</span>` : '');
+      sub = `շրջանառություն ${short(c.commission)} − ծախսեր ${short(c.costs)}`;
+    }
+    const max = Math.max(1, ...rows.map((r) => r.has ? Math.max(+r.commission || 0, +r.net || 0) : 0));
+    const bars = rows.map((r, i) => `<i class="${r.now ? 't' : ''}${r.has ? '' : ' nd'}" style="--g:${r.has ? Math.max(3, Math.round(r.commission / max * 100)) : 0}%;--h:${r.has ? Math.max(0, Math.round(r.net / max * 100)) : 0}%;--k:${i}"></i>`).join('');
+    const axis = M ? `<div class="axis mo">${rows.map((r) => `<span>${r.ax}</span>`).join('')}</div>`
+      : `<div class="axis"><span>${rows.length ? rows[0].ax : ''}</span><span>${rows.length > 8 ? rows[Math.floor(rows.length / 2)].ax : ''}</span><span>${rows.length && rows[rows.length - 1].now ? 'այսօր' : (rows.length ? rows[rows.length - 1].ax : '')}</span></div>`;
+    const tot = rows.reduce((s, r) => s + (r.has ? +r.net || 0 : 0), 0);
+    return `<div class="card hc">
+        <div class="lab"><span>${lab}</span><span class="aux">թարմ՝ ${ago(D.last_sync)}</span></div>
+        <div class="val"><span data-n="${val}">${fmt(val)}</span><small>֏</small></div>
+        ${cmp ? `<div class="cmp">${cmp}</div>` : ''}
+        ${sub ? `<div class="cmp"><span>${sub}</span>${D.approx ? '<a class="tag warn" href="#/finance">մոտավոր</a>' : ''}</div>` : ''}
+        ${rows.length ? `<div class="d14">
+          <div class="d14-h"><span>${M ? 'Ըստ ամիսների' : `Վերջին ${D.n} օրը`}</span>${M ? '' : `<b>${short(tot)}</b>`}</div>
+          <div class="bars dash grow${rows.length > 20 ? ' dense' : ''}" id="${park}-bars">${bars}</div>
+          ${axis}
+          <div class="lgd"><span><i></i>մաքուր եկամուտ</span><span><i class="g"></i>շրջանառություն՝ ծախսերից առաջ</span></div>
+          <div class="dayh" id="${park}-day"></div>
+        </div>` : ''}
+      </div>
+      ${rows.length ? `<div class="group dtab" id="${park}-tab"></div>` : ''}`;
+  }
+  // աղյուսակը ընտրված օրվա (ամսվա) համար. շրջանառություն, ծախսեր (բացվում է), մաքուր, պատվերներ, գրանցվածներ, դուրս եկածներ (կոճակով՝ ցուցակը)
+  function dashTable(park, D, r) {
+    const el = document.getElementById(park + '-tab');
+    if (!el) return;
+    const fixedNames = (D.fixed_items || []).map((x) => x.name).join(', ');
+    const pbtn = (kind, t, n, s) => `<button type="button" class="cell" data-ppl="${kind}" ${n ? '' : 'disabled'}><span class="bd"><span class="t">${t}</span>${s ? `<span class="s">${s}</span>` : ''}</span><span class="v strong ${kind === 'churn' && n ? 'neg' : ''}">${fmt(n)}${NB}մարդ</span>${n ? `<span class="chev">${I.chev}</span>` : ''}</button>`;
+    el.innerHTML = (r.has ? [
+      cell({ t: 'Շրջանառություն', s: r.part ? `պարկի եկամուտը՝ ծախսերից առաջ · միայն ${r.part} օրվա տվյալ կա` : 'պարկի եկամուտը՝ ծախսերից առաջ', v: amd(num(r.commission)), strong: true }),
+      `<button type="button" class="cell" data-cost><span class="bd"><span class="t">Ծախսեր</span><span class="s">սեղմեք՝ մանրամասն</span></span><span class="v neg">−${amd(num(r.costs))}</span><span class="chev">${I.chev}</span></button>`,
+      `<div class="dt-x" hidden>${[
+        cell({ t: 'Վճարային համակարգեր', s: 'Idram, Telcell, EasyPay, PrimeBridge', v: amd(num(r.pay)) }),
+        cell({ t: `Հարկ ${fmt(D.tax_pct)}%`, s: 'շրջանառությունից', v: amd(num(r.tax)) }),
+        cell({ t: 'Գովազդ', s: 'list.am', v: amd(num(r.ads)) }),
+        cell({ t: 'Ամսական ծախսեր', s: esc(fixedNames || 'վարձ, աշխատավարձ'), v: amd(num(r.fixed)) }),
+      ].join('')}</div>`,
+      cell({ t: '<b>Մաքուր եկամուտ</b>', s: r.est ? 'մոտավոր. Fleet-ը այդ օրերի գործարքները չտվեց' : '', v: `<span class="${+r.net < 0 ? 'neg' : 'pos'}">${amd(num(r.net))}</span>`, strong: true }),
+    ] : [cell({ t: 'Շրջանառություն', s: 'այս ժամանակի համար Fleet-ի գործարքներ չունենք (կան 06.09-ից)', v: 'տվյալ չկա' })]).concat([
+      cell({ t: 'Պատվերներ', s: `պատվերների գումարը՝ ${short(r.gmv)}`, v: fmt(r.orders) }),
+      cell({ t: 'Աշխատել են', s: r.avg ? 'միջինը օրական' : 'գոնե մեկ պատվեր', v: `${fmt(r.active)}${NB}վարորդ` }),
+      pbtn('new', 'Գրանցվել են', r.new, 'նոր վարորդներ Fleet-ում'),
+      pbtn('churn', 'Դուրս են եկել', r.churn, '10 օր պատվեր չունեն'),
+      '<div class="dt-l" hidden></div>',
+    ]).join('');
+    const cb = el.querySelector('[data-cost]');
+    if (cb) cb.onclick = () => { const x = el.querySelector('.dt-x'); x.hidden = !x.hidden; cb.classList.toggle('on', !x.hidden); };
+    el.querySelectorAll('[data-ppl]').forEach((b) => b.onclick = async () => {
+      const box = el.querySelector('.dt-l'), kind = b.dataset.ppl;
+      if (b.classList.contains('on')) { b.classList.remove('on'); box.hidden = true; return; }
+      el.querySelectorAll('[data-ppl]').forEach((x) => x.classList.remove('on'));
+      b.classList.add('on'); box.hidden = false; box.innerHTML = '<div class="loading" style="padding:18px"><span class="spin"></span></div>';
+      try {
+        const ppl = await rpc('app_dash_people', { p_park: park, p_kind: kind, p_from: r.from, p_to: r.to });
+        if (!b.classList.contains('on')) return;
+        box.innerHTML = ppl.length ? `<div class="group avs">${ppl.map((d) => cell({ lead: `<span class="av">${esc(initials(d.first_name, d.last_name))}</span>`, t: esc(name(d)), bold: true,
+          s: kind === 'new' ? `Գրանցվել է ${dmy(d.hire_date)} · ${fmt(d.orders_total)} պատվեր` : `Վերջին պատվերը ${dmy(d.last_order_at)} · ընդամենը ${fmt(d.orders_total)} պատվեր`,
+          trail: callBtn(d) })).join('')}</div>` : '<p class="none">Ցուցակը դատարկ է։</p>';
+      } catch (e) { box.innerHTML = `<p class="none">Չբացվեց՝ ${esc(e.message)}</p>`; }
+    });
+  }
+  // սեղմել կամ մատը սահեցնել սյուների վրա → վերևում այդ օրը (մաքուրը մեծ, շրջանառությունը՝ փոքր), ներքևում՝ աղյուսակը
+  function bindDash(park, D) {
+    const rows = dashRows(D), bars = document.getElementById(park + '-bars'), out = document.getElementById(park + '-day');
+    if (!bars || !out || !rows.length) return;
+    let cur = -1;
     const pick = (i) => {
-      i = Math.max(0, Math.min(days.length - 1, i));
-      const d = days[i], isT = d.day === today();
+      i = Math.max(0, Math.min(rows.length - 1, i));
+      if (i === cur) return;
+      cur = i;
+      const r = rows[i];
       bars.classList.add('sel');
       bars.querySelectorAll('i').forEach((b, k) => b.classList.toggle('on', k === i));
-      out.innerHTML = `<span>${isT ? 'Այսօր' : DAYS_L[dayIdx(d.day)]}<small>${dmy(d.day)} · ${fmt(d.orders)} պատվեր · ${fmt(d.active)} վարորդ${d.net != null ? ` · ծախս ${amd(Math.round(+d.costs || 0))}` : ''}</small></span><b>${amd(Math.round(d.net != null ? +d.net : +d.commission || 0))}</b>`;
+      out.innerHTML = r.has ? `<span>${r.title}<small>շրջանառություն ${amd(num(r.commission))} · ծախս ${amd(num(r.costs))}</small></span><b class="${+r.net < 0 ? 'neg' : ''}">${amd(num(r.net))}</b>`
+        : `<span>${r.title}<small>${fmt(r.orders)} պատվեր · պատվերների գումարը՝ ${short(r.gmv)}</small></span><b class="mut3">տվյալ չկա</b>`;
+      dashTable(park, D, r);
     };
-    const at = (x) => { const r = bars.getBoundingClientRect(); return Math.floor((x - r.left) / r.width * days.length); };
+    const at = (x) => { const b = bars.getBoundingClientRect(); return Math.floor((x - b.left) / b.width * rows.length); };
     bars.addEventListener('pointerdown', (e) => { pick(at(e.clientX)); });
     bars.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') pick(at(e.clientX)); });
-    const lastFull = days.map((d) => d.day < today()).lastIndexOf(true);
-    pick(lastFull >= 0 ? lastFull : days.length - 1);
+    // սկզբում՝ վերջին լրիվ օրը (ամիսներում՝ այս ամիսը)
+    const k = D.mode === 'months' ? rows.length - 1 : rows.map((r) => !r.now).lastIndexOf(true);
+    pick(k >= 0 ? k : rows.length - 1);
+  }
+  async function dashLoad() {
+    return Promise.all(PARKS.map(([p]) => rpc('app_dash', { p_park: p, p_mode: period }).catch((e) => (p === 'taxi' ? Promise.reject(e) : null))));
+  }
+  const dashHtml = (ds) => PARKS.map(([p, l], i) => sec(l, dashCard(p, ds[i]))).join('');
+  function bindDashAll(ds) {
+    PARKS.forEach(([p], i) => { if (ds[i] && ds[i].connected) bindDash(p, ds[i]); });
+    app.querySelectorAll('[data-period]').forEach((b) => b.onclick = async () => {
+      if (b.dataset.period === period) return;
+      period = b.dataset.period;
+      try { localStorage.setItem('hw_period', period); } catch (e) {}
+      app.querySelectorAll('[data-period]').forEach((x) => x.classList.toggle('on', x === b));
+      const box = document.getElementById('dash');
+      box.style.opacity = '.5';
+      try {
+        const nd = await dashLoad();
+        if (b.dataset.period !== period) return;
+        box.innerHTML = dashHtml(nd);
+        bindDashAll(nd);
+      } finally { box.style.opacity = ''; }
+    });
   }
   // թվերը հաշվում են 0-ից (ԿԱ 2-ի «կենդանի» թվերը). միայն նոր էկրան բացելիս
   function countUp(root) {
@@ -467,7 +599,7 @@
     lastTab = 'home';
     // 03.11, Գարիկ. «հավելվածը բացելուց միանգամից երևա ֆինանսական կտորը» → Գլխավորը սկսվում է եկամտով;
     // «Այո»-ն, հիշեցումները, «Հարց ձեզ»-ը ու ծանուցումների միացումը՝ GTH էջում (gthCards), թիվը՝ GTH կոճակի վրա
-    const [h, notes, ni] = await Promise.all([rpc('app_home'), rpc('app_notes'), rpc('app_net_income', { p_days: 14 }).catch(() => null)]);
+    const [h, notes, ds] = await Promise.all([rpc('app_home'), rpc('app_notes'), dashLoad()]);
     pendingCount = h.tasks_pending || 0;
     const w = h.week;
     // Համեմատում ենք միայն լրիվ օրերը (առանց այսօրվա). վերջին 7-ը՝ նախորդ 7-ի հետ
@@ -480,31 +612,12 @@
     const fresh = notes && notes.drivers_synced_at && (Date.now() - new Date(notes.drivers_synced_at)) < 3 * 3600e3;
     const active = h.active_30d || 0;
     const vsWeek = (cur, prev) => { if (!prev) return ''; const d = Math.round((cur - prev) / prev * 100); if (!d) return '<span class="delta mut">նույնը, ինչ նախորդ 7 օրը</span>'; return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '▲' : '▼'}${NB}${Math.abs(d)}%</span> <span class="mut">նախորդ 7 օրից</span>`; };
-    // Գլխավոր թիվը՝ պարկի եկամուտը 7 օրում + վերջին 14 օրը ըստ օրերի (Դավիթի АРОМАТИКА-ի պես). սեղմել օրը → այդ օրվա թվերը
-    // 03.11, Գարիկ. «ոչ թե շրջանառությունը, այլ մաքուր եկամուտը». մաքուր = պարկի միջնորդավճար − վճարային ծախսեր − այլ ծախսեր (db\0019, app_net_income)
-    const netBy = {}; if (ni) (ni.days || []).forEach((d) => { netBy[d.day] = d; });
-    const NET = !!(ni && ni.last7 && ni.last7.net != null);
-    const d14 = (h.days || []).slice(-14).map((d) => netBy[d.day] ? { ...d, net: netBy[d.day].net, costs: netBy[d.day].payment_costs + netBy[d.day].other_costs } : d);
-    const val = (d) => NET ? (+d.net || 0) : (+d.commission || 0);
-    if (NET) { W7.net = +ni.last7.net; P7.net = +(ni.prev7 && ni.prev7.net) || 0; }
-    const KEY = NET ? 'net' : 'commission';
-    const max14 = Math.max(1, ...d14.map(val));
-    const dPct = P7[KEY] ? Math.round((W7[KEY] - P7[KEY]) / P7[KEY] * 100) : null;
-    const lastLb = d14.length && d14[d14.length - 1].day === today() ? 'այսօր' : dmy(d14.length ? d14[d14.length - 1].day : '');
-    const hc = `<div class="card hc">
-        <div class="lab"><span>${NET ? 'Մաքուր եկամուտ' : 'Պարկի եկամուտ'} · 7 օր</span><span class="aux">թարմ՝ ${ago(h.last_sync)}</span></div>
-        <div class="val"><span data-n="${Math.round(W7[KEY])}">${fmt(W7[KEY])}</span><small>֏</small></div>
-        <div class="cmp">${dPct === null ? '' : `<span class="pill ${dPct > 0 ? 'up' : dPct < 0 ? 'down' : ''}">${dPct > 0 ? '+' : dPct < 0 ? '−' : ''}${Math.abs(dPct)}%</span>`}<span>նախորդ 7 օրը՝ ${short(P7[KEY])}</span></div>
-        ${NET ? `<div class="cmp"><span>միջնորդավճար ${short(ni.last7.commission)} − ծախսեր ${short(+ni.last7.payment_costs + +ni.last7.other_costs)}</span>${ni.all_rates_verified ? '' : '<a class="tag warn" href="#/finance">մոտավոր</a>'}</div>` : ''}
-        ${d14.length ? `<div class="d14">
-          <div class="d14-h"><span>Վերջին 14 օրը</span><b>${short(d14.reduce((s, d) => s + val(d), 0))}</b></div>
-          <div class="bars grow" id="d14">${d14.map((d, i) => `<i class="${d.day === today() ? 't' : ''}" style="--h:${Math.max(4, Math.round(val(d) / max14 * 100))}%;--k:${i}"></i>`).join('')}</div>
-          <div class="axis"><span>${dmy(d14[0].day)}</span><span>${d14.length > 8 ? dmy(d14[7].day) : ''}</span><span>${lastLb}</span></div>
-          <div class="dayh" id="d14d"></div>
-        </div>` : ''}
-      </div>`;
+    // Գլխավոր թիվը՝ մաքուր եկամուտը (03.11, Գարիկ. «ոչ թե շրջանառությունը, այլ մաքուր եկամուտը»), ժամկետը՝ 7/14/30 օր կամ ամիսներ,
+    // տաքսին, ներքևում՝ առաքումը (dashCard, db\0025)
+    const pseg = `<div class="seg pseg">${PERIODS.map(([k, l]) => `<button type="button" data-period="${k}" class="${k === period ? 'on' : ''}">${l}</button>`).join('')}</div>`;
     mount({ title: 'Այսօր', tab: 'home' }, page(`
-      ${hc}
+      ${pseg}
+      <div id="dash">${dashHtml(ds)}</div>
       ${sec('Վերջին 7 օր', `<div class="kpis">
         ${fresh ? kpi('Հիմա աշխատում են', fmt(h.online.total), `${fmt(h.online.on_order)}-ը պատվերի վրա`, '#/drivers/active')
                 : kpi('Այսօր աշխատել են', fmt(todayRow.active || 0), 'վարորդ՝ գոնե մեկ պատվերով', '#/drivers/active')}
@@ -518,7 +631,7 @@
         <p class="meta">Այս շաբաթ եկավ <b class="pos">${w.new}</b>, գնաց <b class="neg">${w.churn}</b>։</p>
       </a>`, { foot: 'Աշխատող՝ վերջին 30 օրում գոնե մեկ պատվեր արած։ Մանրամասն թվերը՝ «Բոլորը»-ում։' })}
     `));
-    if (d14.length) bindDays(d14);
+    bindDashAll(ds);
   });
 
   // ───────── GTH էջի (օգնականի) քարտերը (03.11, Գարիկ. «այս բաժինները թող լինեն իր AI օգնականի, այսինքն GTH բաժնում») ─────────
@@ -730,11 +843,13 @@
   const listamItem = (id) => `https://www.list.am/item/${encodeURIComponent(id)}`;
   route('/listam', async (arg) => {
     lastTab = 'sections';
-    const [h, cr, L, pr] = await Promise.all([
+    const [h, cr, L, pr, ic] = await Promise.all([
       rpc('app_home'),
       sb.from('channels').select('status,summary,metrics,updated_at').eq('id', 'listam').maybeSingle(),
       rpc('app_listam').catch(() => ({ days: [], ads: [], rivals: [], removed: [] })),
       sb.from('tasks').select('id,title,cost').eq('agent', 'list.am').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
+      // list.am գործակալի նամակների վերջին ստուգումը (10 րոպեն մեկ, HayWay-ի համակարգչում)
+      sb.from('agent_log').select('at').eq('agent', 'list.am').eq('action', 'inbox').order('id', { ascending: false }).limit(1),
     ]);
     pendingCount = h.tasks_pending || 0;
     const c = cr.data || {}, M = c.metrics || {}, hl = M.health || {}, rf = M.refresh || {}, ad = M.ads || {}, ib = M.inbox || {}, mk = M.market || {}, ld = M.leads || {};
@@ -836,7 +951,8 @@
         + (rivals.length ? (L.rivals_prev ? `<div class="chips">${[[nUpd, 'թարմացրել են', 'warn'], [nNew, 'նոր', 'pos'], [nTopNew, 'նոր Թոփ', 'info']].map(([n, t]) => `<span class="chip">${fmt(n)} ${t}</span>`).join('')}</div>` : '') + group(rivRows, 'avs')
           : '<p class="none">Քարտերը կերևան մրցակիցների հաջորդ ստուգումից հետո</p>'), { foot: rivals.length ? `Ստուգումը՝ ${dmy(L.rivals_day)}${L.rivals_prev ? `, համեմատած ${dmy(L.rivals_prev)}-ի հետ` : ''}։` : '' })}
       ${sec('Մանրամասներ', group([
-        proc(I.chat, 'b', 'Նամակներին պատասխան', ib.last_at, 2),
+        // 03.11, Գարիկ. «սա ինչու է կանգնած» → ոչ թե վերջին պատասխանի ժամը (նոր նամակ չլինելիս հին է), այլ վերջին ստուգումը
+        proc(I.chat, 'b', 'Նամակներին պատասխան', (ic && ic.data && ic.data[0] && ic.data[0].at) || ib.last_at, 2),
         proc(I.refresh, 'g', 'Հայտարարությունների թարմացում', rf.last_at, 13),
         proc(I.trophy, 'o', 'Մրցակիցների ստուգում', mk.generated, 26),
         proc(I.userplus, 'p', 'Հայտերի աղյուսակ', ld.updated_at, 26),

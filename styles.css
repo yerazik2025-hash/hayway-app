@@ -245,6 +245,39 @@ a.card:active { transform: scale(.98); transition-duration: .08s; }
 .dayh small { display: block; font-size: 13px; line-height: 18px; color: var(--text3); font-weight: 400; margin-top: 2px; }
 .dayh b { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* ───────── Գլխավորի վահանակ (db\0025). ժամկետ՝ 7/14/30 օր կամ ամիսներ; սյան առջևում՝ մաքուրը, ետևում՝ շրջանառությունը (ծախսերից առաջ) ───────── */
+.pseg { margin-bottom: 4px; }
+.bars.dash > i { position: relative; height: 100%; min-height: 0; background: none; border-radius: 0; }
+.bars.dash > i::before, .bars.dash > i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; border-radius: 5px 5px 2px 2px; transform-origin: bottom; }
+.bars.dash > i::before { height: var(--g); background: var(--fill2); }
+.bars.dash > i::after { height: var(--h); min-height: 3px; background: var(--btn); transition: background-color .2s; }
+.bars.dash > i.t::after { background: var(--acc); }
+.bars.dash > i.nd::before { height: 6px; background: var(--fill); }
+.bars.dash > i.nd::after { display: none; }
+.bars.dash.grow > i { animation: none; }
+.bars.dash.grow > i::before, .bars.dash.grow > i::after { animation: grow .75s var(--spring) both; animation-delay: calc(var(--k) * 24ms + .15s); }
+.bars.dash.sel > i.on { background: none; filter: none; }
+.bars.dash.sel > i.on::before { background: var(--acc-soft); }
+.bars.dash.sel > i.on::after { background: var(--acc); filter: drop-shadow(0 0 10px var(--tone1)); }
+.bars.dash.dense { gap: 2px; }
+.bars.dash.dense > i::before, .bars.dash.dense > i::after { border-radius: 3px 3px 1px 1px; }
+.axis.mo > span { flex: 1; text-align: center; }
+.lgd { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 11.5px; line-height: 14px; color: var(--text3); }
+.lgd i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--btn); }
+.lgd i.g { background: var(--fill2); }
+.dtab { margin-top: 10px; }
+.dtab .cell { min-height: 52px; }
+.dtab button.cell:disabled { cursor: default; }
+.dtab button.cell.on .chev { transform: rotate(90deg); }
+.dtab .chev { transition: transform .25s var(--spring); }
+.dt-x { border-top: 1px solid var(--line); }
+.dt-x + .cell::before { content: ''; position: absolute; top: 0; right: 0; left: 16px; height: 1px; background: var(--line); }
+.dt-x .cell { padding-left: 32px; min-height: 46px; }
+.dt-x .cell .t { font-size: 14.5px; color: var(--text2); }
+.dt-l { border-top: 1px solid var(--line); }
+.dt-l .group { background: transparent; box-shadow: none; border-radius: 0; }
+.dash-off { gap: 8px; }
+
 /* «Սպասում է «Այո»-ի» քարտը (ԿԱ 2-ի պատյանինը. երևում է միայն երբ կա ինչ հաստատել) */
 .apr .cell { padding-top: 11px; padding-bottom: 11px; }
 .apr-h { display: flex; align-items: center; gap: 12px; padding: 14px 16px; width: 100%; }
