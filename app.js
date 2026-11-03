@@ -328,10 +328,10 @@
           <div class="bars dash grow${rows.length > 20 ? ' dense' : ''}" id="${park}-bars">${bars}</div>
           ${axis}
           <div class="lgd"><span><i></i>մաքուր եկամուտ</span><span><i class="g"></i>շրջանառություն</span></div>
-          <div class="dayh" id="${park}-day"></div>
+          <button type="button" class="dayh" id="${park}-day" aria-expanded="false"></button>
+          <div class="dtab" id="${park}-tab" hidden></div>
         </div>` : ''}
-      </div>
-      ${rows.length ? `<div class="group dtab" id="${park}-tab"></div>` : ''}`;
+      </div>`;
   }
   // աղյուսակը ընտրված օրվա (ամսվա) համար. շրջանառություն, ծախսեր (բացվում է), մաքուր, պատվերներ, գրանցվածներ, դուրս եկածներ (կոճակով՝ ցուցակը)
   function dashTable(park, D, r) {
@@ -339,25 +339,20 @@
     if (!el) return;
     const fixedNames = (D.fixed_items || []).map((x) => x.name).join(', ');
     const pbtn = (kind, t, n, s) => `<button type="button" class="cell" data-ppl="${kind}" ${n ? '' : 'disabled'}><span class="bd"><span class="t">${t}</span>${s ? `<span class="s">${s}</span>` : ''}</span><span class="v strong ${kind === 'churn' && n ? 'neg' : ''}">${fmt(n)}${NB}մարդ</span>${n ? `<span class="chev">${I.chev}</span>` : ''}</button>`;
-    el.innerHTML = (r.has ? [
-      cell({ t: 'Շրջանառություն', s: r.part ? `${r.part} օրվա տվյալ` : '', v: amd(num(r.commission)), strong: true }),
-      `<button type="button" class="cell" data-cost><span class="bd"><span class="t">Ծախսեր</span></span><span class="v neg">−${amd(num(r.costs))}</span><span class="chev">${I.chev}</span></button>`,
-      `<div class="dt-x" hidden>${[
-        cell({ t: 'Վճարային համակարգեր', s: 'Idram, Telcell, EasyPay, PrimeBridge', v: amd(num(r.pay)) }),
-        cell({ t: `Հարկ ${fmt(D.tax_pct)}%`, s: 'շրջանառությունից', v: amd(num(r.tax)) }),
-        cell({ t: 'Գովազդ', s: 'list.am', v: amd(num(r.ads)) }),
-        cell({ t: 'Ամսական ծախսեր', s: esc(fixedNames || 'վարձ, աշխատավարձ'), v: amd(num(r.fixed)) }),
-      ].join('')}</div>`,
-      cell({ t: '<b>Մաքուր եկամուտ</b>', s: r.est ? 'մոտավոր' : '', v: `<span class="${+r.net < 0 ? 'neg' : 'pos'}">${amd(num(r.net))}</span>`, strong: true }),
-    ] : [cell({ t: 'Շրջանառություն', s: 'տվյալը կա 06.09-ից', v: 'տվյալ չկա' })]).concat([
+    // շրջանառությունը, ծախսն ու մաքուրը՝ օրվա տողում (bindDash), այստեղ՝ ծախսերը ըստ տեսակի և վարորդները
+    el.innerHTML = (r.has ? ['<div class="dt-c">Ծախսերը</div>',
+      cell({ t: 'Վճարային համակարգեր', s: 'Idram, Telcell, EasyPay, PrimeBridge', v: amd(num(r.pay)) }),
+      cell({ t: `Հարկ ${fmt(D.tax_pct)}%`, s: 'շրջանառությունից', v: amd(num(r.tax)) }),
+      cell({ t: 'Գովազդ', s: 'list.am', v: amd(num(r.ads)) }),
+      cell({ t: 'Ամսական ծախսեր', s: esc(fixedNames || 'վարձ, աշխատավարձ'), v: amd(num(r.fixed)) }),
+    ] : []).concat([
+      '<div class="dt-c">Պատվերներ և վարորդներ</div>',
       cell({ t: 'Պատվերներ', s: `գումարը՝ ${short(r.gmv)}`, v: fmt(r.orders) }),
       cell({ t: 'Աշխատել են', s: r.avg ? 'միջինը օրական' : 'գոնե մեկ պատվեր', v: `${fmt(r.active)}${NB}վարորդ` }),
       pbtn('new', 'Գրանցվել են', r.new, ''),
       pbtn('churn', 'Դուրս են եկել', r.churn, '10 օր պատվեր չունեն'),
       '<div class="dt-l" hidden></div>',
     ]).join('');
-    const cb = el.querySelector('[data-cost]');
-    if (cb) cb.onclick = () => { const x = el.querySelector('.dt-x'); x.hidden = !x.hidden; cb.classList.toggle('on', !x.hidden); };
     el.querySelectorAll('[data-ppl]').forEach((b) => b.onclick = async () => {
       const box = el.querySelector('.dt-l'), kind = b.dataset.ppl;
       if (b.classList.contains('on')) { b.classList.remove('on'); box.hidden = true; return; }
@@ -372,10 +367,15 @@
       } catch (e) { box.innerHTML = `<p class="none">Չբացվեց՝ ${esc(e.message)}</p>`; }
     });
   }
-  // սեղմել կամ մատը սահեցնել սյուների վրա → վերևում այդ օրը (մաքուրը մեծ, շրջանառությունը՝ փոքր), ներքևում՝ աղյուսակը
+  // սեղմել կամ մատը սահեցնել սյուների վրա → ներքևում այդ օրը (մաքուրը մեծ, շրջանառությունը՝ փոքր);
+  // աղյուսակը փակ է, բացվում է օրվա տողը սեղմելով (03.11, Գարիկ. «բացովի լինի, կենտրոնական բաժին չլինի»)
+  const dashOpen = {};
   function bindDash(park, D) {
-    const rows = dashRows(D), bars = document.getElementById(park + '-bars'), out = document.getElementById(park + '-day');
+    const rows = dashRows(D), bars = document.getElementById(park + '-bars'), out = document.getElementById(park + '-day'), tab = document.getElementById(park + '-tab');
     if (!bars || !out || !rows.length) return;
+    const show = () => { tab.hidden = !dashOpen[park]; out.classList.toggle('on', !!dashOpen[park]); out.setAttribute('aria-expanded', dashOpen[park] ? 'true' : 'false'); };
+    out.onclick = () => { dashOpen[park] = !dashOpen[park]; show(); };
+    show();
     let cur = -1;
     const pick = (i) => {
       i = Math.max(0, Math.min(rows.length - 1, i));
@@ -384,8 +384,13 @@
       const r = rows[i];
       bars.classList.add('sel');
       bars.querySelectorAll('i').forEach((b, k) => b.classList.toggle('on', k === i));
-      out.innerHTML = r.has ? `<span>${r.title}<small>շրջանառություն ${amd(num(r.commission))} · ծախս ${amd(num(r.costs))}</small></span><b class="${+r.net < 0 ? 'neg' : ''}">${amd(num(r.net))}</b>`
-        : `<span>${r.title}<small>${fmt(r.orders)} պատվեր · ${short(r.gmv)}</small></span><b class="mut3">տվյալ չկա</b>`;
+      // հաշվի պես. շրջանառություն − ծախսեր = մաքուր (Գարիկ 03.11. «կոկիկ, հեշտ կարդացվող»)
+      const ln = (t, v, cls = '') => `<span class="dh-r ${cls}"><span>${t}</span>${v}</span>`;
+      out.innerHTML = `<span class="dh-h"><span class="dh-t">${r.title}</span><span class="dh-m">Մանրամասն${I.chev}</span></span>` + (r.has
+        ? ln('Շրջանառություն', `<span>${amd(num(r.commission))}</span>`) + ln('Ծախսեր', `<span>−${amd(num(r.costs))}</span>`)
+          + ln('Մաքուր եկամուտ', `<b class="${+r.net < 0 ? 'neg' : 'pos'}">${r.est ? '≈' + NB : ''}${amd(num(r.net))}</b>`, 'n')
+        : ln('Պատվերներ', `<span>${fmt(r.orders)}</span>`) + ln('Պատվերների գումարը', `<span>${short(r.gmv)}</span>`)
+          + ln('Մաքուր եկամուտ', '<b class="mut3">տվյալ չկա</b>', 'n'));
       dashTable(park, D, r);
     };
     const at = (x) => { const b = bars.getBoundingClientRect(); return Math.floor((x - b.left) / b.width * rows.length); };
