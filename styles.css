@@ -735,3 +735,72 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 .nrow.brain { flex-direction: column; align-items: stretch; gap: 8px; }
 .nrow.brain .nrow-b { justify-content: flex-start; }
 .nrow .brain-w { display: block; margin-top: 2px; font-size: 13px; color: var(--text3); }
+
+/* ───────── Թիմ (05.11, db\0036)՝ տիրոջ #/team/<փոստ> և աշխատակցի team/. WhatsApp iOS-ի տեսք (Գարիկ, ԿԱ 6) ───────── */
+.app.wa { background: #EFEAE2; color: #111B21; color-scheme: light; }
+.app.wa.wa-white { background: #fff; }
+.wa-top { flex-shrink: 0; padding-top: var(--safe-t); background: #F7F7F7; box-shadow: 0 1px 0 rgba(0,0,0,.08); position: relative; z-index: 3; }
+.wa-top-in { height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 2px; }
+.wa-back { width: 44px; height: 44px; border: 0; background: transparent; color: #111B21; display: flex; align-items: center; justify-content: center; border-radius: 22px; flex-shrink: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wa-back:active { background: rgba(0,0,0,.06); }
+.wa-av { flex-shrink: 0; border-radius: 50%; background: #DFE5E7; color: #54656F; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
+.wa-av.img { background: transparent; border-radius: 22%; }
+.wa-av.img img { width: 100%; height: 100%; display: block; }
+.wa-who { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.wa-who b { font-size: 16.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-who small { font-size: 12.5px; color: #667781; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; background: #EFEAE2; }
+.wa-thread { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 12px; min-height: 100%; }
+.wa-day { align-self: center; margin: 10px 0 6px; padding: 5px 12px; border-radius: 8px; background: #fff; color: #54656F; font-size: 12.5px; box-shadow: 0 1px .5px rgba(11,20,26,.13); }
+.wa-day.sys { background: #FFF5C4; max-width: 85%; text-align: center; }
+.wa-msg { position: relative; max-width: 80%; padding: 6px 9px 7px; margin-top: 1px; border-radius: 10px; font-size: 16px; line-height: 1.35; color: #111B21; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: 0 1px .5px rgba(11,20,26,.13); }
+.wa-msg.tail { margin-top: 6px; }
+.wa-msg.in { align-self: flex-start; background: #fff; }
+.wa-msg.out { align-self: flex-end; background: #D9FDD3; }
+.wa-msg.in.tail { border-top-left-radius: 0; }
+.wa-msg.out.tail { border-top-right-radius: 0; }
+.wa-msg.tail::before { content: ''; position: absolute; top: 0; width: 8px; height: 13px; }
+.wa-msg.in.tail::before { left: -8px; background: #fff; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.wa-msg.out.tail::before { right: -8px; background: #D9FDD3; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.wa-meta { float: right; display: inline-flex; align-items: center; gap: 3px; margin: 8px 0 -5px 12px; font-size: 11px; line-height: 1; color: #667781; white-space: nowrap; }
+.wa-tick { color: #8696A0; }
+.wa-tick.read { color: #53BDEB; }
+.wa-bar { flex-shrink: 0; display: flex; align-items: flex-end; gap: 8px; padding: 7px 10px calc(7px + var(--safe-b)) 12px; background: #F7F7F7; box-shadow: 0 -1px 0 rgba(0,0,0,.06); }
+body.kb .wa-bar { padding-bottom: 7px; }
+.wa-in { flex: 1; min-width: 0; min-height: 40px; max-height: 132px; resize: none; border: 1px solid #E3E3E3; border-radius: 20px; padding: 9px 14px; background: #fff; color: #111B21; font: inherit; font-size: 16px; line-height: 1.3; outline: none; }
+.wa-in::placeholder { color: #8696A0; }
+.wa-send { width: 44px; height: 44px; border-radius: 22px; border: 0; flex-shrink: 0; background: #25D366; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .2s, opacity .2s; }
+.wa-send:disabled { opacity: .45; }
+.wa-send:not(:disabled):active { transform: scale(.92); }
+.wa-empty { margin: auto; text-align: center; color: #54656F; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wa-empty h3 { color: #111B21; font-size: 18px; font-weight: 600; }
+.wa-empty .note { background: #FFF5C4; color: #54656F; font-size: 13px; padding: 8px 12px; border-radius: 8px; box-shadow: 0 1px .5px rgba(11,20,26,.13); }
+/* աշխատակցի «Չատեր» ցուցակը (WhatsApp-ի «Чаты», առանց վերևի տեսախցիկ/+ և ներքևի ներդիրների) */
+.wa-list { flex: 1; min-height: 0; overflow-y: auto; background: #fff; padding: calc(var(--safe-t) + 18px) 0 calc(var(--safe-b) + 16px); }
+.wa-list h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; padding: 0 16px 10px; color: #111B21; }
+.wa-search { margin: 0 16px 12px; height: 40px; border-radius: 12px; background: #F0F2F5; display: flex; align-items: center; gap: 8px; padding: 0 12px; color: #8696A0; }
+.wa-search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 16px; color: #111B21; outline: none; }
+.wa-chips { display: flex; gap: 8px; padding: 0 16px 8px; overflow-x: auto; }
+.wa-chip { height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid #E3E3E3; background: #fff; color: #54656F; font: inherit; font-size: 14.5px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.wa-chip.on { background: #D9FDD3; border-color: #D9FDD3; color: #0A7D45; }
+.wa-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 10px 16px; border: 0; background: transparent; text-align: left; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wa-row:active { background: #F5F6F6; }
+.wa-row-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-bottom: 12px; margin-bottom: -12px; border-bottom: 1px solid #ECECEC; }
+.wa-row-l { display: flex; align-items: baseline; gap: 8px; }
+.wa-row-l b { flex: 1; min-width: 0; font-size: 16.5px; font-weight: 600; color: #111B21; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-row-l time { font-size: 12.5px; color: #667781; flex-shrink: 0; }
+.wa-row.unread .wa-row-l time { color: #1DAA61; font-weight: 600; }
+.wa-row-p { display: flex; align-items: center; gap: 6px; font-size: 14.5px; color: #667781; }
+.wa-row-p span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center; gap: 3px; }
+.wa-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #25D366; color: #fff; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wa-list .wa-push { margin: 4px 16px 0; padding: 12px 14px; border-radius: 12px; background: #F0F2F5; color: #54656F; font-size: 14px; display: flex; flex-direction: column; gap: 10px; }
+.wa-list .wa-push button { align-self: flex-start; min-height: 40px; padding: 0 16px; border-radius: 20px; border: 0; background: #25D366; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+/* տիրոջ «Թիմ» ցուցակի կանաչ շրջանը (նույնը, ինչ WhatsApp-ում) */
+.cell .wa-n { margin-left: 6px; }
+.tinv { display: flex; flex-wrap: wrap; gap: 8px; }
+.tinv-c { display: flex; flex-direction: column; gap: 10px; padding: 14px; margin-top: 10px; }
+.tinv-c p { margin: 0; color: var(--text2); font-size: 14px; }
+.tinv-c .in { width: 100%; font-size: 14px; }
+.tinv-k { font-size: 18px; letter-spacing: .12em; color: var(--text); }
+.tinv-c .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.tinv-c .btns .btn { flex: 1 1 140px; }

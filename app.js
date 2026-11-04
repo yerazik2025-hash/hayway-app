@@ -67,6 +67,7 @@
     percent: sv(20, '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'),
     mega: sv(20, '<path d="M3 10v4h4l8 5V5L7 10z"/><path d="M18 9a4 4 0 0 1 0 6"/>'),
     chat: sv(20, '<path d="M4 5h16v11H9l-5 4z"/>'),
+    team: sv(26, '<path d="M3.5 5.5h12v8.5H8l-4.5 3.5z"/><path d="M15.5 9h5v8.5l-3-2.5h-6.5v-1"/>'),
     box: sv(20, '<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>'),
     trophy: sv(20, '<path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h3v1a3 3 0 0 1-3 3M7 6H4v1a3 3 0 0 0 3 3"/>'),
     alert: sv(20, '<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17v.5"/>'),
@@ -158,7 +159,7 @@
   // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB); Մրցակիցները՝ Վարորդներից առաջ (Գարիկ 03.11)
   // Գարիկ 03.11. «չատ գպտ-ից հետո ուզում եմ այս բաժինը երևա ռիլերի»
   // Գարիկ 03.11. WhatsApp-ը՝ «Ռիլեր բաժնից առաջ», Մրցակիցները՝ «Վարորդներ բաժնից առաջ»
-  const DOCK = [['', I.home, 'Այսօր'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['whatsapp', I.chat, 'WhatsApp'], ['reels', I.film, 'Ռիլեր'], ['rivals', I.trophy, 'Մրցակիցներ'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
+  const DOCK = [['', I.home, 'Այսօր'], ['team', I.team, 'Թիմ'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['whatsapp', I.chat, 'WhatsApp'], ['reels', I.film, 'Ռիլեր'], ['rivals', I.trophy, 'Մրցակիցներ'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
     ['finance', I.money, 'Ֆինանս']];
   // ներքևում չեղած էջերի «Հետ»-ը
   const SUB = { quality: ['#/settings', 'Կարգավորում'], terms: ['#/settings', 'Կարգավորում'], tasks: ['#/garik', 'GTH'] };
@@ -193,6 +194,7 @@
     app.innerHTML = noG(frame(o, body));
     placeDock(keep);
     app.classList.toggle('has-dock', o.tab !== 'garik');
+    app.classList.remove('wa');   // «Թիմ»-ի զրույցից դուրս գալիս
     app.classList.toggle('gth', o.tab === 'garik');   // ԿԱ 5. մուգ ֆոն + մանուշակագույն լույս վերևում (ka5-chat-tesq.md)
     const sc = document.getElementById('sc'), top = app.querySelector('.top');
     // նոր էկրան բացելիս բլոկները մեղմ բարձրանում են (թարմացնելիս՝ ոչ)
@@ -531,13 +533,16 @@
   // ───────── Երթուղավորում ─────────
   const routes = {};
   function route(path, fn) { routes[path] = fn; }
-  let lastTab = '', renderSeq = 0;
+  let lastTab = '', renderSeq = 0, roleOf = '', isStaff = false;
   // silent = նույն էկրանը ետևում եկած թարմ թվերով. առանց պտտվող նշանի, նույն ոլորման տեղում (տե՛ս rpc-ի պահածը)
   async function render(silent) {
     silent = silent === true;   // hashchange-ը Event է տալիս
     const seq = ++renderSeq;
     const session = (await sb.auth.getSession()).data.session;
     if (!session) return renderLogin();
+    // 05.11 (db6). աշխատակիցը (role staff) այստեղ ոչինչ չի տեսնում → իր չատը՝ team/ էջում
+    if (roleOf !== session.user.email) { roleOf = session.user.email; const { data: tm } = await sb.rpc('team_me'); isStaff = !!(tm && tm.role === 'staff'); }
+    if (isStaff) { location.replace('team/'); return; }
     const path = (location.hash || '#/').slice(1).split('?')[0];
     const [, seg = '', arg = ''] = path.split('/');
     if (window.HWD && HWD.route(seg)) return;   // (03.11) desktop.js. համակարգչում GTH-ը բացվում է աջում, մեծ էջը մնում է տեղում
@@ -858,6 +863,7 @@
         gc('#/listam', I.mega, 'o', 'list.am', laNv, la && la.status !== 'ok' && la.status ? (la.status === 'off' ? 'neg' : 'warn') : ''),
         gc('#/geo', I.ai, 't', 'ChatGPT', gl ? `${fmt(gl.score)}% երևում ենք` : 'չափում չկա'),
         gc('#/rivals', I.trophy, 'r', 'Մրցակիցներ', rvNv),
+        gc('#/team', I.chat, 'b', 'Թիմ', 'չատ աշխատակցի հետ'),
         gc('#/whatsapp', I.chat, 'g', 'WhatsApp', 'վարորդների նամակներ'),
         gc('#/reels', I.film, 'p', 'Ռիլեր', 'TikTok, Instagram'),
       ])}
@@ -1217,9 +1223,6 @@
       ${sec('Ըստ երկրի և լեզվի', group(mrows))}
       ${recs.length ? sec('Ում է ChatGPT-ն առաջարկում', group(recs.map((r) => cell({ t: r.me ? 'HayWay <span class="tag pos">մենք</span>' : esc(r.name), bold: r.me,
         s: `${r.n} պատասխանում`, v: `${fmt(r.pct)}%`, strong: true })))) : ''}
-      ${(S.sources || []).length ? sec('Որտեղից է ChatGPT-ն վերցնում', group(S.sources.slice(0, 4).map((s) => cell({ t: esc(s.domain), v: fmt(s.n), strong: true,
-        trail: s.ours ? '<span class="tag pos">մերն էլ կա</span>' : '' }))),
-        { foot: 'Այստեղ լինել = ChatGPT-ում լինել։' }) : ''}
       ${hist.length > 1 ? sec('Ըստ շաբաթների', group(hist.slice().reverse().map((x) => cell({ t: wkLabel(x.week), s: `${x.answers} պատասխան`,
         v: x.cover != null ? `${x.cover}${NB}/${NB}${x.total}` : `${fmt(x.score)}%`, strong: true })))) : ''}
       <p class="sec-f">Ստուգված՝ ${wkLabel(L.week)}</p>
@@ -1277,6 +1280,51 @@
   // ───────── WhatsApp (db\0020_whatsapp.sql, 03.11) ─────────
   // Գարիկ 03.11. «պարզ և ընկալելի. միայն քանի հոգու հետ է չատը խոսել, քանիսն են գրանցվել, իսկ կարևորը՝ ներքևում ծանուցումով կամ հարցով»։
   // Նամակները՝ SendPulse-ից (098 888 960, մենյուն մնում է), նախագիծը՝ տիրոջ Claude-ը HayWay-ի համակարգչում, «Ուղարկել»-ից հետո՝ wa-bot-ը։
+  // ───────── Թիմ (05.11, db\0036. Գարիկ. «հայվեյի համարել ստեղծի նույն կերպ թիմի բաժին և մեկ հավելվածել իր աշխատակցի համար») ─────────
+  // Միայն չատերի ցուցակ՝ անուն + «N նոր», առանց վերջին նամակի (Գարիկ 05.11. «պարզ, առանց երկար բարակ գրածի»), սեղմելով՝ զրույցը (team.js)։
+  // Աշխատակցի հավելվածը՝ team/ (ԿԱ 6՝ HayWay անունով ու պատկերակով). մուտքը՝ «Հրավեր»-ի հղումով/կոդով, որը տերը ինքն է ուղարկում։
+  const datHy = (n) => n + (/[աո]$/.test(n) ? 'յին' : 'ին');
+  route('/team', async (arg) => {
+    lastTab = 'sections';
+    if (arg) return teamChat(decodeURIComponent(arg));
+    const L = await fetchRpc('team_list');
+    const rows = L.map((p) => cell({ href: '#/team/' + encodeURIComponent(p.email), icon: I.chat, color: 'b', t: esc(p.name), bold: p.unread > 0,
+      trail: p.unread ? `<span class="wa-n">${fmt(p.unread)}</span>` : '' }));
+    const inv = L.map((p) => `<button type="button" class="btn sm gray" data-inv="${esc(p.email)}" data-name="${esc(p.name)}">Հրավեր ${esc(datHy(p.name))}</button>`).join('');
+    const sc = mount({ title: 'Թիմ', tab: 'sections', back: ['#/sections', 'Բաժիններ'] }, page(L.length
+      ? `${sec('', group(rows))}${sec('', `<div class="tinv">${inv}</div><div id="tinvbox"></div>`, { foot: 'Հրավերը հղում է աշխատակցի հավելվածի համար՝ ուղարկեք ինքներդ։' })}`
+      : emptyState(I.chat, 'Աշխատակից դեռ չկա', 'Ավելացնում է GTH թիմը')));
+    sc.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-inv]');
+      if (!b) return;
+      b.disabled = true;
+      try {
+        const v = await fetchRpc('app_team_invite', { p_staff: b.dataset.inv });
+        const url = location.origin + location.pathname.replace(/[^/]*$/, '') + 'team/#c' + v.code;
+        const box = document.getElementById('tinvbox');
+        box.innerHTML = `<div class="card tinv-c"><p>${esc(b.dataset.name)}-ի հավելվածը</p><input class="in" readonly value="${esc(url)}">
+          <p>Կամ կոդը՝ <b class="tinv-k">${esc(v.code.slice(0, 4))} ${esc(v.code.slice(4))}</b> · գործում է մինչև ${dmy(v.expires_at)}</p>
+          <div class="btns"><button type="button" class="btn pri" data-cp>Պատճենել հղումը</button>${navigator.share ? '<button type="button" class="btn" data-sh>Ուղարկել…</button>' : ''}</div></div>`;
+        box.querySelector('[data-cp]').onclick = async (ev) => { try { await navigator.clipboard.writeText(url); ev.target.textContent = 'Պատճենված է'; } catch (x) { box.querySelector('input').select(); } };
+        const sh = box.querySelector('[data-sh]');
+        if (sh) sh.onclick = () => navigator.share({ title: 'HayWay', text: 'HayWay-ի հավելվածը', url }).catch(() => {});
+      } catch (er) { alert('Չստացվեց՝ ' + er.message); }
+      b.disabled = false;
+    });
+  });
+  // զրույցը՝ WhatsApp-ի տեսքով (Գարիկ 05.11, ԿԱ 6). առանց ներքևի ներդիրների, մեծ էջը փոխվում է ամբողջությամբ
+  async function teamChat(email) {
+    const T = await fetchRpc('team_thread', { p_staff: email, p_after: 0 });
+    const name = T.staff.name, here = location.hash;
+    app.innerHTML = HWTeam.screen({ back: '#/team', name, status: 'աշխատակից', av: { name }, placeholder: `Գրեք ${datHy(name)}` });
+    app.classList.remove('has-dock', 'gth');
+    app.classList.add('wa');
+    HWTeam.start({ sb, staff: email, el: document.getElementById('tthread'), sc: document.getElementById('sc'), q: document.getElementById('q'),
+      send: document.getElementById('send'), first: T, alive: () => location.hash === here && !!document.getElementById('tthread'),
+      empty: `<div class="wa-empty"><span class="note">Գրեք ${esc(datHy(name))}. նա կստանա իր HayWay հավելվածում</span></div>` });
+  }
+
+
   route('/whatsapp', async () => {
     lastTab = 'sections';
     const [h, W] = await Promise.all([rpc('app_home'), rpc('app_wa')]);
@@ -1967,7 +2015,7 @@
   })();
 
   // ───────── Զրույցի նկարը ─────────
-  const ACT_HEAD = { remember: 'Հիշողություն', remind: 'Հիշեցում', watch: 'Հսկողություն', build: 'Նախագիծ', export: 'Ֆայլ' };
+  const ACT_HEAD = { staff_message: 'Նամակ աշխատակցին', remember: 'Հիշողություն', remind: 'Հիշեցում', watch: 'Հսկողություն', build: 'Նախագիծ', export: 'Ֆայլ' };
   const actDone = (a) => {
     const r = a.result || {};
     switch (a.type) {
@@ -1979,6 +2027,7 @@
       case 'remember': return r.forgot ? 'Մոռացա' : r.replaced ? 'Փոխեցի հիշածը' : 'Հիշեցի';
       case 'listam_top': case 'listam_package': return `Հերթում է (${fmt(r.price || 0)} ֏). list.am-ը կանի 10–20 րոպեում`;
       case 'build': return 'Նախագծերում է';
+      case 'staff_message': return 'Գնաց՝ «Թիմ»-ի չատ';
       default: return 'Արված է';
     }
   };
@@ -1992,7 +2041,7 @@
   // Քարտի կոճակը՝ բայով (Դավիթի acts.js. «Применить», «Остановить»…), և «առաջ → հետո», որտեղ այն կա (db3 params + task_title)
   const METRIC_HY = { online: 'Գծում', orders_today: 'Այսօրվա պատվերներ', orders_hour: 'Վերջին ժամի պատվերներ', tasks_pending: 'Սպասող գործեր' };
   const actVerb = (a) => ({ task_decide: (a.params || {}).decision === 'reject' ? 'Մերժել' : 'Հաստատել', call_list: 'Ստեղծել ցուցակը', remind: 'Հիշեցնել', watch: 'Հսկել',
-    remember: 'Հիշել', listam_top: 'Հանել TOP', listam_package: 'Գնել փաթեթը', build: 'Սկսել նախագիծը' })[a.type] || 'Այո, արա';
+    remember: 'Հիշել', listam_top: 'Հանել TOP', listam_package: 'Գնել փաթեթը', build: 'Սկսել նախագիծը', staff_message: 'Ուղարկել' })[a.type] || 'Այո, արա';
   const actChange = (a) => {
     const p = a.params || {}, r = a.result || {};
     switch (a.type) {
@@ -2026,11 +2075,11 @@
     else if (a.status === 'done') foot = `<div class="act-s"><span class="pos">✓ ${esc(actDone(a))}</span>
         ${a.type === 'export' || a.type === 'call_list' ? `<button type="button" class="btn plain sm" data-xls="${a.id}">Excel</button>` : ''}
         ${a.type === 'call_list' ? '<a class="btn plain sm" href="#/tasks">Գործեր</a>' : ''}${a.type === 'remember' ? '<a class="btn plain sm" href="#/garik/brain">Փոխել</a>' : ''}
-        ${!ro && a.type !== 'export' ? `<button type="button" class="btn plain sm" data-undo="${a.id}">Հետ բերել</button>` : ''}</div>`;
+        ${!ro && a.type !== 'export' && a.type !== 'staff_message' ? `<button type="button" class="btn plain sm" data-undo="${a.id}">Հետ բերել</button>` : ''}</div>`;
     else foot = `<div class="act-s"><span class="${a.status === 'failed' ? 'neg' : 'mut'}">${esc({ rejected: 'Չեղարկված', undone: 'Հետ է բերված', expired: 'Ժամկետն անցել է',
       failed: 'Չստացվեց' + (r.error ? '՝ ' + r.error : '') }[a.status] || a.status)}</span></div>`;
-    const head = a.status !== 'proposed' ? (ACT_HEAD[a.type] || 'Գործողություն') : a.type === 'build' ? 'Կառուցե՞մ' : a.type === 'export' ? 'Ֆայլ' : 'Կատարե՞մ';
-    return `<div class="act ${a.status}"><span class="act-h">${head}</span><p class="act-t">${esc(noG(a.summary))}</p>${chgHtml(actChange(a))}${foot}</div>`;
+    const head = a.status !== 'proposed' ? (ACT_HEAD[a.type] || 'Գործողություն') : a.type === 'build' ? 'Կառուցե՞մ' : a.type === 'export' ? 'Ֆայլ' : a.type === 'staff_message' ? 'Ուղարկե՞մ' : 'Կատարե՞մ';
+    return `<div class="act ${a.status}"><span class="act-h">${head}</span><p class="act-t">${esc(noG(a.summary))}</p>${a.type === 'staff_message' && (a.params || {}).text ? `<p class="act-l">«${esc(a.params.text)}»</p>` : ''}${chgHtml(actChange(a))}${foot}</div>`;
   };
   // հիշեցում / թիմի պատասխան / առաջադրանքի լուր. երկարը՝ մեկ տող, սեղմելով բացվում է
   const noticeEl = (m) => {
