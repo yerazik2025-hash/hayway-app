@@ -640,3 +640,16 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 /* 04.11 (Գարիկ. «անկապ ներքև-վերև կոճակ, սիրուն չի»). Windows-ում դաշտի scrollbar-ը երևում էր նույնիսկ մեկ տողով → թաքցված, ոլորելը մնում է */
 .composer textarea { scrollbar-width: none; -ms-overflow-style: none; }
 .composer textarea::-webkit-scrollbar { display: none; width: 0; height: 0; }
+/* 04.11 (Գարիկ. «իմինի պես… բոլորինը, ինտերֆեյսները պետք է նույնը լինեն», ԿԱ 5 «GTH Օգնական»). չատի ՄԵԿ տեսքը բոլոր հաճախորդների համար,
+   1:1 gth.robi.am-ից (արժեքները՝ Հայաստան/_brain/templates/ka5-chat-tesq.md). պատասխանը՝ ապակե պղպջակ ձախում, իր նամակը՝ մանուշակագույն աջում,
+   ներքևում՝ «+» · դաշտ · մոխրագույն 🎤 · մանուշակագույն ↑ (44px կլոր)։ */
+.msg { max-width: 88%; font-size: 15px; line-height: 1.48; }
+.msg.ai { background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012)) #141418; box-shadow: inset 0 0 0 1px rgba(255,255,255,.065), inset 0 1px 0 rgba(255,255,255,.05); border-radius: 20px 20px 20px 6px; }
+.msg.me { background: linear-gradient(180deg, #8E78FF, #6E55F2); color: #fff; border-radius: 20px 20px 6px 20px; }
+.msg.me a { color: #fff; }
+.composer { padding: 8px 12px calc(10px + var(--safe-b)) 12px; background: rgba(9,9,11,.85); box-shadow: none; border-top: .5px solid rgba(255,255,255,.075); }
+.composer textarea { border-radius: 20px; padding: 11px 14px; font-size: 16px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.075); }
+.composer textarea:focus { border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.075), 0 0 0 2px #A08CFF; }
+.composer .cplus, .composer .mic, .composer .rec-x { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.06); box-shadow: none; color: var(--text); }
+.composer .send, .composer .send:disabled, .composer .rec-ok { border-radius: 50%; background: linear-gradient(180deg, #B3A3FF, #7C64FF); color: #0B0A12; }
+.composer .rec { padding: 8px 12px calc(10px + var(--safe-b)) 12px; background: rgba(9,9,11,.95); }
