@@ -78,6 +78,7 @@
     car: sv(20, '<path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>'),
     film: sv(20, '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>'),
     mic: sv(20, '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+    plus: sv(22, '<path d="M12 5v14M5 12h14"/>'),
     ai: sv(20, '<path d="M4 5h16v11H9l-5 4z"/><path d="m12 7.5 1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z"/>'),
     logo: '<svg width="44" height="44" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#111113"/><path d="M16 6.5c-4 0-7 3-7 6.8 0 4.9 7 12.2 7 12.2s7-7.3 7-12.2c0-3.8-3-6.8-7-6.8z" fill="#FCE000"/><circle cx="16" cy="13.2" r="2.9" fill="#111113"/></svg>',
   };
@@ -1878,7 +1879,8 @@
     const sugg = `<div class="sugg" id="sugg">${QS.map((q) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
     let msgs = as.msgs || [];
     const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true,
-      right: `<button class="ibtn" id="clear" aria-label="Մաքրել զրույցը">${I.trash}</button>`,
+      // 04.11 (Գարիկ. «ինչի չկա նոր չատ բացելու տեղ»). աղբամանի փոխարեն՝ «Նոր զրույց» (հինը թաքցվում է, ոչ թե ջնջվում)
+      right: `<button class="ibtn newb" id="clear" aria-label="Նոր զրույց" title="Նոր զրույց">${I.plus}</button>`,
       after: `<div class="composer"><textarea id="q" rows="1" placeholder="${st.ok ? 'Հարցրու Գարիկին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել" title="Խոսել (Ctrl+M)"${st.ok ? '' : ' disabled'}>${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>`
         + `<div class="rec" id="rec" hidden><button type="button" class="rec-x" id="rec-x" aria-label="Չեղարկել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"')}</button><span class="rec-dot"></span><canvas class="rec-w" id="rec-w"></canvas><span class="rec-t" id="rec-t">0:00</span><button type="button" class="rec-ok" id="rec-ok" aria-label="Պատրաստ է">${sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</button></div></div>` },
       `${garikSeg('chat')}${gc.html ? `<div class="page gthc">${gc.html}</div>` : ''}<div class="chat" id="chat">${bubble('ai', hello)}<div class="chat" id="thread" style="padding:0">${thread(msgs)}</div>${msgs.length ? '' : sugg}</div>`);
@@ -1950,7 +1952,7 @@
     q.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
     q.addEventListener('focus', () => setTimeout(down, 300));
     app.querySelectorAll('#sugg button').forEach((c) => c.onclick = () => ask(c.dataset.q));
-    document.getElementById('clear').onclick = async () => { if (confirm('Մաքրե՞լ զրույցը։')) { clearTimeout(chatPoll); await sb.rpc('app_assistant_clear'); render(); } };
+    document.getElementById('clear').onclick = async () => { if (confirm('Սկսե՞լ նոր զրույց։')) { clearTimeout(chatPoll); await sb.rpc('app_assistant_clear'); render(); } };
     // այլ բաժնից եկած հարցը (#/garik?ask=…). մեկ անգամ, հասցեից հանելով, որ թարմացնելիս չկրկնվի
     if (askQ) { history.replaceState(null, '', '#/garik'); ask(askQ).then(down); }
   });
@@ -2002,7 +2004,7 @@
           : emptyState(I.star, 'Ի՞նչ ավելացնենք', 'Գրիր ներքևում. Գարիկը կսարքի', `<div class="sugg">${JOB_EX.map((x) => `<button type="button" data-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>`));
     };
     const x = sv(18, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"');
-    const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true, right: '',
+    const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true, right: `<button class="ibtn newb" id="jnew" aria-label="Նոր առաջադրանք" title="Նոր առաջադրանք">${I.plus}</button>`,
       after: `<div class="job-to" id="jto" hidden></div><div class="composer"><textarea id="q" rows="1" placeholder="${JOB_PH}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել">${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>`
         + `<div class="rec" id="rec" hidden><button type="button" class="rec-x" id="rec-x" aria-label="Չեղարկել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"')}</button><span class="rec-dot"></span><canvas class="rec-w" id="rec-w"></canvas><span class="rec-t" id="rec-t">0:00</span><button type="button" class="rec-ok" id="rec-ok" aria-label="Պատրաստ է">${sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</button></div></div>` },
       `${garikSeg('jobs', jobsWaiting(B.items))}<div class="jobs" id="jobs">${list()}</div>`);
@@ -2020,6 +2022,8 @@
       if (id) q.focus();
     };
     jto.addEventListener('click', (e) => { if (e.target.closest('#jto-x')) setReply(null); });
+    // «+»՝ նոր առաջադրանք. պատասխանի ռեժիմից դուրս, դատարկ դաշտ, ստեղնաշարը բաց
+    document.getElementById('jnew').onclick = () => { if (replyTo) setReply(null); q.value = ''; grow(); sc.scrollTop = 0; q.focus(); };
     const poll = () => {
       clearTimeout(jobsPoll);
       const working = (B.items || []).some((j) => JOB_WORK.includes(j.status));
