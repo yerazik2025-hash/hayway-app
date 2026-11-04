@@ -2644,7 +2644,7 @@
         cell({ href: '#/delivery', icon: I.box, color: 't', t: 'Yandex Fleet · Delivery', s: dvS && dvS.connected ? `${fmt(dvS.working)} առաքիչ` : '',
           v: dvS && dvS.error ? '<span class="tag warn">սխալ</span>' : dvS && dvS.connected ? `<span class="tag pos">${ago(dvS.last_sync)}</span>`
             : `<span class="tag n">${dvS && dvS.key ? 'լցվում է' : 'միանում է'}</span>` }),
-        cell({ icon: I.star, color: 'k', t: 'GTH · Claude', s: st.mode === 'pc' ? `HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
+        cell({ icon: I.star, color: 'k', t: 'GTH · համակարգ', s: st.mode === 'pc' ? `HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
           v: !st.ok ? '<span class="tag warn">կապ չկա</span>' : st.mode !== 'pc' ? '<span class="tag pos">միացված</span>'
             : runnerOn(asR && asR.runner) ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">անջատված</span>' }),
         cell({ icon: I.star, color: 'y', t: 'Ծանուցումներ այս հեռախոսում',
