@@ -1698,6 +1698,100 @@
     if (!r.ok && !j.answer) throw new Error(j.error || ('HTTP ' + r.status));
     return j;
   }
+  // 2026-11-04. Ձայնային մուտք՝ ինչպես ChatGPT / Wispr Flow թելադրությունը. 🎙 → ալիք + ժամ + ✕/✓ → ձայնը garik-voice ֆունկցիային
+  // (Gemini-ն գրում ու մաքրում է՝ կետադրություն, «էէ», կրկնություններ) → տեքստը դաշտում։ Ինքը չի ուղարկում. տերը կարդում, ուղղում, ուղարկում է։
+  // Enter/✓՝ պատրաստ, Esc/✕՝ չեղարկել, Ctrl+M՝ սկսել։ Միկրոֆոնը փակվում է անմիջապես (iPhone-ի նարնջագույն կետը չի մնում)։
+  const VOICE_MAX = 300;   // վրկ
+  function dictation(q, grow) {
+    const mic = document.getElementById('mic'), bar = document.getElementById('rec'), cv = document.getElementById('rec-w'), tEl = document.getElementById('rec-t');
+    const box = mic.closest('.composer'), ph = q.placeholder;
+    let rec = null, stream = null, actx = null, raf = 0, t0 = 0, levels = [], chunks = [], keep = false, hintT = 0;
+    const hint = (text) => { clearTimeout(hintT); q.placeholder = text; if (text !== ph) hintT = setTimeout(() => { q.placeholder = ph; }, 3500); };
+    const release = () => {
+      cancelAnimationFrame(raf); raf = 0;
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (actx) actx.close().catch(() => {});
+      stream = actx = null;
+      bar.hidden = true; box.classList.remove('recording');
+      document.removeEventListener('keydown', onKey, true);
+    };
+    const draw = () => {
+      if (!document.body.contains(mic)) { keep = false; if (rec && rec.state !== 'inactive') rec.stop(); return release(); }   // էկրանը փոխվեց
+      const s = (performance.now() - t0) / 1000;
+      tEl.textContent = `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+      tEl.classList.toggle('warn', s > VOICE_MAX - 15);
+      if (s >= VOICE_MAX) return finish(true);
+      const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+      if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+      const g = cv.getContext('2d'), n = Math.floor(w / 4), col = getComputedStyle(box).getPropertyValue('--acc').trim() || '#6EA8FE';
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h); g.fillStyle = col;
+      const lv = levels.slice(-n);
+      lv.forEach((v, i) => { const bh = Math.max(3, Math.min(h, v * h * 3.2)); g.globalAlpha = .45 + .55 * (i / n); g.fillRect(w - (lv.length - i) * 4, (h - bh) / 2, 2.5, bh); });
+      raf = requestAnimationFrame(draw);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+      else if (e.key === 'Enter') { e.preventDefault(); finish(); }
+    };
+    async function start() {
+      if (rec) return;
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return hint('Այս բրաուզերը ձայն չի ձայնագրում');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      } catch (e) {
+        stream = null;
+        return hint(e.name === 'NotAllowedError' ? 'Միկրոֆոնը փակ է. թույլ տուր կարգավորումներում' : 'Միկրոֆոն չգտնվեց');
+      }
+      const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find((t) => MediaRecorder.isTypeSupported?.(t)) || '';
+      rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
+      chunks = []; levels = []; keep = false;
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = () => { const r = rec; rec = null; release(); if (keep) upload(new Blob(chunks, { type: (r.mimeType || type || 'audio/webm').split(';')[0] })); };
+      rec.start(250);
+      try {   // ալիքը՝ ձայնի ուժգնությունից
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        const an = actx.createAnalyser(); an.fftSize = 512;
+        actx.createMediaStreamSource(stream).connect(an);
+        const buf = new Uint8Array(an.fftSize);
+        const tick = () => { if (!actx) return; an.getByteTimeDomainData(buf); let sum = 0; for (const b of buf) sum += ((b - 128) / 128) ** 2; levels.push(Math.sqrt(sum / buf.length)); if (levels.length > 400) levels.shift(); setTimeout(tick, 60); };
+        tick();
+      } catch (e) {}
+      t0 = performance.now(); bar.hidden = false; box.classList.add('recording');
+      document.addEventListener('keydown', onKey, true);
+      navigator.vibrate?.(12);
+      draw();
+    }
+    function finish(atLimit) { if (!rec || rec.state === 'inactive') return; keep = true; if (atLimit) hint('5 րոպեն լրացավ, գրում եմ…'); rec.stop(); navigator.vibrate?.(8); }
+    function cancel() { if (!rec || rec.state === 'inactive') return release(); keep = false; rec.stop(); }
+    async function upload(blob) {
+      if (blob.size < 1200) return hint('Խոսք չլսվեց');
+      mic.disabled = true; mic.classList.add('busy'); q.disabled = true; q.placeholder = 'Գրում եմ…';
+      let text = '', err = '';
+      const ac = new AbortController(), stop = setTimeout(() => ac.abort(), 60000);   // «Գրում եմ…»-ը երբեք չի կախվում
+      try {
+        const session = await Promise.race([sb.auth.getSession().then((x) => x.data.session), new Promise((_, no) => ac.signal.addEventListener('abort', () => no(new Error('timeout'))))]);
+        const r = await fetch(`${CFG.url}/functions/v1/garik-voice`, { method: 'POST', signal: ac.signal, headers: { Authorization: 'Bearer ' + session.access_token, apikey: CFG.anonKey, 'Content-Type': blob.type }, body: blob });
+        let j = {}; try { j = await r.json(); } catch (e) {}
+        if (!r.ok) err = j.message || 'Ձայնը չհաջողվեց կարդալ';
+        text = String(j.text || '').trim();
+      } catch (e) { err = 'Կապ չկա. փորձիր նորից'; }
+      clearTimeout(stop);
+      mic.disabled = false; mic.classList.remove('busy'); q.disabled = false; q.placeholder = ph;
+      if (err) return hint(err);
+      if (!text) return hint('Խոսք չլսվեց');
+      q.value = q.value.trim() ? q.value.replace(/\s*$/, ' ') + text : text;
+      grow();
+      if (!matchMedia('(pointer: coarse)').matches) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+    }
+    mic.onclick = start;
+    document.getElementById('rec-x').onclick = cancel;
+    document.getElementById('rec-ok').onclick = () => finish();
+    q.addEventListener('keydown', (e) => { if (e.ctrlKey && (e.key === 'm' || e.key === 'M' || e.code === 'KeyM')) { e.preventDefault(); start(); } });
+    document.addEventListener('visibilitychange', function vis() {
+      if (!document.body.contains(mic)) return document.removeEventListener('visibilitychange', vis);
+      if (document.hidden && rec) finish();   // iPhone-ում հավելվածից դուրս գալիս ձայնը չի կորչում
+    });
+  }
   // 03.11. GET-ը «սառը» ֆունկցիա է (առաջին կանչը՝ մինչև 3 վրկ) → վերջին հայտնի վիճակը՝ անմիջապես, թարմը՝ ետևում
   async function garikState() {
     if (garikStatus) return garikStatus;
@@ -1776,7 +1870,8 @@
     let msgs = as.msgs || [];
     const sc = mount({ title: 'Գարիկ', tab: 'garik', compact: true,
       right: `<button class="ibtn" id="clear" aria-label="Մաքրել զրույցը">${I.trash}</button>`,
-      after: `<div class="composer"><textarea id="q" rows="1" placeholder="${st.ok ? 'Հարցրու Գարիկին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button></div>` },
+      after: `<div class="composer"><textarea id="q" rows="1" placeholder="${st.ok ? 'Հարցրու Գարիկին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել" title="Խոսել (Ctrl+M)"${st.ok ? '' : ' disabled'}>${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>`
+        + `<div class="rec" id="rec" hidden><button type="button" class="rec-x" id="rec-x" aria-label="Չեղարկել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"')}</button><span class="rec-dot"></span><canvas class="rec-w" id="rec-w"></canvas><span class="rec-t" id="rec-t">0:00</span><button type="button" class="rec-ok" id="rec-ok" aria-label="Պատրաստ է">${sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</button></div></div>` },
       `${gc.html ? `<div class="page gthc">${gc.html}</div>` : ''}<div class="chat" id="chat">${bubble('ai', hello)}<div class="chat" id="thread" style="padding:0">${thread(msgs)}</div>${msgs.length ? '' : sugg}</div>`);
     const q = document.getElementById('q'), send = document.getElementById('send'), threadEl = document.getElementById('thread');
     const down = () => { sc.scrollTop = sc.scrollHeight; };
@@ -1838,6 +1933,7 @@
       if (extra) msgs = [...msgs, extra];
       paint(); busy = false; grow(); poll();
     }
+    dictation(q, grow);
     q.addEventListener('input', grow);
     send.onclick = () => ask(q.value);
     q.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
@@ -1867,6 +1963,7 @@
     if (l.agent === 'owner-bot' && l.action === 'flush') return ['Գարիկ · ծանուցում', `Telegram՝ ${d.sent || 0}, հեռախոս՝ ${d.pushed || 0}`];
     if (l.action === 'error') return [`${l.agent} · սխալ`, String(d.msg || '').slice(0, 90)];
     if (l.action.startsWith('task_')) return [`Դու · ${{ task_approve: 'հաստատեցիր', task_reject: 'մերժեցիր', task_undo: 'չեղարկեցիր' }[l.action] || l.action}`, d.title || ''];
+    if (l.action === 'voice') return ['Գարիկ · ձայնային մուտք', `${Math.round((d.ms || 0) / 1000)} վրկ · ${d.chars || 0} նիշ`];
     if (l.action === 'agents_off') return ['Գործակալները կանգնեցվեցին', ''];
     if (l.action === 'agents_on') return ['Գործակալները միացվեցին', ''];
     return [`${l.agent} · ${l.action}`, ''];

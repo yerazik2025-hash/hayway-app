@@ -461,6 +461,25 @@ body.kb .composer { padding-bottom: 10px; }
 .composer .send { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--btn); color: var(--on-btn); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: transform .35s var(--spring); }
 .composer .send:active { transform: scale(.9); }
 .composer .send:disabled { background: var(--fill2); color: var(--text3); }
+/* Ձայնային մուտք (04.11). 🎙 → ձայնագրման տող՝ ✕ · կարմիր կետ · ալիք · ժամ · ✓ */
+.composer .mic { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--surface2); color: var(--text); box-shadow: var(--edge); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: transform .35s var(--spring), color .2s; }
+.composer .mic:hover { color: var(--acc); }
+.composer .mic:active { transform: scale(.9); }
+.composer .mic:disabled { color: var(--text3); cursor: default; }
+.composer .mic.busy { color: transparent; position: relative; }
+.composer .mic.busy::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2.4px solid var(--acc); border-right-color: transparent; animation: spin .8s linear infinite; }
+.composer .rec { position: absolute; inset: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px calc(10px + var(--safe-b)) 14px; background: var(--topbar); animation: rise .2s ease-out; }
+body.kb .composer .rec { padding-bottom: 10px; }
+.composer .rec[hidden] { display: none; }
+.composer .rec button { width: 44px; height: 44px; border-radius: 22px; border: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: transform .35s var(--spring); }
+.composer .rec button:active { transform: scale(.9); }
+.composer .rec-x { background: var(--surface2); color: var(--text2); box-shadow: var(--edge); }
+.composer .rec-ok { background: var(--btn); color: var(--on-btn); }
+.composer .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--neg); flex-shrink: 0; animation: dots 1.2s ease-in-out infinite; }
+.composer .rec-w { flex: 1; min-width: 0; height: 32px; }
+.composer .rec-t { font-variant-numeric: tabular-nums; color: var(--text2); min-width: 38px; text-align: right; }
+.composer .rec-t.warn { color: var(--neg); }
+.composer.recording textarea, .composer.recording .mic, .composer.recording .send { visibility: hidden; }
 
 /* ───────── Մուտք ───────── */
 .login { flex: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: calc(24px + var(--safe-t)) 24px calc(24px + var(--safe-b)); }
