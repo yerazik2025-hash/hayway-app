@@ -60,7 +60,7 @@
     };
     addEventListener('click', (e) => {
       if (!e.target.closest) return;
-      if (e.target.closest('.chat-top .backb')) { e.preventDefault(); e.stopImmediatePropagation(); P.close(); return; }
+      if (e.target.closest('.chat-top .backb, .chat-top .gclose')) { e.preventDefault(); e.stopImmediatePropagation(); P.close(); return; }
       const a = e.target.closest('a[href^="#/"]');
       if (a && segOf(a.getAttribute('href')) !== 'garik') { e.preventDefault(); e.stopImmediatePropagation(); P.go(a.getAttribute('href')); }
     }, true);

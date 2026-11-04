@@ -711,3 +711,18 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 @media (max-width: 420px) { .jsteps span { font-size: 10.5px; letter-spacing: -.2px; } }
 .act.rep .act-b .btn { white-space: nowrap; }
 @media (max-width: 360px) { .jsteps span:not(.now) { color: transparent; } .jsteps span.now { overflow: visible; white-space: nowrap; } }
+/* 04.11 ԿԱ 5 ուղղումներ (անկախ ստուգումից հետո). ֆոնը՝ #09090B + մանուշակագույն լույս վերևում, նամակների միջև 10px, վերնագիրը՝ Դավիթի հերթականությամբ
+   (⋯ · GTH · ժամացույց · մատիտ · փակել), քարտերում՝ «առաջ → հետո» */
+.app.gth { background: radial-gradient(900px 420px at 50% -160px, rgba(124,100,255,.22), transparent 70%) no-repeat, #09090B; }
+.app.gth .top { background: transparent; }
+.app.gth .top.scrolled { background: transparent; box-shadow: none; }
+.app.gth .chat { gap: 10px; }
+.top.chat-top .ct { left: 124px; right: 124px; }
+@media (max-width: 360px) { .top.chat-top .ct { left: 118px; right: 118px; } }
+.top.chat-top .l .ibtn.hb { margin-left: 4px; }
+.top .ibtn.gclose { color: var(--text2); }
+.act .chg { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; line-height: 1.35; min-width: 0; }
+.act .chg s { color: var(--text3); overflow-wrap: anywhere; }
+.act .chg b { font-weight: 600; overflow-wrap: anywhere; }
+.act .chg .chg-a { color: #C2B6FF; font-weight: 600; }
+.msg-sys { align-self: center; max-width: 90%; font-size: 12.5px; color: var(--text3); text-align: center; padding: 2px 8px; }
