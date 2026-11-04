@@ -141,7 +141,7 @@
   function tabbar() {
     const s = hashParts()[1] || '';
     return `<nav class="dock"><div class="strip"><div class="track"><i class="glass" aria-hidden="true"></i>${DOCK.map(([k, ic, l]) => `<a class="tab${k === s ? ' on' : ''}" href="#/${k}" draggable="false"><span class="ic">${ic}</span><span>${l}</span></a>`).join('')}</div></div>
-      <a class="gthb" href="#/garik" aria-label="Գարիկ՝ GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span>${pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</a></nav>`;
+      <a class="gthb" href="#/garik" aria-label="GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span>${pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</a></nav>`;
   }
   // o: { title, sub, tab, back:[href,label], right, compact, after }
   function frame(o, body) {
@@ -710,24 +710,24 @@
     // նոր ռիլ, որ սպասում է տիրոջ «Հրապարակել»-ին (db\0021)
     const reelCell = reelsW.length ? cell({ href: '#/reels', icon: I.film, color: 'p', t: `Նոր ռիլ #${reelsW[0].n}՝ դիտեք`, s: 'Հրապարակել կամ փոխել' }) : '';
     // «Սպասում է «Այո»-ի» (ԿԱ 2). գործակալների առաջարկները՝ GTH էջի վերևում, թիվը՝ GTH կոճակի վրա
-    const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(t.agent) }); });
+    const todo = tasks.slice(0, 3).map((t) => { const [ic, col] = AGENT[t.agent] || [I.star, 's']; return cell({ href: '#/tasks', icon: ic, color: col, t: esc(t.title), s: esc(agentName(t.agent)) }); });
     if (tasks.length > 3) todo.push(cell({ href: '#/tasks', t: `<span style="color:var(--info)">Բոլոր գործերը · ${tasks.length}</span>` }));
     // WhatsApp-ի պատասխանների նախագծերը (db\0020)
     const waCell = waP ? cell({ href: '#/whatsapp', icon: I.chat, color: 'g', t: `WhatsApp՝ ${waP} պատասխան`, s: 'Կարդալ և ուղարկել' }) : '';
     const apr = tasks.length || reelCell || waCell ? `<div class="group ic apr"><a class="apr-h" href="#/tasks"><span class="ico y">${I.alert}</span><span class="t">Սպասում է «Այո»-ի</span><span class="cnt">${tasks.length + reelsW.length + waP}</span></a>${waCell}${reelCell}${todo.join('')}</div>` : '';
     const hasQ = qs && qs.open && qs.open.length;
     // Գարիկի հիշեցումները (db\0011, assistant_tick). «Լավ»-ով փակվում են
-    const notice = nts.length ? sec('Գարիկը հիշեցնում է', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
+    const notice = nts.length ? sec('Հիշեցումներ', `<div class="card nlist">${nts.map((n) => `<div class="nrow" data-id="${n.id}">
         <p>${esc(n.text)}</p><button type="button" class="btn sm gray" data-seen="${n.id}">Լավ</button></div>`).join('')}</div>`) : '';
     // Գարիկի ծանուցումները. նախ՝ հենց հավելվածում (push), իսկ եթե հեռախոսը չի կարող՝ Telegram (db\0013). «Հետո»-ն թաքցնում է 7 օրով
     let tgLater = 0; try { tgLater = +localStorage.getItem('hw_tg_later') || 0; } catch (e) {}
     const ps = await pushState();
     const tgCard = Date.now() <= tgLater || ps.on || tgState.linked ? ''
       : ps.ok && !ps.denied ? sec('', `<div class="card tgcard">
-        <p><b>Գարիկի ծանուցումները՝ այս հեռախոսում</b><br><span class="meta">Պատասխանները կգան հեռախոսին։</span></p>
+        <p><b>GTH-ի ծանուցումները՝ այս հեռախոսում</b><br><span class="meta">Պատասխանները կգան հեռախոսին։</span></p>
         <div class="act-b"><button type="button" class="btn pri sm" data-pushon>Միացնել ծանուցումները</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`)
       : tgState.username ? sec('', `<div class="card tgcard">
-        <p><b>Գարիկի պատասխանները՝ Telegram-ում</b><br><span class="meta">«Այո»-ն կսեղմեք հենց Telegram-ում։</span></p>
+        <p><b>GTH-ի պատասխանները՝ Telegram-ում</b><br><span class="meta">«Այո»-ն կսեղմեք հենց Telegram-ում։</span></p>
         <div class="act-b"><button type="button" class="btn pri sm" data-tglink>Միացնել Telegram-ը</button><button type="button" class="btn sm gray" data-tglater>Հետո</button></div></div>`) : '';
     const html = `${notice}${hasQ ? '<section class="sec" id="qa"></section>' : ''}${apr}${tgCard}`;
     // 04.11 (Դավիթի «Ждут вас · N»). զրույցի վերևի նուրբ տողի համար՝ քանակը ու առաջինը
@@ -833,7 +833,7 @@
         gc('#/reels', I.film, 'p', 'Ռիլեր', 'TikTok, Instagram'),
       ])}
       ${grid('Կառավարում', [
-        gc('#/garik', I.star, 'b', 'Գարիկ', 'GTH օգնական'),
+        gc('#/garik', I.star, 'b', 'GTH', 'Օգնական'),
         gc('#/settings', I.cfg, 's', 'Կարգավորում', 'միացումներ, մուտք'),
       ])}
       ${sec('Շուտով', group([
@@ -1267,7 +1267,7 @@
     }
     // կարևորը՝ միայն երբ ինչ-որ բան կանգնած է
     const warn = botOff ? [botOff] : [];
-    if (W.hook_at && !fresh) warn.push('2 օր նամակ չկա. Գարիկը ստուգում է։');
+    if (W.hook_at && !fresh) warn.push('2 օր նամակ չկա. ստուգում ենք։');
     if (W.drafting && (!W.runner_at || Date.now() - new Date(W.runner_at) > 15 * 60e3)) warn.push(`${fmt(W.drafting)} հարց սպասում է. HayWay-ի համակարգիչը անջատված է։`);
     const card = (r) => `<article class="prop" data-id="${r.id}">
         <div class="who"><span class="ico g">${I.chat}</span><b>${esc(r.name || 'Առանց անվան')}</b>${r.topic ? `<span>· ${esc(r.topic)}</span>` : ''}<span class="tm">${ago(r.at)}</span></div>
@@ -1643,7 +1643,9 @@
   });
 
   // ───────── Գործեր ─────────
-  const AGENT = { 'Պահպանող': [I.users, 'g'], 'Որակի վերահսկիչ': [I.quality, 'p'], 'Ֆինանսիստ': [I.money, 'o'], 'Գարիկ': [I.star, 'k'] };
+  const AGENT = { 'Պահպանող': [I.users, 'g'], 'Որակի վերահսկիչ': [I.quality, 'p'], 'Ֆինանսիստ': [I.money, 'o'], 'Գարիկ': [I.star, 'k'], 'GTH': [I.star, 'k'] };
+  // 04.11 (Գարիկ. «Գարիկով էլ բան չերևա»). բազայում գործակալի անունը մնում է «Գարիկ», տիրոջը՝ GTH
+  const agentName = (a) => (a === 'Գարիկ' ? 'GTH' : a);
   route('/tasks', async (view) => {
     lastTab = 'tasks';
     view = view === 'done' ? 'done' : 'pending';
@@ -1656,7 +1658,7 @@
       const p = t.payload || {}, [ic, col] = AGENT[t.agent] || [I.star, 's'];
       const decided = t.status !== 'pending';
       return `<article class="prop" data-id="${t.id}">
-        <div class="who"><span class="ico ${col}">${ic}</span><b>${esc(t.agent)}</b><span>· ${esc(t.cost || '')}</span><span class="tm">${dmy(t.created_at)}</span></div>
+        <div class="who"><span class="ico ${col}">${ic}</span><b>${esc(agentName(t.agent))}</b><span>· ${esc(t.cost || '')}</span><span class="tm">${dmy(t.created_at)}</span></div>
         <h3>${esc(t.title)}</h3>
         ${t.why ? `<p class="why">${esc(t.why)}</p><button class="more" data-more>Ավելին</button>` : ''}
         ${p.segment ? `<button class="btn sm" data-list style="align-self:flex-start">${I.users} Ցուցակը${p.n ? (p.n > 25 ? ' · առաջին 25-ը' : ` · ${p.n}`) : ''}</button><div class="list" data-drivers style="display:none"></div>` : ''}
@@ -1869,7 +1871,7 @@
   // երկար հիշեցումը՝ մեկ տող, սեղմելով բացվում է; կառուցողինը (builder-run.ps1-ի տեքստերը)՝ հղում Առաջադրանքներին
   const noticeEl = (m) => {
     const t = String(m.a || ''), h = `<span class="note-h">Հիշեցում · ${dayHm(m.answered_at || m.at)}</span>`;
-    if (/^«.+»՝ (պլանը պատրաստ է|Գարիկը հարց ունի|պատրաստ է|չստացվեց|հետ է բերված)/.test(t)) return `<a class="msg ai notice jlink" href="#/garik/jobs">${h}${esc(t)} ›</a>`;
+    if (/^«.+»՝ (պլանը պատրաստ է|Գարիկը հարց ունի|հարց ունեմ|պատրաստ է|չստացվեց|հետ է բերված)/.test(t)) return `<a class="msg ai notice jlink" href="#/garik/jobs">${h}${esc(t)} ›</a>`;
     if (t.length <= 90 && !t.includes('\n')) return `<div class="msg ai notice">${h}${esc(t)}</div>`;
     const first = t.split('\n').map((x) => x.trim()).filter(Boolean).join(' · ');
     return `<details class="msg ai notice"><summary>${h}<span class="note-s">${esc(first.length > 90 ? first.slice(0, 88) + '…' : first)}</span></summary><div class="note-b">${esc(t)}</div></details>`;
@@ -1896,18 +1898,18 @@
     const askQ = new URLSearchParams((location.hash.split('?')[1]) || '').get('ask');
     const [st, as, gc, jb] = await Promise.all([garikState(), assistantNow(), gthCards(), jobsNow().catch(() => ({ items: [] }))]);
     const pc = st.mode === 'pc', on = !pc || runnerOn(as.runner);
-    const waitText = on ? 'Գարիկը նայում է թվերին… պատասխանը՝ 1–2 րոպեում' : 'Հարցը պահված է';
+    const waitText = on ? 'Նայում եմ թվերին… պատասխանը՝ 1–2 րոպեում' : 'Հարցը պահված է';
     // «Սպասում է քեզ · N»՝ մեկ նուրբ տող (Դավիթի «Ждут вас»). միայն առաջադրանքներ սպասեն՝ ուղիղ այնտեղ
     const jw = jobsWaiting(jb.items), nWait = gc.count + jw;
     const firstJob = (jb.items || []).find((j) => j.status === 'ask' || j.status === 'ready');
     const slot = nWait ? `<a class="gslot" href="${gc.count ? '#/garik/wait' : '#/garik/jobs'}"><i></i><b>Սպասում է քեզ${nWait > 1 ? ` · ${nWait}` : ''}</b><span>${esc(gc.top || (firstJob ? firstJob.title || firstJob.request : ''))}</span><em>›</em></a>` : '';
-    const off = !st.ok ? 'Գարիկը հիմա կապ չունի' : on ? '' : 'Համակարգիչը անջատված է. հարցը կպահվի';
+    const off = !st.ok ? 'Օգնականը հիմա կապ չունի' : on ? '' : 'Համակարգիչը անջատված է. հարցը կպահվի';
     let msgs = as.msgs || [];
     const empty = () => `<div class="gempty"><h3>Ինչով օգնե՞մ</h3>${off ? `<p><span class="dot off"></span>${off}</p>` : ''}</div>`;
     const nj = (jb.items || []).length;
     const sc = mount({ title: 'GTH', tab: 'garik', compact: true, right: garikHead(),
-      after: `<div class="cpop" id="cpop" hidden><a href="#/garik/jobs?new=1">${I.star}<span><b>Նոր առաջադրանք</b><small>պատմիր, ինչ ավելացնել. Գարիկը կսարքի</small></span></a><a href="#/garik/jobs">${I.tasks}<span><b>Բոլոր առաջադրանքները</b><small>${nj ? `${nj}${jw ? ` · սպասում են քեզ՝ ${jw}` : ''}` : 'դեռ չկա'}</small></span></a></div>`
-        + `<div class="composer"><button type="button" class="cplus" id="cplus" aria-label="Նոր առաջադրանք">${I.plus}</button><textarea id="q" rows="1" placeholder="${st.ok ? 'Գրիր GTH-ին…' : 'Գարիկը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել" title="Խոսել (Ctrl+M)"${st.ok ? '' : ' disabled'}>${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>`
+      after: `<div class="cpop" id="cpop" hidden><a href="#/garik/jobs?new=1">${I.star}<span><b>Նոր առաջադրանք</b><small>պատմիր, ինչ ավելացնել. կսարքեմ</small></span></a><a href="#/garik/jobs">${I.tasks}<span><b>Բոլոր առաջադրանքները</b><small>${nj ? `${nj}${jw ? ` · սպասում են քեզ՝ ${jw}` : ''}` : 'դեռ չկա'}</small></span></a></div>`
+        + `<div class="composer"><button type="button" class="cplus" id="cplus" aria-label="Նոր առաջադրանք">${I.plus}</button><textarea id="q" rows="1" placeholder="${st.ok ? 'Գրիր GTH-ին…' : 'Օգնականը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել" title="Խոսել (Ctrl+M)"${st.ok ? '' : ' disabled'}>${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>`
         + `<div class="rec" id="rec" hidden><button type="button" class="rec-x" id="rec-x" aria-label="Չեղարկել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"')}</button><span class="rec-dot"></span><canvas class="rec-w" id="rec-w"></canvas><span class="rec-t" id="rec-t">0:00</span><button type="button" class="rec-ok" id="rec-ok" aria-label="Պատրաստ է">${sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</button></div></div>` },
       `${slot}<div class="chat" id="chat"><div class="chat" id="thread" style="padding:0">${msgs.length ? chatThread(msgs, waitText) : empty()}</div>${msgs.length && off ? `<p class="job-off"><span class="dot off"></span>${off}</p>` : ''}</div>`);
     const q = document.getElementById('q'), send = document.getElementById('send'), threadEl = document.getElementById('thread');
@@ -2009,7 +2011,7 @@
   async function garikWait() {
     const [gc, jb] = await Promise.all([gthCards(), jobsNow().catch(() => ({ items: [] }))]);
     const jw = (jb.items || []).filter((j) => j.status === 'ask' || j.status === 'ready');
-    const jobsRow = jw.length ? group(jw.slice(0, 3).map((j) => cell({ href: '#/garik/jobs', icon: I.star, color: 'y', t: esc(j.title || j.request), s: j.status === 'ask' ? 'Գարիկը հարց ունի' : 'Պլանը պատրաստ է' })), 'ic') : '';
+    const jobsRow = jw.length ? group(jw.slice(0, 3).map((j) => cell({ href: '#/garik/jobs', icon: I.star, color: 'y', t: esc(j.title || j.request), s: j.status === 'ask' ? 'Հարց ունեմ' : 'Պլանը պատրաստ է' })), 'ic') : '';
     subMount('Սպասում է քեզ', `<div class="page gthc">${jobsRow}${gc.html || (jobsRow ? '' : emptyState(I.tasks, 'Ոչինչ չի սպասում', 'Ամեն ինչ որոշված է'))}</div>`);
     gc.bind();
   }
@@ -2050,7 +2052,7 @@
   const JOB_STEPS = ['Պլան', 'Կառուցում', 'Ստուգում', 'Պատրաստ'];
   const JOB_AT = { new: 0, planning: 0, ask: 0, ready: 0, garik: 0, queued: 1, building: 1, checking: 2, releasing: 3, done: 4 };
   const JOB_WORK = ['new', 'planning', 'queued', 'building', 'checking', 'releasing', 'undo', 'undoing'];
-  const JOB_TAG = { ask: ['Հարց', 'warn'], ready: ['Սպասում է «Այո»-ի', 'warn'], garik: ['Գարիկի հաստատում', 'n'], done: ['Պատրաստ', 'pos'],
+  const JOB_TAG = { ask: ['Հարց', 'warn'], ready: ['Սպասում է «Այո»-ի', 'warn'], garik: ['GTH-ի հաստատում', 'n'], done: ['Պատրաստ', 'pos'],
     failed: ['Չստացվեց', 'neg'], rejected: ['Չեղարկված', 'n'], undone: ['Հետ բերված', 'n'] };
   const JOB_EX = ['Ամեն երկուշաբթի՝ ով չի աշխատել', 'Նոր վարորդների ցուցակ Excel-ով', 'Գլխավորում՝ այսօրվա եկամուտը'];
   const JOB_PH = 'Գրիր առաջադրանքը…';
@@ -2070,7 +2072,7 @@
       let body;
       switch (j.status) {
         case 'ask': body = `<p class="job-q">${esc(j.question)}</p><div class="job-o">${(j.options || []).map((o) => `<button type="button" class="btn sm gray" data-ans="${j.id}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}<button type="button" class="btn plain sm" data-other="${j.id}">Այլ…</button></div>`; break;
-        case 'ready': body = `<p class="job-p">${esc(j.plan)}</p>${j.zone ? `<p class="job-z">Գարիկն էլ կհաստատի՝ ${esc(j.zone_why || '')}</p>` : ''}<div class="act-b"><button type="button" class="btn pri sm" data-yes="${j.id}">Այո, կառուցիր</button><button type="button" class="btn sm gray" data-edit="${j.id}">Փոխել</button><button type="button" class="btn plain sm" data-nojob="${j.id}">Ոչ</button></div>`; break;
+        case 'ready': body = `<p class="job-p">${esc(j.plan)}</p>${j.zone ? `<p class="job-z">GTH-ն էլ կհաստատի՝ ${esc(j.zone_why || '')}</p>` : ''}<div class="act-b"><button type="button" class="btn pri sm" data-yes="${j.id}">Այո, կառուցիր</button><button type="button" class="btn sm gray" data-edit="${j.id}">Փոխել</button><button type="button" class="btn plain sm" data-nojob="${j.id}">Ոչ</button></div>`; break;
         case 'done': body = `<div class="act-s"><span class="pos">✓ ${esc(j.note || 'Պատրաստ է')}</span>${j.dry ? '' : `<button type="button" class="btn plain sm" data-undo="${j.id}">Հետ բերել</button>`}</div>`; break;
         case 'failed': body = `<div class="act-s"><span class="neg">${esc(j.note || 'Չստացվեց')}</span><button type="button" class="btn plain sm" data-again="${j.id}">Նորից</button></div>`; break;
         case 'rejected': case 'undone': body = `<div class="act-s"><span class="mut">${esc(j.note || '')}</span>${j.status === 'rejected' ? `<a class="btn plain sm" href="#/garik?ask=${encodeURIComponent(j.request)}">Հարցնել զրույցում</a>` : ''}<button type="button" class="btn plain sm" data-hide="${j.id}">Թաքցնել</button></div>`; break;
@@ -2085,7 +2087,7 @@
       return (off ? '<p class="job-off"><span class="dot off"></span>Համակարգիչը անջատված է. կսպասի</p>' : '')
         + (B.left_today === 0 ? '<p class="job-off"><span class="dot wait"></span>Այսօրվա 3 կառուցումն արված է. հաջորդը՝ վաղը</p>' : '')
         + (items.length ? items.map(card).join('')
-          : emptyState(I.star, 'Ի՞նչ ավելացնենք', 'Գրիր ներքևում. Գարիկը կսարքի', `<div class="sugg">${JOB_EX.map((x) => `<button type="button" data-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>`));
+          : emptyState(I.star, 'Ի՞նչ ավելացնենք', 'Գրիր ներքևում, ես կսարքեմ', `<div class="sugg">${JOB_EX.map((x) => `<button type="button" data-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>`));
     };
     const x = sv(18, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"');
     const sc = mount({ title: 'GTH', tab: 'garik', compact: true, right: '',
@@ -2163,18 +2165,18 @@
     if (l.action === 'propose') return [`${l.agent} · նոր առաջարկ`, d.title || ''];
     if (l.agent === 'agents' && l.action === 'daily') return ['Առավոտյան ստուգում', `${Object.keys(d).length} խումբ ստուգվեց`];
     if (l.agent === 'agents' && l.action === 'skipped') return ['Առավոտյան ստուգում', 'Բաց թողնվեց. գործակալներն անջատված են'];
-    if (l.action === 'chat') return ['Գարիկ · զրույց', d.q || ''];
-    if (l.agent === 'assistant') return ['Գարիկ · միացում', d.ok === true || d.code === 0 ? 'պատրաստ է' : 'դեռ չի միացել'];
-    if (l.action.startsWith('act_')) return [`Դու · ${{ act_done: 'Գարիկը արեց', act_reject: 'ասացիր «Ոչ»', act_failed: 'չստացվեց', act_undo: 'հետ բերեցիր' }[l.action] || l.action}`, d.title || ''];
-    if (l.action === 'notice') return ['Գարիկ · հիշեցում', ''];
+    if (l.action === 'chat') return ['GTH · զրույց', d.q || ''];
+    if (l.agent === 'assistant') return ['GTH · միացում', d.ok === true || d.code === 0 ? 'պատրաստ է' : 'դեռ չի միացել'];
+    if (l.action.startsWith('act_')) return [`Դու · ${{ act_done: 'GTH-ը արեց', act_reject: 'ասացիր «Ոչ»', act_failed: 'չստացվեց', act_undo: 'հետ բերեցիր' }[l.action] || l.action}`, d.title || ''];
+    if (l.action === 'notice') return ['GTH · հիշեցում', ''];
     if (l.action === 'tg_link') return ['Դու · միացրիր Telegram-ը', d.name || ''];
     if (l.action === 'tg_unlink') return ['Դու · անջատեցիր Telegram-ը', ''];
     if (l.action === 'push_on') return ['Դու · միացրիր ծանուցումները', ''];
     if (l.action === 'push_off') return ['Դու · անջատեցիր ծանուցումները', ''];
-    if (l.agent === 'owner-bot' && l.action === 'flush') return ['Գարիկ · ծանուցում', `Telegram՝ ${d.sent || 0}, հեռախոս՝ ${d.pushed || 0}`];
+    if (l.agent === 'owner-bot' && l.action === 'flush') return ['GTH · ծանուցում', `Telegram՝ ${d.sent || 0}, հեռախոս՝ ${d.pushed || 0}`];
     if (l.action === 'error') return [`${l.agent} · սխալ`, String(d.msg || '').slice(0, 90)];
     if (l.action.startsWith('task_')) return [`Դու · ${{ task_approve: 'հաստատեցիր', task_reject: 'մերժեցիր', task_undo: 'չեղարկեցիր' }[l.action] || l.action}`, d.title || ''];
-    if (l.action === 'voice') return ['Գարիկ · ձայնային մուտք', `${Math.round((d.ms || 0) / 1000)} վրկ · ${d.chars || 0} նիշ`];
+    if (l.action === 'voice') return ['GTH · ձայնային մուտք', `${Math.round((d.ms || 0) / 1000)} վրկ · ${d.chars || 0} նիշ`];
     if (l.action === 'agents_off') return ['Գործակալները կանգնեցվեցին', ''];
     if (l.action === 'agents_on') return ['Գործակալները միացվեցին', ''];
     return [`${l.agent} · ${l.action}`, ''];
@@ -2213,20 +2215,20 @@
         cell({ href: '#/delivery', icon: I.box, color: 't', t: 'Yandex Fleet · Delivery', s: dvS && dvS.connected ? `${fmt(dvS.working)} առաքիչ` : '',
           v: dvS && dvS.error ? '<span class="tag warn">սխալ</span>' : dvS && dvS.connected ? `<span class="tag pos">${ago(dvS.last_sync)}</span>`
             : `<span class="tag n">${dvS && dvS.key ? 'լցվում է' : 'միանում է'}</span>` }),
-        cell({ icon: I.star, color: 'k', t: 'Գարիկ · Claude', s: st.mode === 'pc' ? `HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
+        cell({ icon: I.star, color: 'k', t: 'GTH · Claude', s: st.mode === 'pc' ? `HayWay-ի համակարգչից${asR && asR.runner && asR.runner.seen_at ? ` · ${ago(asR.runner.seen_at)}` : ''}` : '',
           v: !st.ok ? '<span class="tag warn">կապ չկա</span>' : st.mode !== 'pc' ? '<span class="tag pos">միացված</span>'
             : runnerOn(asR && asR.runner) ? '<span class="tag pos">միացված</span>' : '<span class="tag warn">անջատված</span>' }),
         cell({ icon: I.star, color: 'y', t: 'Ծանուցումներ այս հեռախոսում',
           s: ps.on ? '' : ps.denied ? 'Արգելված է հեռախոսում' : !ps.ok ? 'iPhone-ում՝ Home Screen-ից' : '',
           trail: ps.on ? '<button type="button" class="btn plain sm" data-pushoff>Անջատել</button>' : ps.ok && !ps.denied ? '<button type="button" class="btn pri sm" data-pushon>Միացնել</button>' : '' }),
-        ...(tgS.username ? [cell({ icon: I.chat, color: 'b', t: 'Telegram · Գարիկի ծանուցումներ',
+        ...(tgS.username ? [cell({ icon: I.chat, color: 'b', t: 'Telegram · GTH-ի ծանուցումներ',
           s: tgS.linked ? `@${esc(tgS.username)}${tgS.name ? ' · ' + esc(tgS.name) : ''}` : '',
           trail: tgS.linked ? '<button type="button" class="btn plain sm" data-tgunlink>Անջատել</button>' : '<button type="button" class="btn pri sm" data-tglink>Միացնել</button>' })] : []),
         cell({ href: '#/whatsapp', icon: I.chat, color: 'g', t: 'WhatsApp բոտ', s: '098 888 960 · SendPulse' }),
         cell({ icon: I.mega, color: 'o', t: 'list.am', v: '<span class="tag n">Կոմպ 2-ում</span>' }),
         cell({ icon: I.money, color: 'b', t: 'PrimeBridge', v: '<span class="tag n">շուտով</span>' }),
       ], 'ic'))}
-      ${brain.length ? sec('Գարիկը հիշում է', group(brain.map((b) => cell({ t: esc(b.text), s: dmy(b.at),
+      ${brain.length ? sec('Հիշում եմ', group(brain.map((b) => cell({ t: esc(b.text), s: dmy(b.at),
         trail: `<button type="button" class="btn plain sm" data-forget="${b.id}">Մոռանալ</button>` }))),
         { foot: 'Նորը՝ գրեք «հիշիր, որ …»։' }) : ''}
       ${sec('Մուտք ունեն', group(users))}
@@ -2305,7 +2307,7 @@
     pendingCount = h.tasks_pending || 0;
     const [t, ic, txt] = SOON[k];
     mount({ title: t, tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot wait"></span>շուտով' },
-      page(emptyState(ic, 'Շուտով', txt, '<a class="btn dark" href="#/garik">Հարցնել Գարիկին</a>')));
+      page(emptyState(ic, 'Շուտով', txt, '<a class="btn dark" href="#/garik">Հարցնել GTH-ին</a>')));
   }));
 
   // ───────── Սկիզբ ─────────

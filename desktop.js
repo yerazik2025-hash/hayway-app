@@ -93,8 +93,8 @@
     side = document.createElement('aside');
     side.id = 'dkSide'; side.setAttribute('aria-label', 'Բաժիններ');
     side.innerHTML = `<a class="dk-brand" href="#/" data-tip="HayWay" draggable="false"><img src="icon.svg?v=9" width="34" height="34" alt=""><span class="dk-l"><b>HayWay</b><small><i></i><span class="dk-date"></span></small></span></a>
-      <button type="button" class="dk-gth" data-tip="Գարիկ · GTH օգնական · ${KEY}" aria-keyshortcuts="${MAC ? 'Meta+K' : 'Control+K'}" aria-label="Գարիկ՝ GTH օգնական">
-        <span class="dk-logo"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"></span><span class="dk-l"><b>Գարիկ</b><small>GTH օգնական</small></span><span class="dk-badge" hidden></span><kbd>${KEY}</kbd></button>
+      <button type="button" class="dk-gth" data-tip="GTH օգնական · ${KEY}" aria-keyshortcuts="${MAC ? 'Meta+K' : 'Control+K'}" aria-label="GTH օգնական">
+        <span class="dk-logo"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"></span><span class="dk-l"><b>GTH</b><small>օգնական</small></span><span class="dk-badge" hidden></span><kbd>${KEY}</kbd></button>
       <nav class="dk-nav"><div class="dk-cap">Բաժիններ</div>${(H.DOCK || []).map((d) => row(d[0], d[1], d[2])).join('')}
         <div class="dk-cap">Ավելին</div>${row('sections', I.grid, 'Բոլոր բաժինները')}${row('settings', I.cfg, 'Կարգավորում')}</nav>`;
     document.body.insertBefore(side, app);
@@ -146,9 +146,9 @@
   const base = () => location.href.split('#')[0];
   function makePanel(h) {
     panel = document.createElement('aside');
-    panel.id = 'dkGth'; panel.setAttribute('aria-label', 'Գարիկ՝ GTH օգնական'); panel.hidden = true;
+    panel.id = 'dkGth'; panel.setAttribute('aria-label', 'GTH օգնական'); panel.hidden = true;
     frame = document.createElement('iframe');
-    frame.title = 'Գարիկ՝ GTH օգնական';
+    frame.title = 'GTH օգնական';
     frame.addEventListener('load', () => {
       S.loaded = true;
       // հին պահված index.html (առանց desktop.js-ի). միացնել այստեղից, որ «×»-ն ու հղումները ճիշտ աշխատեն
