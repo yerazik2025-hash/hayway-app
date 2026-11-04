@@ -653,3 +653,61 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 .composer .cplus, .composer .mic, .composer .rec-x { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.06); box-shadow: none; color: var(--text); }
 .composer .send, .composer .send:disabled, .composer .rec-ok { border-radius: 50%; background: linear-gradient(180deg, #B3A3FF, #7C64FF); color: #0B0A12; }
 .composer .rec { padding: 8px 12px calc(10px + var(--safe-b)) 12px; background: rgba(9,9,11,.95); }
+/* ───────── ԿԱ 5 «GTH Օգնական»՝ Դավիթի պես (04.11, Գարիկ. «Այո, սկսի»). «Ավելին», «Լսել» + արագություն, ֆայլեր, ↓ վերջինին,
+   ընտրության քարտ, Excel քարտ, «Ինչ արեց օգնականը», «Հարցումներ թիմին», Առաջադրանքներ՝ 5 քայլ ու «Ահա ինչ հասկացա» ───────── */
+.more-t[hidden] { display: none; }
+.more-b { display: flex; align-items: center; min-height: 36px; margin: 2px 0 -6px; padding: 0; border: 0; background: none; color: #C2B6FF; font-size: 13px; font-weight: 600; cursor: pointer; white-space: normal; }
+.more-b::after { content: ''; width: 6px; height: 6px; margin: -3px 0 0 7px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.msg-f { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; white-space: normal; }
+.say-b { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border: 0; border-radius: 16px; background: rgba(255,255,255,.06); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; }
+.say-b .i { width: 16px; height: 16px; }
+.say-b.on { color: #C2B6FF; box-shadow: inset 0 0 0 1px rgba(194,182,255,.35); }
+.say-r { min-height: 32px; min-width: 44px; padding: 0 10px; border: 0; border-radius: 16px; background: rgba(194,182,255,.14); color: #C2B6FF; font-size: 13px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
+.say-r[hidden] { display: none; }
+.nowait { display: block; margin-top: 6px; padding: 4px 0; border: 0; background: none; color: #C2B6FF; font-size: 13px; font-weight: 600; cursor: pointer; }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; white-space: normal; }
+.fchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 0 10px; border: 0; border-radius: 12px; background: rgba(255,255,255,.18); color: inherit; font-size: 13px; cursor: pointer; }
+.fchip span { min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atts { display: flex; gap: 8px; padding: 8px 12px 0; overflow-x: auto; background: rgba(9,9,11,.85); scrollbar-width: none; flex-shrink: 0; }
+.atts[hidden] { display: none; }
+.att { position: relative; display: flex; align-items: center; gap: 8px; flex-shrink: 0; max-width: 210px; height: 48px; padding: 0 34px 0 6px; border-radius: 12px; background: rgba(255,255,255,.06); font-size: 13px; color: var(--text); }
+.att > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att > .i { margin-left: 4px; flex-shrink: 0; color: var(--text2); }
+.att img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.att button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.gdown-w { position: relative; height: 0; flex-shrink: 0; }
+.gdown { position: absolute; right: 14px; bottom: 12px; z-index: 6; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #1C1C22; color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), 0 6px 18px rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.gdown[hidden] { display: none; }
+.gresume { margin-top: 4px; }
+.act .act-w { font-size: 13px; line-height: 1.4; color: var(--text3); }
+.act .act-l { font-size: 14px; line-height: 1.45; color: var(--text2); }
+.act a.btn { text-decoration: none; }
+.act.done .act-b .btn.pri, .act.rep .act-b .btn.pri { flex: 2 1 150px; }
+.act.choice .job-o .btn, .job .job-o .btn { flex-direction: column; gap: 0; line-height: 1.2; padding-top: 6px; padding-bottom: 6px; }
+.job-o .btn small { font-size: 11px; font-weight: 500; opacity: .75; }
+.acts-w { padding: 0; }
+.acts-w .act { width: 100%; max-width: 100%; }
+.acts-rb { display: flex; gap: 6px; flex-shrink: 0; }
+.acts-rb .btn.sm { min-height: 36px; padding: 0 12px; font-size: 14px; }
+.reqs .req { flex-direction: column; align-items: stretch; gap: 6px; }
+.req-h { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.req-h .mut3 { margin-left: auto; font-size: 13px; }
+.req p { font-size: 15px; }
+.req .req-a { font-size: 14px; color: var(--text2); }
+.nrow-b { display: flex; gap: 6px; flex-shrink: 0; }
+.hsearch { margin-bottom: 12px; font-size: 16px; }
+.gcont { padding: 4px 16px calc(16px + var(--safe-b)); }
+.jgrp { display: flex; align-items: center; gap: 8px; margin: 6px 4px -2px; font-size: 13px; font-weight: 600; color: var(--text3); }
+.jgrp span { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--fill); color: var(--text2); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.jsteps { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.jcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.jcard-h { font-size: 15px; font-weight: 600; }
+.jcard div { font-size: 14.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.jcard div b { display: block; font-size: 12px; font-weight: 600; color: var(--text3); }
+.job-left { font-size: 13px; color: var(--text3); }
+@media (max-width: 360px) { .jsteps span { font-size: 10px; } .fchip span { max-width: 140px; } .acts-rb .btn.sm { padding: 0 9px; } }
+.jsteps span { white-space: normal; overflow: hidden; text-overflow: clip; line-height: 1.2; overflow-wrap: normal; word-break: keep-all; }
+@media (max-width: 420px) { .jsteps span { font-size: 10.5px; letter-spacing: -.2px; } }
+.act.rep .act-b .btn { white-space: nowrap; }
+@media (max-width: 360px) { .jsteps span:not(.now) { color: transparent; } .jsteps span.now { overflow: visible; white-space: nowrap; } }
