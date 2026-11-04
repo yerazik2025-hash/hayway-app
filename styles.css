@@ -637,3 +637,6 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 .cpop small { font-size: 12.5px; color: var(--text3); }
 @media (max-width: 360px) { .gslot { margin: 8px 12px 0; } .gsub { padding-right: 12px; } .top.chat-top .ct { left: 80px; right: 120px; } }
 .act .act-b .btn.pri { flex: 2 1 150px; }
+/* 04.11 (Գարիկ. «անկապ ներքև-վերև կոճակ, սիրուն չի»). Windows-ում դաշտի scrollbar-ը երևում էր նույնիսկ մեկ տողով → թաքցված, ոլորելը մնում է */
+.composer textarea { scrollbar-width: none; -ms-overflow-style: none; }
+.composer textarea::-webkit-scrollbar { display: none; width: 0; height: 0; }
