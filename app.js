@@ -2345,7 +2345,7 @@
   const BRAIN_KINDS = [['user', 'Քո մասին'], ['feedback', 'Ինչպես աշխատել քեզ հետ'], ['project', 'Որոշումներ ու պլաններ'], ['reference', 'Որտեղ ինչ կա']];
   async function garikBrain() {
     const br = await sb.rpc('app_brain').then((r) => r.data || [], () => []);
-    const row = (b) => `<div class="nrow"><p>${b.name ? `<b>${esc(noG(b.name))}</b><br>` : ''}${esc(noG(b.text))}${b.why ? `<small class="brain-w">Ինչու՝ ${esc(noG(b.why))}</small>` : ''}<small class="brain-w">${dmy(b.at)}${b.source === 'owner' ? '' : ' · հիշեցի ինքս'}</small></p>`
+    const row = (b) => `<div class="nrow brain"><p>${b.name ? `<b>${esc(noG(b.name))}</b><br>` : ''}${esc(noG(b.text))}${b.why ? `<small class="brain-w">Ինչու՝ ${esc(noG(b.why))}</small>` : ''}<small class="brain-w">${dmy(b.at)}${b.source === 'owner' ? '' : ' · հիշեցի ինքս'}</small></p>`
       + `<span class="nrow-b"><button type="button" class="btn sm gray" data-edit="${b.id}">Փոխել</button><button type="button" class="btn sm gray" data-forget="${b.id}">Մոռանալ</button></span></div>`;
     subMount('Ինչ գիտեմ քո մասին', page(br.length
       ? `<p class="meta">Կարևորը հիշում եմ ինքս՝ մեր զրույցներից։ Սխալ բան կա՝ փոխիր կամ մոռացիր։</p>`
