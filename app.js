@@ -1869,6 +1869,8 @@
     // 04.11 (Գարիկ. «այս բաժինը սարքի հարմար»). երկար հիշեցումը՝ մեկ տող, սեղմելով բացվում է, որ զրույցը պատ չդառնա
     const noticeEl = (m) => {
       const t = String(m.a || ''), h = `<span class="note-h">Հիշեցում · ${dayHm(m.answered_at || m.at)}</span>`;
+      // կառուցողի հիշեցումը («…»՝ պլանը պատրաստ է / հարց ունի / պատրաստ է …) → սեղմելիս՝ Առաջադրանքներ (builder-run.ps1-ի տեքստերը)
+      if (/^«.+»՝ (պլանը պատրաստ է|Գարիկը հարց ունի|պատրաստ է|չստացվեց|հետ է բերված)/.test(t)) return `<a class="msg ai notice jlink" href="#/garik/jobs">${h}${esc(t)} ›</a>`;
       if (t.length <= 90 && !t.includes('\n')) return `<div class="msg ai notice">${h}${esc(t)}</div>`;
       const first = t.split('\n').map((s) => s.trim()).filter(Boolean).join(' · ');
       return `<details class="msg ai notice"><summary>${h}<span class="note-s">${esc(first.length > 90 ? first.slice(0, 88) + '…' : first)}</span></summary><div class="note-b">${esc(t)}</div></details>`;

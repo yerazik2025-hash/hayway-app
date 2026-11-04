@@ -603,3 +603,6 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 /* «Նոր զրույց» / «Նոր առաջադրանք» կոճակը վերևի աջում (04.11) */
 .top .ibtn.newb { color: var(--acc); background: var(--acc-soft); width: 40px; height: 40px; border-radius: 20px; }
 .top.chat-top .ct img { width: 48px; }   /* «Գարիկ» բառը հանված է (04.11) → լոգոն մի քիչ մեծ */
+/* Զրույց | Առաջադրանքներ՝ միշտ տեսանելի վերևում (զրույցը բացվում է ներքևից, 04.11 Գարիկ. «սրա հետևը ուր է») */
+.gseg { position: sticky; top: 0; z-index: 4; padding-bottom: 8px; background: var(--topbar); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.msg.notice.jlink { display: block; color: var(--text); text-decoration: none; cursor: pointer; }
