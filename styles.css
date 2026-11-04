@@ -153,7 +153,8 @@ body.kb .dock { display: none; }
 .gthb .cue i:nth-child(2) { animation-delay: .2s; } .gthb .cue i:nth-child(3) { animation-delay: .4s; }
 @keyframes dots { 50% { opacity: .3; } }
 .gthb:active { transform: scale(.93); }
-.gthb .badge { top: -2px; right: -2px; left: auto; box-shadow: 0 0 0 2px var(--bg); }
+/* 05.11 ԿԱ 5 (Դավիթի .tab-ai .cnt)՝ օգնականի նոր նամակների թիվը, կոճակի վերևի աջ անկյունում (լոգոն չի ծածկվում) */
+.gthb .badge { top: 0; right: 0; left: auto; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; font-size: 12px; border: 2px solid var(--surface2); box-sizing: content-box; pointer-events: none; }
 /* GTH էջը. «Այո»-ի, հիշեցումների ու ծանուցումների քարտերը՝ զրույցից վերև */
 .page.gthc { padding: 8px 16px 6px; gap: 14px; }
 

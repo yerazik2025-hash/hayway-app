@@ -53,7 +53,7 @@
 .dk-gth.on{box-shadow:inset 0 0 0 1.5px var(--acc),var(--edge)}
 /* թիվը՝ կոճակի վերևի աջ անկյունում, լոգոյից հեռու (լոգոն միշտ ամբողջական) */
 .dk-badge{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--badge);color:var(--on-badge);
-  font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg)}
+  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg)}
 .dk-badge[hidden]{display:none}
 .dk-nav{display:flex;flex-direction:column;gap:2px}
 .dk-cap{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--text3);padding:16px 10px 6px}

@@ -129,6 +129,32 @@
   // աջում՝ GTH կոճակը → Գարիկ (օգնականը)։ Աղյուսակով «Բոլորը»՝ վերևի կոճակով (#/sections)։
   // Վերևում՝ HayWay-ի փոքր լոգոն ու անունը. բիզնեսի իր գույնը չկա (ԿԱ 2-ի կանոն)։
   let pendingCount = 0;
+  // 05.11 ԿԱ 5 (Դավիթի ai.unread, Գարիկ. «կետ չէ, թիվ»)՝ GTH կոճակի վրա օգնականի ՆՈՐ նամակների թիվը (պատասխան, հիշեցում, հսկում, թիմի պատասխան, ծանուցում),
+  // ոչ թե «Այո» սպասողները (դրանք՝ զրույցի «Սպասում է քեզ» տողում)։ Սերվերը՝ app_assistant_unread() (db5), «տեսավ»-ը՝ app_assistant()-ը #/garik-ը բացելիս
+  let unreadCount = 0, unreadBusy = false;
+  const unreadTxt = (n) => (n > 99 ? '99+' : String(n));
+  function unreadPaint() {
+    const g = app.querySelector('.dock .gthb');
+    if (g) {
+      let b = g.querySelector('.badge');
+      if (unreadCount && !b) { b = document.createElement('span'); b.className = 'badge'; g.appendChild(b); }
+      if (b && !unreadCount) b.remove();
+      else if (b && b.textContent !== unreadTxt(unreadCount)) b.textContent = unreadTxt(unreadCount);
+      g.setAttribute('aria-label', unreadCount ? `GTH օգնական · ${unreadCount} նոր` : 'GTH օգնական');
+    }
+    if (window.HWD && HWD.paint) HWD.paint();
+  }
+  async function unreadPull() {
+    if (unreadBusy || document.visibilityState !== 'visible' || (location.hash || '').startsWith('#/garik')) return;
+    unreadBusy = true;
+    try {
+      if (window.HWD && HWD.isOpen && HWD.isOpen()) unreadCount = 0;   // համակարգչում GTH-ը բաց է աջում՝ փակելիս նորից կհաշվի (ինչը այնտեղ չերևաց)
+      else { const { data, error } = await sb.rpc('app_assistant_unread'); if (!error) unreadCount = Number(data) || 0; }
+      unreadPaint();
+    } catch (e) {} finally { unreadBusy = false; }
+  }
+  setInterval(unreadPull, 30000);
+  document.addEventListener('visibilitychange', unreadPull);
   // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB); Մրցակիցները՝ Վարորդներից առաջ (Գարիկ 03.11)
   // Գարիկ 03.11. «չատ գպտ-ից հետո ուզում եմ այս բաժինը երևա ռիլերի»
   // Գարիկ 03.11. WhatsApp-ը՝ «Ռիլեր բաժնից առաջ», Մրցակիցները՝ «Վարորդներ բաժնից առաջ»
@@ -141,7 +167,7 @@
   function tabbar() {
     const s = hashParts()[1] || '';
     return `<nav class="dock"><div class="strip"><div class="track"><i class="glass" aria-hidden="true"></i>${DOCK.map(([k, ic, l]) => `<a class="tab${k === s ? ' on' : ''}" href="#/${k}" draggable="false"><span class="ic">${ic}</span><span>${l}</span></a>`).join('')}</div></div>
-      <a class="gthb" href="#/garik" aria-label="GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span>${pendingCount ? `<span class="badge">${pendingCount}</span>` : ''}</a></nav>`;
+      <a class="gthb" href="#/garik" aria-label="GTH օգնական"><img src="GTH-AGENCY-logo-SAFE.svg" width="46" height="24" alt="GTH logo"><span class="cue"><i></i><i></i><i></i></span>${unreadCount ? `<span class="badge">${unreadTxt(unreadCount)}</span>` : ''}</a></nav>`;
   }
   // o: { title, sub, tab, back:[href,label], right, compact, after }
   function frame(o, body) {
@@ -527,6 +553,7 @@
     rendering++;
     try {
       await fn(arg);
+      if (seg === 'garik') unreadCount = 0; else unreadPull();   // 05.11 ԿԱ 5՝ զրույցը բացվեց = տեսավ (app_assistant), մնացած էկրաններում՝ թարմ թիվը
       if (y) { const s2 = document.getElementById('sc'); if (s2) s2.scrollTop = y; }
     } catch (e) {
       const msg = String(e.message || e);
@@ -2532,7 +2559,8 @@
       sb.from('app_users').select('email,role,name'),
       sb.from('sync_state').select('value').eq('key', 'agents').maybeSingle(),
       sb.auth.getSession(),
-      assistantNow().catch(() => null),
+      // 05.11. ոչ app_assistant()-ը՝ այն նամակները «տեսած» է նշում (GTH կոճակի թիվը կմաքրվեր), այստեղ պետք է միայն պատասխանողի վիճակը
+      sb.from('sync_state').select('value,updated_at').eq('key', 'assistant').maybeSingle().then((r) => (r.data ? { runner: { ...(r.data.value || {}), seen_at: r.data.updated_at } } : null), () => null),
       sb.rpc('app_brain').then((r) => r.data || [], () => []),
       sb.rpc('app_tg').then((r) => r.data || {}, () => ({})),
       rpc('app_dlv').catch(() => null),
@@ -2652,7 +2680,7 @@
   }));
 
   // ───────── Սկիզբ ─────────
-  window.HW = { sb, rpc, render, invalidate, cache, DOCK, I, todayLong, pending: () => pendingCount };   // DOCK…pending՝ desktop.js-ի մենյուի համար (03.11)
+  window.HW = { sb, rpc, render, invalidate, cache, DOCK, I, todayLong, pending: () => pendingCount, unread: () => unreadCount, unreadPull };   // DOCK…pending՝ desktop.js-ի մենյուի համար (03.11)
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   render();
 })();

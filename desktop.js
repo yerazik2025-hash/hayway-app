@@ -119,7 +119,8 @@
       const o = a.dataset.k === cur;
       if (a.classList.contains('on') !== o) { a.classList.toggle('on', o); if (o) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
     });
-    const n = (A().pending && A().pending()) || 0, b = $('.dk-gth .dk-badge', side), txt = n > 99 ? '99+' : String(n);
+    // 05.11 ԿԱ 5՝ օգնականի ՆՈՐ նամակների թիվը (app.js unreadCount), ոչ «Այո» սպասողները; GTH-ը բաց է աջում՝ թիվ չկա
+    const n = S.open ? 0 : (A().unread && A().unread()) || 0, b = $('.dk-gth .dk-badge', side), txt = n > 99 ? '99+' : String(n);
     if (b.hidden !== !n) b.hidden = !n;
     if (n && b.textContent !== txt) b.textContent = txt;
     $('.dk-gth', side).classList.toggle('on', S.open || cur === 'garik');
@@ -193,6 +194,7 @@
     root.classList.remove('dk-ai');
     try { A().invalidate(); } catch (e) {}   // «Այո»-ից հետո թվերը նորից բերվեն
     paint();
+    try { A().unreadPull(); } catch (e) {}   // 05.11 ԿԱ 5՝ փակված պանելի տակ եկածը նորից հաշվվի
     const g = side && $('.dk-gth', side);
     if (g) try { g.focus({ preventScroll: true }); } catch (e) {}
   }
@@ -213,6 +215,7 @@
     go(h) { if (location.hash === h) A().render(); else location.hash = h; },
     // նոր բացված (6 վրկ) կամ Երազը արդեն պատուհանի ներսում է
     wantsFocus() { return S.open && (Date.now() - S.openedAt < 6000 || document.activeElement === frame); },
+    isOpen: () => !!S.open, paint,   // 05.11 ԿԱ 5՝ app.js unreadPull()-ի համար
     open, close
   };
 
