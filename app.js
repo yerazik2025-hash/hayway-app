@@ -1221,7 +1221,7 @@
       ${sec('', `<div class="card">
         <div class="hero"><span class="n">${M.yes}${NB}/${NB}${M.goal}</span><span class="u">հարցում ChatGPT-ն նշում է HayWay-ը</span></div>
         ${bar(M.yes, M.goal)}
-        <p class="meta">${G ? `Նպատակները՝ ${ladder}` : `Նպատակը՝ ${M.goal}։`}${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.none ? ` ${M.none}-ը ստուգվում է։` : ''}</p>
+        <p class="meta">${G ? `Նպատակները՝ ${ladder}։` : `Նպատակը՝ ${M.goal}։`}${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.none ? ` ${M.none}-ը ստուգվում է։` : ''}</p>
         ${G ? `<p class="meta">Ստուգում ենք ${G.pool} հարց${G.added_week ? `, այս շաբաթ ինքն ավելացրեց ${G.added_week} նոր հարց` : ''}։ Ամեն հարց = մեկ նպատակ։</p>` : ''}
         ${L.note ? `<p class="meta"><b>${esc(L.note)}</b></p>` : ''}
       </div><div class="kpis" style="margin-top:8px">
