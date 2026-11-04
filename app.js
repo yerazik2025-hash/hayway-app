@@ -1147,7 +1147,9 @@
   // ───────── ChatGPT (AI տեսանելիություն) ─────────
   // Տվյալները՝ app_geo() / app_geo_answers() (db\0012_geo.sql). լցնում է HayWay-ի համակարգչի «Garik-GEO» task-ը շաբաթը մեկ
   // (scripts\geo-weekly.ps1). ChatGPT-ին հարցնում է առանց մուտքի՝ ինչպես աշխատանք փնտրող նոր վարորդը կամ առաքիչը։
-  const LANG = { hy: 'հայերեն', ru: 'ռուսերեն', en: 'անգլերեն', hi: 'հինդի', fa: 'պարսկերեն' };
+  // Նոր լեզուները ավելացնում է ինքնաճը (geo-grow.ps1, 05.11)
+  const LANG = { hy: 'հայերեն', ru: 'ռուսերեն', en: 'անգլերեն', hi: 'հինդի', fa: 'պարսկերեն', uz: 'ուզբեկերեն', tg: 'տաջիկերեն', ky: 'ղրղզերեն',
+    tk: 'թուրքմեներեն', ka: 'վրացերեն', ar: 'արաբերեն', ur: 'ուրդու', bn: 'բենգալերեն', ne: 'նեպալերեն', tr: 'թուրքերեն', kk: 'ղազախերեն' };
   const WHO = { driver: 'վարորդ', courier: 'առաքիչ', both: 'վարորդ և առաքիչ' };
   const wkLabel = (wk) => {
     const [y, n] = String(wk || '').split('-W').map(Number);
@@ -1164,7 +1166,7 @@
   const qNo = (q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
     s: `${qs(q)}${q.rivals && q.rivals.length ? ' · փոխարենը՝ ' + q.rivals.slice(0, 3).map(esc).join(', ') : ''}`, v: '<span class="tag neg">չկանք</span>' });
   const qYes = (q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
-    s: `${qs(q)} · ${q.hit}/${q.n} անգամ${q.rank ? ' · ' + place(q.rank) : ''}`,
+    s: q.carried ? `${qs(q)} · նախորդ ստուգումից` : `${qs(q)} · ${q.hit}/${q.n} անգամ${q.rank ? ' · ' + place(q.rank) : ''}`,
     v: q.state === 'yes' ? '<span class="tag pos">կանք</span>' : '<span class="tag warn">երբեմն</span>' });
   const qWait = (q) => cell({ t: esc(q.q), s: qs(q), v: '<span class="tag n">ստուգվում է</span>' });
   const bar = (a, b) => `<div class="mbar"><span style="width:${b ? Math.round(100 * a / b) : 0}%"></span></div>`;
@@ -1203,7 +1205,14 @@
     const mk = S.markets || {}, meta = S.markets_meta || {};
     const mrows = Object.keys(meta).filter((k) => mk[k]).map((k) => cell({ t: `${meta[k].flag} ${esc(meta[k].name)}`, s: `${mk[k].hit} հարցում ${mk[k].n}-ից`,
       v: `${fmt(mk[k].pct)}%`, strong: true, extra: bar(mk[k].pct || 0, 100) }));
-    const ours = (S.our_links || []).map((o) => esc(o.t || o.u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)));
+    // Ինքնաճ (geo-grow.ps1, 05.11). նպատակի սանդուղք, հարցերի աճ, և նախորդ էջերը՝ օգնե՞լ են (1–3 շաբաթ հետո)
+    const G = S.growth || null;
+    const done = new Set(((G && G.reached) || []).map((x) => x.goal));
+    const ladder = G ? (G.ladder || []).filter((n) => n <= (G.next || G.goal) || done.has(n))
+      .map((n) => done.has(n) ? `${n}${NB}✓` : n === M.goal ? `<b>${n}</b>` : `${n}`).join(' → ') + (G.next ? ' → …' : '') : '';
+    const learn = (S.learned || []).map((l) => cell({ t: esc(l.name), s: esc((l.pages || []).map((p) => p.replace(/index\.html$/, '')).join(', ')),
+      v: l.helped > 0 ? `<span class="tag pos">${l.helped}/${l.of} հարցում կանք</span>`
+        : l.final ? '<span class="tag neg">չօգնեց, փոխում է</span>' : `<span class="tag n">${l.helped}/${l.of}, սպասում է</span>` }));
     // «Ում է առաջարկում»-ում HayWay-ն էլ՝ նույն հաշվով, ինչ մրցակիցները (նշված պատասխաններ / բոլոր պատասխանները, առանց brand հարցերի)
     const selfN = gen.reduce((a, q) => a + (q.n || 0), 0), selfHit = gen.reduce((a, q) => a + (q.hit || 0), 0);
     const recs = [...(selfN ? [{ name: 'HayWay', n: selfHit, pct: Math.round(100 * selfHit / selfN), me: true }] : []), ...(S.rivals || []).slice(0, 3)]
@@ -1212,14 +1221,16 @@
       ${sec('', `<div class="card">
         <div class="hero"><span class="n">${M.yes}${NB}/${NB}${M.goal}</span><span class="u">հարցում ChatGPT-ն նշում է HayWay-ը</span></div>
         ${bar(M.yes, M.goal)}
-        <p class="meta">Նպատակը՝ ${M.goal}։${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.none ? ` ${M.none}-ը ստուգվում է։` : ''}</p>
+        <p class="meta">${G ? `Նպատակները՝ ${ladder}` : `Նպատակը՝ ${M.goal}։`}${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.none ? ` ${M.none}-ը ստուգվում է։` : ''}</p>
+        ${G ? `<p class="meta">Ստուգում ենք ${G.pool} հարց${G.added_week ? `, այս շաբաթ ինքն ավելացրեց ${G.added_week} նոր հարց` : ''}։ Ամեն հարց = մեկ նպատակ։</p>` : ''}
         ${L.note ? `<p class="meta"><b>${esc(L.note)}</b></p>` : ''}
       </div><div class="kpis" style="margin-top:8px">
         ${kpi('Որտեղ չկանք', `${M.no}`, 'հարցում')}
-        ${kpi('Ճանաչում է մեզ', `${fmt(L.brand)}%`, '')}
+        ${G && G.next ? kpi('Հաջորդ նպատակը', `${G.next}`, 'հարց') : kpi('Ճանաչում է մեզ', `${fmt(L.brand)}%`, '')}
       </div>`)}
       ${tops.length ? sec('Պլանը՝ ըստ թեմաների', group(tops)) : ''}
       ${sec('Ինչ ենք արել և անում', acts.length ? group(acts) : '<div class="group"><p class="none">Քայլերը կգրվեն ստուգումից հետո։</p></div>')}
+      ${G ? sec('Ինքն իրեն ստուգում է', learn.length ? group(learn) : '<div class="group"><p class="none">Ամեն նոր էջից 1–3 շաբաթ հետո այստեղ կերևա՝ օգնե՞ց։</p></div>') : ''}
       ${sec('Ըստ երկրի և լեզվի', group(mrows))}
       ${recs.length ? sec('Ում է ChatGPT-ն առաջարկում', group(recs.map((r) => cell({ t: r.me ? 'HayWay <span class="tag pos">մենք</span>' : esc(r.name), bold: r.me,
         s: `${r.n} պատասխանում`, v: `${fmt(r.pct)}%`, strong: true })))) : ''}
