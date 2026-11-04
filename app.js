@@ -151,7 +151,8 @@
       : `<a class="brand" href="#/"><img src="icon.svg?v=9" width="36" height="36" alt=""><span><b>HayWay</b><small><i></i>${todayLong()}</small></span></a>`;
     const right = o.right !== undefined ? o.right : `<a class="ibtn ${hashParts()[1] === 'sections' ? 'on' : ''}" href="#/sections" aria-label="Բոլոր բաժինները">${I.grid}</a><button class="ibtn" id="refresh" aria-label="Թարմացնել">${I.refresh}</button>`;
     const large = o.compact ? '' : `<header class="lt"><h1>${o.title}</h1>${o.sub ? `<div class="st">${o.sub}</div>` : ''}</header>`;
-    const ct = chat ? `<img src="GTH-AGENCY-logo-SAFE.svg" width="40" height="21" alt="GTH logo"><span>${o.title}</span>` : o.title;
+    // 04.11 (Գարիկ. «Գարիկ բառը ներսից հանի, թող GTH»). զրույցի վերևում՝ միայն GTH լոգոն
+    const ct = chat ? `<img src="GTH-AGENCY-logo-SAFE.svg" width="40" height="21" alt="GTH">` : o.title;
     return `<div class="top ${o.compact ? 'compact scrolled' : ''} ${back || chat ? '' : 'nb br'} ${chat ? 'chat-top' : ''}"><div class="top-in"><div class="l">${left}</div><div class="ct">${ct}</div><div class="r">${right}</div></div></div>
       <div class="scroll" id="sc">${large}${body}</div>${o.after || ''}${chat ? '' : tabbar()}`;
   }

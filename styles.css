@@ -602,3 +602,4 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 .top.chat-top .ct img { flex-shrink: 0; }
 /* «Նոր զրույց» / «Նոր առաջադրանք» կոճակը վերևի աջում (04.11) */
 .top .ibtn.newb { color: var(--acc); background: var(--acc-soft); width: 40px; height: 40px; border-radius: 20px; }
+.top.chat-top .ct img { width: 48px; }   /* «Գարիկ» բառը հանված է (04.11) → լոգոն մի քիչ մեծ */
