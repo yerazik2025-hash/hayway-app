@@ -726,3 +726,9 @@ details.msg.notice .note-b { white-space: pre-wrap; }
 .act .chg b { font-weight: 600; overflow-wrap: anywhere; }
 .act .chg .chg-a { color: #C2B6FF; font-weight: 600; }
 .msg-sys { align-self: center; max-width: 90%; font-size: 12.5px; color: var(--text3); text-align: center; padding: 2px 8px; }
+
+/* 05.11 (db\0034). Հիշողությունը՝ Claude-ի պես. օգնականը հիշում է ինքը → պատասխանի տակ՝ փոքր նշան, ոչ մեծ քարտ */
+.act.mem { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 2px 8px; padding: 6px 12px; background: transparent; box-shadow: none; }
+.act.mem .mem-t { flex: 1 1 140px; min-width: 0; font-size: 13px; color: var(--text3); overflow-wrap: anywhere; }
+.act.mem .btn.plain { min-height: 32px; padding: 0 6px; font-size: 13px; }
+.nrow .brain-w { display: block; margin-top: 2px; font-size: 13px; color: var(--text3); }

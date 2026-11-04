@@ -1949,7 +1949,7 @@
       case 'export': return `${fmt(r.n || 0)} վարորդ`;
       case 'remind': return `Կհիշեցնեմ ${r.at ? dayHm(r.at) : ''}`;
       case 'watch': return r.now != null ? `Հսկում եմ (հիմա՝ ${fmt(r.now)})` : `Հսկում եմ${r.until ? ` մինչև ${dmy(r.until)}` : ''}`;
-      case 'remember': return r.replaced ? 'Փոխեցի հիշածը' : 'Հիշեցի';
+      case 'remember': return r.forgot ? 'Մոռացա' : r.replaced ? 'Փոխեցի հիշածը' : 'Հիշեցի';
       case 'listam_top': case 'listam_package': return `Հերթում է (${fmt(r.price || 0)} ֏). list.am-ը կանի 10–20 րոպեում`;
       case 'build': return 'Նախագծերում է';
       default: return 'Արված է';
@@ -1972,7 +1972,7 @@
       case 'task_decide': return ['Սպասում է', p.decision === 'reject' ? 'Մերժված' : 'Հաստատված', a.task_title];
       case 'remind': { const at = r.at || p.at; return at ? ['Հիշեցում չկա', `Հիշեցում ${dayHm(at)}`] : null; }
       case 'watch': return p.metric ? ['Չեմ հսկում', `${METRIC_HY[p.metric] || p.metric} ${p.op} ${fmt(+p.value)}${r.until || p.until ? ` · մինչև ${dmy(r.until || p.until)}` : ''}`] : null;
-      case 'remember': return r.replaced || p.replaced ? [r.replaced || p.replaced, p.text || a.summary] : null;
+      case 'remember': return r.forgot ? [r.forgot, 'Մոռացված'] : r.replaced || p.replaced ? [r.replaced || p.replaced, p.text || a.summary] : null;
       case 'listam_top': return ['Սովորական տեղում', `TOP ${p.days || ''} օր · ${+p.days === 7 ? '2 150' : '1 075'} ֏`];
       case 'listam_package': return ['Թարմացում՝ ըստ մնացորդի', '+500 թարմացում · 18 500 ֏'];
       default: return null;
@@ -1983,6 +1983,9 @@
   const actCard = (a, ro) => {
     if (a.type === 'choice') return choiceCard(a, ro);
     const r = a.result || {};
+    // 05.11 (db4). Հիշողությունը՝ Claude-ի պես, օգնականը հիշում է ինքը → մեծ քարտի փոխարեն փոքր նշան
+    if (a.type === 'remember' && a.status === 'done') return `<div class="act mem"><span class="mem-t">✓ ${esc(actDone(a))}${r.name || (a.params || {}).name ? ` · ${esc(noG(r.name || a.params.name))}` : ''}</span>`
+      + `<a class="btn plain sm" href="#/garik/brain">Փոխել</a>${ro ? '' : `<button type="button" class="btn plain sm" data-undo="${a.id}">Հետ բերել</button>`}</div>`;
     if (a.type === 'report' && a.status === 'done') return `<div class="act done rep"><span class="act-h">Ֆայլ · Excel</span><p class="act-t">${esc(noG(r.title || a.summary))}</p>`
       + `${(r.summary || []).length ? `<p class="act-l">${r.summary.map((s) => esc(noG(s))).join('<br>')}</p>` : ''}<p class="act-w">${fmt(r.rows || 0)} տող</p>`
       + `<div class="act-b"><button type="button" class="btn pri sm" data-rep="${r.report_id}">Ներբեռնել</button><button type="button" class="btn sm gray" data-reptg="${r.report_id}">Telegram-ով</button></div></div>`;
@@ -2260,7 +2263,7 @@
       cell({ href: '#/garik/jobs', icon: I.star, color: 'y', t: 'Նախագծեր', s: L.length ? `${L.length}${jw ? ` · սպասում են քեզ՝ ${jw}` : ' · ոչինչ չի սպասում'}` : 'Դեռ չկա. պատմիր առաջինի մասին' }),
       cell({ href: '#/garik/acts', icon: IC.acts, color: 'p', t: 'Ինչ արեց օգնականը', s: aw ? `Սպասում են որոշման՝ ${aw}` : `Հսկողության տակ՝ ${(ac.watches || []).length} · ֆայլեր՝ ${(ac.reports || []).length}` }),
       cell({ href: '#/garik/req', icon: IC.team, color: 'b', t: 'Հարցումներ թիմին', s: rq.length ? `${rq.length}${ro ? ` · բաց՝ ${ro}` : ''}` : 'Դեռ չկա' }),
-      cell({ href: '#/garik/brain', icon: I.ai, t: 'Ինչ գիտեմ քո մասին', s: br.length ? `${br.length} կանոն ու որոշում` : 'Դեռ ոչինչ' }),
+      cell({ href: '#/garik/brain', icon: I.ai, t: 'Ինչ գիտեմ քո մասին', s: br.length ? `${br.length} գրառում` : 'Դեռ ոչինչ' }),
       cell({ href: '#/garik/history', icon: I.hist, t: 'Հին զրույցներ', s: 'Բացել և շարունակել' }),
     ], 'ic')));
   }
@@ -2338,11 +2341,16 @@
       location.hash = '#/garik';
     };
   }
-  // Ինչ գիտեմ քո մասին (owner_brain). «Փոխել» / «Մոռանալ»
+  // Ինչ գիտեմ քո մասին (owner_brain, db4). Claude-ի հիշողության 4 տեսակը, ամեն գրառում՝ անուն + փաստ + ինչու. «Փոխել» / «Մոռանալ»
+  const BRAIN_KINDS = [['user', 'Քո մասին'], ['feedback', 'Ինչպես աշխատել քեզ հետ'], ['project', 'Որոշումներ ու պլաններ'], ['reference', 'Որտեղ ինչ կա']];
   async function garikBrain() {
     const br = await sb.rpc('app_brain').then((r) => r.data || [], () => []);
-    subMount('Ինչ գիտեմ քո մասին', page(br.length ? `<div class="card nlist">${br.map((b) => `<div class="nrow"><p>${esc(noG(b.text))}</p><span class="nrow-b"><button type="button" class="btn sm gray" data-edit="${b.id}">Փոխել</button><button type="button" class="btn sm gray" data-forget="${b.id}">Մոռանալ</button></span></div>`).join('')}</div>`
-      : emptyState(I.ai, 'Դեռ ոչինչ', 'Ասա զրույցում՝ «հիշիր, որ …»')));
+    const row = (b) => `<div class="nrow"><p>${b.name ? `<b>${esc(noG(b.name))}</b><br>` : ''}${esc(noG(b.text))}${b.why ? `<small class="brain-w">Ինչու՝ ${esc(noG(b.why))}</small>` : ''}<small class="brain-w">${dmy(b.at)}${b.source === 'owner' ? '' : ' · հիշեցի ինքս'}</small></p>`
+      + `<span class="nrow-b"><button type="button" class="btn sm gray" data-edit="${b.id}">Փոխել</button><button type="button" class="btn sm gray" data-forget="${b.id}">Մոռանալ</button></span></div>`;
+    subMount('Ինչ գիտեմ քո մասին', page(br.length
+      ? `<p class="meta">Կարևորը հիշում եմ ինքս՝ մեր զրույցներից։ Սխալ բան կա՝ փոխիր կամ մոռացիր։</p>`
+        + BRAIN_KINDS.map(([k, t]) => { const L = br.filter((b) => (b.kind || 'user') === k); return L.length ? sec(t, `<div class="card nlist">${L.map(row).join('')}</div>`) : ''; }).join('')
+      : emptyState(I.ai, 'Դեռ ոչինչ', 'Կարևորը կհիշեմ ինքս՝ մեր զրույցներից')));
     app.querySelectorAll('[data-forget]').forEach((b) => b.onclick = async () => {
       if (!confirm('Մոռանա՞լ սա։')) return;
       b.disabled = true;
@@ -2561,9 +2569,9 @@
         cell({ icon: I.mega, color: 'o', t: 'list.am', v: '<span class="tag n">Կոմպ 2-ում</span>' }),
         cell({ icon: I.money, color: 'b', t: 'PrimeBridge', v: '<span class="tag n">շուտով</span>' }),
       ], 'ic'))}
-      ${brain.length ? sec('Հիշում եմ', group(brain.map((b) => cell({ t: esc(noG(b.text)), s: dmy(b.at),
+      ${brain.length ? sec('Հիշում եմ', group(brain.map((b) => cell({ t: esc(noG(b.name ? b.name + '. ' + b.text : b.text)), s: dmy(b.at),
         trail: `<button type="button" class="btn plain sm" data-forget="${b.id}">Մոռանալ</button>` }))),
-        { foot: 'Նորը՝ գրեք «հիշիր, որ …»։' }) : ''}
+        { foot: 'Կարևորը հիշում եմ ինքս՝ զրույցներից։ Բոլորը՝ «Ինչ գիտեմ»-ում։' }) : ''}
       ${sec('Մուտք ունեն', group(users))}
       ${sec('Վերջին գործողությունները', group(logs.length ? logs : ['<p class="none">Դեռ ոչինչ</p>']))}
       ${sec('Գաղտնաբառ', `<div class="card">
