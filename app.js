@@ -1162,12 +1162,13 @@
   // 100 հարցի նպատակը (queries.json v2.0, 03.11). summary.map = {goal,total,yes,no,none}, summary.topics = թեմաները պլանի հերթով
   // (ամենաշատ «չկանք»-ը առաջինը. ինքնավար խմբագիրը՝ geo-act.ps1-ը, աշխատում է նույն հերթով)
   const qs = (q) => `${LANG[q.lang] || q.lang} · ${WHO[q.who] || ''}`;
-  const geoYes = (q) => q.state === 'yes' || q.state === 'some';
+  // ⛔ 05.11 (Գարիկ). «կանք» = 3 փորձից 2+; 1/1 կամ 1/3 = some («ստուգում ենք»), map.yes-ում չի հաշվվում
+  const geoYes = (q) => q.state === 'yes';
   const qNo = (q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
     s: `${qs(q)}${q.rivals && q.rivals.length ? ' · փոխարենը՝ ' + q.rivals.slice(0, 3).map(esc).join(', ') : ''}`, v: '<span class="tag neg">չկանք</span>' });
   const qYes = (q) => cell({ href: '#/geo/' + q.id, t: esc(q.q),
     s: q.carried ? `${qs(q)} · նախորդ ստուգումից` : `${qs(q)} · ${q.hit}/${q.n} անգամ${q.rank ? ' · ' + place(q.rank) : ''}`,
-    v: q.state === 'yes' ? '<span class="tag pos">կանք</span>' : '<span class="tag warn">երբեմն</span>' });
+    v: q.state === 'yes' ? '<span class="tag pos">կանք</span>' : (q.n || 0) < 3 ? '<span class="tag warn">ստուգում ենք</span>' : '<span class="tag warn">երբեմն</span>' });
   const qWait = (q) => cell({ t: esc(q.q), s: qs(q), v: '<span class="tag n">ստուգվում է</span>' });
   const bar = (a, b) => `<div class="mbar"><span style="width:${b ? Math.round(100 * a / b) : 0}%"></span></div>`;
   route('/geo', async (qid) => {
@@ -1187,7 +1188,7 @@
     const S = L.summary || {}, Q = S.queries || [], hist = g.history || [];
     const prev = hist.length > 1 ? hist[hist.length - 2] : null;
     const gen = Q.filter((q) => q.kind !== 'brand');
-    const M = S.map || { goal: gen.length, total: gen.length, yes: gen.filter(geoYes).length, no: gen.filter((q) => q.state === 'no').length, none: gen.filter((q) => q.state === 'none').length };
+    const M = S.map || { goal: gen.length, total: gen.length, yes: gen.filter(geoYes).length, some: gen.filter((q) => q.state === 'some').length, no: gen.filter((q) => q.state === 'no').length, none: gen.filter((q) => q.state === 'none').length };
     const ST = { doing: '<span class="tag info">աշխատում ենք</span>', todo: '<span class="tag n">հաջորդը</span>' };
     const acts = (g.actions || []).map((a) => cell({ t: esc(a.title), s: esc(a.place || ''),
       v: a.status === 'done' ? `<span class="tag pos">արված${a.done_at ? ' ' + dmy(a.done_at) : ''}</span>` : (ST[a.status] || '') }));
@@ -1199,7 +1200,8 @@
       else if (t.no > 0) tag = '<span class="tag n">հերթում</span>';
       else if (t.none > 0) tag = '<span class="tag n">ստուգվում է</span>';
       else tag = '<span class="tag pos">կանք</span>';
-      const s = t.no ? `չկանք ${t.no} հարցում` : t.none ? `${t.none} հարց դեռ ստուգվում է` : `բոլոր ${t.n} հարցում կանք`;
+      const sm = t.some || 0;
+      const s = t.no ? (sm ? `չկանք ${t.no - sm}, ստուգում ենք ${sm}` : `չկանք ${t.no} հարցում`) : t.none ? `${t.none} հարց դեռ ստուգվում է` : `բոլոր ${t.n} հարցում կանք`;
       return cell({ href: '#/geo/t-' + t.id, t: `${esc(t.name)} ${tag}`, s, v: `${t.yes}${NB}/${NB}${t.n}`, strong: true, extra: bar(t.yes, t.n) });
     });
     const mk = S.markets || {}, meta = S.markets_meta || {};
@@ -1221,7 +1223,8 @@
       ${sec('', `<div class="card">
         <div class="hero"><span class="n">${M.yes}${NB}/${NB}${M.goal}</span><span class="u">հարցում ChatGPT-ն նշում է HayWay-ը</span></div>
         ${bar(M.yes, M.goal)}
-        <p class="meta">${G ? `Նպատակները՝ ${ladder}։` : `Նպատակը՝ ${M.goal}։`}${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.none ? ` ${M.none}-ը ստուգվում է։` : ''}</p>
+        <p class="meta">${G ? `Նպատակները՝ ${ladder}։` : `Նպատակը՝ ${M.goal}։`}${prev && prev.cover != null ? ` Անցյալ շաբաթ՝ ${prev.cover}։` : ''}${M.some ? ` ${M.some}-ում մեկ անգամ նշեց՝ ստուգում ենք։` : ''}${M.none ? ` ${M.none}-ը ստուգվում է։` : ''}</p>
+        <p class="meta">«Կանք»՝ միայն երբ 3 փորձից 2-ում ChatGPT-ն մեզ նշում է։</p>
         ${G ? `<p class="meta">Ստուգում ենք ${G.pool} հարց${G.added_week ? `, այս շաբաթ ինքն ավելացրեց ${G.added_week} նոր հարց` : ''}։ Ամեն հարց = մեկ նպատակ։</p>` : ''}
         ${L.note ? `<p class="meta"><b>${esc(L.note)}</b></p>` : ''}
       </div><div class="kpis" style="margin-top:8px">
@@ -1247,7 +1250,7 @@
     const S = (g.last && g.last.summary) || {}, t = (S.topics || []).find((x) => x.id === tid);
     if (!t) { location.hash = '#/geo'; return; }
     const Q = (S.queries || []).filter((q) => q.topic === tid && q.kind !== 'brand');
-    const no = Q.filter((q) => q.state === 'no'), yes = Q.filter(geoYes), wait = Q.filter((q) => q.state === 'none');
+    const no = Q.filter((q) => q.state === 'no'), some = Q.filter((q) => q.state === 'some'), yes = Q.filter(geoYes), wait = Q.filter((q) => q.state === 'none');
     const pg = t.page == null ? 'Էջը դեռ չկա։' : `Մեր էջը՝ haywaypark.am/${esc(t.page)}`;
     mount({ title: esc(t.name), tab: 'sections', back: ['#/geo', 'ChatGPT'], sub: esc(`${t.yes} հարցում կանք ${t.n}-ից`) }, page(`
       ${sec('', `<div class="card">
@@ -1256,6 +1259,7 @@
         <p class="meta">${pg}</p>
       </div>`)}
       ${no.length ? sec(`Որտեղ չկանք · ${no.length}`, group(no.map(qNo))) : ''}
+      ${some.length ? sec(`Մեկ անգամ նշեց, ստուգում ենք · ${some.length}`, group(some.map(qYes))) : ''}
       ${yes.length ? sec(`Որտեղ կանք · ${yes.length}`, group(yes.map(qYes))) : ''}
       ${wait.length ? sec(`Դեռ ստուգվում է · ${wait.length}`, group(wait.map(qWait))) : ''}
     `));
