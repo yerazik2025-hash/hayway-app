@@ -29,12 +29,12 @@ window.HWTeam = (function () {
   const avatar = (a, size) => a && a.img ? `<span class="wa-av img" style="width:${size}px;height:${size}px"><img src="${esc(a.img)}" width="${size}" height="${size}" alt=""></span>`
     : `<span class="wa-av" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px">${esc(((a && a.name) || '?').trim().charAt(0).toUpperCase())}</span>`;
 
-  // զրույցի էկրանի կմախքը. o: { back: href կամ null (կոճակ #wa-back), name, status, av: {img|name}, placeholder }
+  // զրույցի էկրանի կմախքը. o: { back: href կամ null (կոճակ #wa-back), name, status, av: {img|name}, label } (դաշտում գրություն չկա, 05.11)
   function screen(o) {
     const back = o.back ? `<a class="wa-back" href="${esc(o.back)}" aria-label="Հետ">${IC.back}</a>` : `<button type="button" class="wa-back" id="wa-back" aria-label="Հետ">${IC.back}</button>`;
     return `<div class="wa-top"><div class="wa-top-in">${back}${avatar(o.av, 36)}<span class="wa-who"><b>${esc(o.name)}</b>${o.status ? `<small>${esc(o.status)}</small>` : ''}</span></div></div>`
       + `<div class="wa-scroll" id="sc"><div class="wa-thread" id="tthread"></div></div>`
-      + `<div class="wa-bar"><textarea class="wa-in" id="q" rows="1" placeholder="${esc(o.placeholder || 'Նամակ')}" enterkeyhint="send"></textarea>`
+      + `<div class="wa-bar"><textarea class="wa-in" id="q" rows="1" aria-label="${esc(o.label || 'Նամակ')}" enterkeyhint="send"></textarea>`
       + `<button class="wa-send" id="send" type="button" aria-label="Ուղարկել" disabled>${IC.send}</button></div>`;
   }
 

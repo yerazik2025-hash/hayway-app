@@ -36,6 +36,13 @@
   const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
   const delta = (cur, prev) => { if (!prev) return '<span class="delta mut3">—</span>'; const d = Math.round((cur - prev) / prev * 100); if (!d) return '<span class="delta mut">0%</span>'; return d > 0 ? `<span class="delta pos">▲${NB}${d}%</span>` : `<span class="delta neg">▼${NB}${Math.abs(d)}%</span>`; };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Կարճ հաղորդագրություն էկրանի ներքևում (05.11. չատի դաշտում գրություն չկա, Գարիկ)
+let toastT = 0;
+function toast(text) {
+  let el = document.getElementById('hw-toast');
+  if (!el) { el = document.createElement('div'); el.id = 'hw-toast'; el.className = 'hw-toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = text; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3500);
+}
   const DAYS = ['Կիր', 'Երկ', 'Երք', 'Չրք', 'Հնգ', 'Ուրբ', 'Շբթ'];
   const DAYS_L = ['Կիրակի', 'Երկուշաբթի', 'Երեքշաբթի', 'Չորեքշաբթի', 'Հինգշաբթի', 'Ուրբաթ', 'Շաբաթ'];
   const MONTHS = ['հունվարի', 'փետրվարի', 'մարտի', 'ապրիլի', 'մայիսի', 'հունիսի', 'հուլիսի', 'օգոստոսի', 'սեպտեմբերի', 'հոկտեմբերի', 'նոյեմբերի', 'դեկտեմբերի'];
@@ -1331,7 +1338,7 @@
   async function teamChat(email) {
     const T = await fetchRpc('team_thread', { p_staff: email, p_after: 0 });
     const name = T.staff.name, here = location.hash;
-    app.innerHTML = HWTeam.screen({ back: '#/team', name, status: 'աշխատակից', av: { name }, placeholder: `Գրեք ${datHy(name)}` });
+    app.innerHTML = HWTeam.screen({ back: '#/team', name, status: 'աշխատակից', av: { name }, label: `Գրեք ${datHy(name)}` });
     app.classList.remove('has-dock', 'gth');
     app.classList.add('wa');
     HWTeam.start({ sb, staff: email, el: document.getElementById('tthread'), sc: document.getElementById('sc'), q: document.getElementById('q'),
@@ -1807,9 +1814,10 @@
   const VOICE_MAX = 300;   // վրկ
   function dictation(q, grow) {
     const mic = document.getElementById('mic'), bar = document.getElementById('rec'), cv = document.getElementById('rec-w'), tEl = document.getElementById('rec-t');
-    const box = mic.closest('.composer'), ph = q.placeholder;
-    let rec = null, stream = null, actx = null, raf = 0, t0 = 0, levels = [], chunks = [], keep = false, hintT = 0;
-    const hint = (text) => { clearTimeout(hintT); q.placeholder = text; if (text !== ph) hintT = setTimeout(() => { q.placeholder = ph; }, 3500); };
+    // ⛔ 05.11 (Գարիկ). չատի դաշտում ոչ մի գրություն. ձայնագրումը՝ 🎤-ի վիճակով, հաղորդագրությունը՝ toast-ով
+    const box = mic.closest('.composer');
+    let rec = null, stream = null, actx = null, raf = 0, t0 = 0, levels = [], chunks = [], keep = false;
+    const hint = (text) => toast(text);
     const release = () => {
       cancelAnimationFrame(raf); raf = 0;
       if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -1868,7 +1876,7 @@
     function cancel() { if (!rec || rec.state === 'inactive') return release(); keep = false; rec.stop(); }
     async function upload(blob) {
       if (blob.size < 1200) return hint('Խոսք չլսվեց');
-      mic.disabled = true; mic.classList.add('busy'); q.disabled = true; q.placeholder = 'Գրում եմ…';
+      mic.disabled = true; mic.classList.add('busy'); q.disabled = true;
       let text = '', err = '';
       const ac = new AbortController(), stop = setTimeout(() => ac.abort(), 60000);   // «Գրում եմ…»-ը երբեք չի կախվում
       try {
@@ -1879,7 +1887,7 @@
         text = String(j.text || '').trim();
       } catch (e) { err = 'Կապ չկա. փորձիր նորից'; }
       clearTimeout(stop);
-      mic.disabled = false; mic.classList.remove('busy'); q.disabled = false; q.placeholder = ph;
+      mic.disabled = false; mic.classList.remove('busy'); q.disabled = false;
       if (err) return hint(err);
       if (!text) return hint('Խոսք չլսվեց');
       q.value = q.value.trim() ? q.value.replace(/\s*$/, ' ') + text : text;
@@ -2212,7 +2220,7 @@
         + `<div class="cpop" id="cpop" hidden><a href="#/garik/jobs?new=1">${I.star}<span><b>Նոր նախագիծ</b><small>պատմիր, ինչ ավելացնել. կսարքեմ</small></span></a>`
         + `<a href="#" id="cfile">${IC.clip}<span><b>Նկար կամ ֆայլ</b><small>նկար, PDF, Excel, Word · մինչև 3</small></span></a></div>`
         + `<div class="atts" id="atts" hidden></div><input type="file" id="fin" multiple accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.txt" hidden>`
-        + `<div class="composer"><button type="button" class="cplus" id="cplus" aria-label="Ավելացնել">${I.plus}</button><textarea id="q" rows="1" placeholder="${st.ok ? 'Գրիր GTH-ին…' : 'Օգնականը դեռ միացված չէ'}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել" title="Խոսել (Ctrl+M)"${st.ok ? '' : ' disabled'}>${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>${recRow()}</div>` },
+        + `<div class="composer"><button type="button" class="cplus" id="cplus" aria-label="Ավելացնել">${I.plus}</button><textarea id="q" rows="1" aria-label="Նամակ" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել" title="Խոսել (Ctrl+M)"${st.ok ? '' : ' disabled'}>${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>${recRow()}</div>` },
       `${slot}<div class="chat" id="chat"><div class="chat" id="thread" style="padding:0">${msgs.length ? chatThread(msgs, waitText) : empty()}</div>${msgs.length && off ? `<p class="job-off"><span class="dot off"></span>${off}</p>` : ''}</div>`);
     const q = document.getElementById('q'), send = document.getElementById('send'), threadEl = document.getElementById('thread'), gdown = document.getElementById('gdown');
     const attsEl = document.getElementById('atts'), fin = document.getElementById('fin');
@@ -2312,14 +2320,13 @@
       let extra = null;
       try {
         let up = files || [];
-        if (pending.length) { q.placeholder = 'Բեռնում եմ ֆայլը…'; up = []; for (const f of pending) up.push(await uploadFile(f)); }
+        if (pending.length) { toast('Բեռնում եմ ֆայլը…'); up = []; for (const f of pending) up.push(await uploadFile(f)); }
         const r = await garikCall('POST', { question: text, files: up });
         if (!r.queued && r.error) extra = { id: 0, q: text, a: r.answer || 'Սխալ եղավ։', status: 'error', files: up };
         if (r.proposed && r.proposed.length) { invalidate(); pendingCount += r.proposed.length; }
         msgs = (await assistantNow()).msgs || [];
       } catch (e) { msgs = msgs.slice(0, -1); extra = { id: 0, q: text, a: 'Կապի սխալ՝ ' + e.message, status: 'error' }; }
       pending.forEach((f) => { if (f.url) URL.revokeObjectURL(f.url); });
-      q.placeholder = st.ok ? 'Գրիր GTH-ին…' : 'Օգնականը դեռ միացված չէ';
       if (extra) msgs = [...msgs, extra];
       paint(); busy = false; grow(); poll();
     }
@@ -2518,7 +2525,7 @@
     };
     const x = sv(18, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"');
     const sc = mount({ title: 'GTH', tab: 'garik', compact: true, right: '',
-      after: `<div class="job-to" id="jto" hidden></div><div class="composer"><textarea id="q" rows="1" placeholder="${JOB_PH}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել">${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>${recRow()}</div>` },
+      after: `<div class="job-to" id="jto" hidden></div><div class="composer"><textarea id="q" rows="1" aria-label="${JOB_PH}" enterkeyhint="send"></textarea><button class="mic" id="mic" type="button" aria-label="Խոսել">${I.mic}</button><button class="send" id="send" aria-label="Ուղարկել" disabled>${I.send}</button>${recRow()}</div>` },
       `${gsub('Նախագծեր')}<div class="jobs" id="jobs">${list()}</div>`);
     const q = document.getElementById('q'), send = document.getElementById('send'), jobsEl = document.getElementById('jobs'), jto = document.getElementById('jto');
     const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(132, q.scrollHeight) + 'px'; send.disabled = !q.value.trim() || busy; };
@@ -2529,7 +2536,6 @@
       const j = (B.items || []).find((y) => y.id === id);
       jto.hidden = !id;
       jto.innerHTML = id ? `<span>Պատասխան՝ «${esc(noG(j ? j.title || j.request : ''))}»</span><button type="button" class="ibtn" id="jto-x" aria-label="Չեղարկել">${x}</button>` : '';
-      q.placeholder = id ? 'Գրիր պատասխանը…' : JOB_PH;
       paint();
       if (id) q.focus();
     };
@@ -2551,7 +2557,7 @@
       try {
         const { error } = replyTo ? await sb.rpc('app_build_reply', { p_id: replyTo, p_text: text }) : await sb.rpc('app_build_new', { p_text: text });
         if (error) throw new Error(error.message);
-        q.value = ''; replyTo = null; jto.hidden = true; q.placeholder = JOB_PH;
+        q.value = ''; replyTo = null; jto.hidden = true;
         B = await jobsNow(); paint(); sc.scrollTop = 0;
       } catch (e) { alert('Չստացվեց՝ ' + e.message); }
       busy = false; grow(); poll();

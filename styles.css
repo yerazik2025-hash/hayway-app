@@ -804,3 +804,7 @@ body.kb .wa-bar { padding-bottom: 7px; }
 .tinv-k { font-size: 18px; letter-spacing: .12em; color: var(--text); }
 .tinv-c .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .tinv-c .btns .btn { flex: 1 1 140px; }
+
+/* 05.11. չատի դաշտում գրություն չկա → հաղորդագրությունը՝ այստեղ */
+.hw-toast { position: fixed; left: 50%; bottom: calc(90px + var(--safe-b)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--fill2); color: var(--text); font-size: 14px; line-height: 1.35; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 1000; pointer-events: none; }
+.hw-toast[hidden] { display: none; }
