@@ -14,7 +14,15 @@
   const meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
   const underStatusBar = !!meta && meta.content === 'black-translucent'; // «default»-ով screen.height-ը մեծ է տեսանելիից (agency.robi.am 29.10)
   const PB = document.createElement('div');
-  PB.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-bottom:env(safe-area-inset-bottom,0px)';
+  PB.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+  // 06.11 Գարիկի iPhone (17:10 նկար). meta-ն black-translucent է, բայց iOS-ը ժամի գոտին հավելվածից ԴՈՒՐՍ է պահում (top = 0, bottom = 34) →
+  // screen.height-ը ~60pt մեծ է տեսանելիից ու vfix-ը ներքևի տողը իջեցնում էր էկրանից ցած (գրությունները կտրված)։ АРОМАТИКА 23.10-ի նույն դեպքը։
+  // Իսկ iOS-ի սխալ վիճակում bottom-ը 0 է կարդում, ուստի այդ ուղղումը չի խախտվում։
+  function sbOut() {
+    if (!PB.isConnected) return false;
+    const cs = getComputedStyle(PB);
+    return parseFloat(cs.paddingTop) < 20 && parseFloat(cs.paddingBottom) >= 28;
+  }
 
   function typing() {
     const a = document.activeElement;
@@ -28,7 +36,7 @@
     const portrait = (screen.height || 0) > (screen.width || 0);
     const big = Math.max(H, portrait ? screen.height || 0 : 0);
     const kb = !!v && typing() && vh < big - 120;
-    const fix = !kb && underStatusBar && portrait && standalone() && big > 0;
+    const fix = !kb && underStatusBar && !sbOut() && portrait && standalone() && big > 0;
     root.classList.toggle('vfix', fix);
     if (fix) {
       root.style.setProperty('--vh', big + 'px');
