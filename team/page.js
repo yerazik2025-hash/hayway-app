@@ -11,15 +11,8 @@
 
   // iPhone-ի ստեղնաշարը (նույնը, ինչ app.js-ում)
   const root = document.documentElement;
-  function syncViewport() {
-    const v = window.visualViewport;
-    if (!v) return;
-    root.style.setProperty('--vvh', v.height + 'px');
-    root.style.setProperty('--vv-top', v.offsetTop + 'px');
-    document.body.classList.toggle('kb', window.innerHeight - v.height > 120);
-  }
-  if (window.visualViewport) { window.visualViewport.addEventListener('resize', syncViewport); window.visualViewport.addEventListener('scroll', syncViewport); }
-  document.addEventListener('focusout', () => setTimeout(() => { window.scrollTo(0, 0); syncViewport(); }, 150));
+  // Էկրանի բարձրությունը՝ ../viewport.js (06.11)
+  if (window.HWViewport) window.HWViewport.settle();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
 
   async function login(code) {

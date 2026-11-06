@@ -11,21 +11,8 @@
   // ԿԱ 2. ետևի մեղմ գունային լույսերը (styles.css → .aura)
   document.body.insertAdjacentHTML('afterbegin', '<div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>');
 
-  // ───────── Ստեղնաշար և էկրանի բարձրություն (iPhone-ի «շարժվող էջի» ուղղում) ─────────
-  const root = document.documentElement;
-  function syncViewport() {
-    const v = window.visualViewport;
-    if (!v) return;
-    root.style.setProperty('--vvh', v.height + 'px');
-    root.style.setProperty('--vv-top', v.offsetTop + 'px');
-    document.body.classList.toggle('kb', window.innerHeight - v.height > 120);
-  }
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', syncViewport);
-    window.visualViewport.addEventListener('scroll', syncViewport);
-  }
-  document.addEventListener('focusout', () => setTimeout(() => { window.scrollTo(0, 0); syncViewport(); }, 150));
-  syncViewport();
+  // Ստեղնաշար և էկրանի բարձրություն՝ viewport.js (06.11. iOS 26-ի «ներքևի տողը օդում» ուղղումը)
+  if (window.HWViewport) window.HWViewport.settle();
 
   // ───────── Օգնական ֆունկցիաներ ─────────
   const NB = ' ';

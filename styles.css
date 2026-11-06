@@ -49,7 +49,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: rou
 .num, .val, .kpi-v, .tnum, [data-n] { font-variant-numeric: tabular-nums; }
 
 /* գունային լույսերը ետևում՝ երեք մեղմ դաշտ, դանդաղ լողում են (միայն radial-gradient, առանց blur/ապակու) */
-.aura { position: fixed; top: 0; bottom: 0; left: 50%; width: min(100%, 560px); transform: translateX(-50%); z-index: 0; pointer-events: none; overflow: hidden; }
+.aura { position: fixed; top: 0; height: var(--vvh, 100%); left: 50%; width: min(100%, 560px); transform: translateX(-50%); z-index: 0; pointer-events: none; overflow: hidden; }
 .aura i { position: absolute; aspect-ratio: 1; border-radius: 50%; will-change: transform; }
 .aura i:nth-child(1) { width: 130%; left: -62%; top: -24%; background: radial-gradient(closest-side, var(--tone1), transparent); animation: drift1 24s ease-in-out infinite alternate; }
 .aura i:nth-child(2) { width: 115%; right: -58%; top: 10%; background: radial-gradient(closest-side, var(--tone2), transparent); animation: drift2 31s ease-in-out infinite alternate; }
