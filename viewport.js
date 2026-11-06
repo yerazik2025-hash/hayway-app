@@ -21,7 +21,8 @@
   function sbOut() {
     if (!PB.isConnected) return false;
     const cs = getComputedStyle(PB);
-    return parseFloat(cs.paddingTop) < 20 && parseFloat(cs.paddingBottom) >= 28;
+    // Home կոճակով iPhone (SE, 8). home indicator չկա → bottom-ը միշտ 0 է, ուստի այնտեղ բավական է top < 20 (WebKit 301994, 316008 — 06.11 հետազոտություն)
+    return parseFloat(cs.paddingTop) < 20 && (parseFloat(cs.paddingBottom) >= 28 || (screen.height || 0) < 812);
   }
 
   function typing() {
