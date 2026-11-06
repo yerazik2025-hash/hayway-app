@@ -814,3 +814,30 @@ body.kb .wa-bar { padding-bottom: 7px; }
 /* 05.11. չատի դաշտում գրություն չկա → հաղորդագրությունը՝ այստեղ */
 .hw-toast { position: fixed; left: 50%; bottom: calc(90px + var(--safe-b)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--fill2); color: var(--text); font-size: 14px; line-height: 1.35; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 1000; pointer-events: none; }
 .hw-toast[hidden] { display: none; }
+
+/* 06.11 (db7, ԿԱ 6 = GTH-ի Աննայի լոգիկան). համակարգի բացատրությունը, գործի քարտ, «⋯» թերթ */
+.wa-top-in .wa-who { flex: 1; }
+.wa-more { position: relative; width: 44px; height: 44px; border: 0; background: transparent; color: #111B21; display: flex; align-items: center; justify-content: center; border-radius: 22px; flex-shrink: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wa-more:active { background: rgba(0,0,0,.06); }
+.wa-more i { position: absolute; top: 10px; right: 9px; width: 8px; height: 8px; border-radius: 4px; background: #E5484D; }
+.wa-msg.out.ai { background: #E7F0FF; }
+.wa-msg.out.ai.tail::before { background: #E7F0FF; }
+.wa-lab { display: block; font-size: 12.5px; font-weight: 600; color: #1F7AE0; margin-bottom: 2px; }
+.wa-msg.in.ai .wa-lab { color: #0A7D45; }
+.wa-task { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding: 9px 10px; border-radius: 8px; background: rgba(0,0,0,.04); border-left: 3px solid #25D366; white-space: normal; text-align: left; }
+.wa-task b { font-weight: 600; font-size: 15px; }
+.wa-task small { font-size: 12.5px; color: #667781; }
+.wa-task.ok { border-left-color: #8696A0; }
+.wa-done { align-self: flex-start; min-height: 40px; padding: 0 18px; border-radius: 20px; border: 0; background: #25D366; color: #fff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.wa-done:disabled { opacity: .5; }
+.wa-sheet { position: absolute; inset: 0; z-index: 20; background: rgba(11,20,26,.35); display: flex; align-items: flex-end; }
+.wa-sheet[hidden] { display: none; }
+.wa-sh-in { width: 100%; max-height: 80%; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 16px 16px calc(16px + var(--safe-b)); display: flex; flex-direction: column; gap: 10px; }
+.wa-sh-in h4 { font-size: 15px; font-weight: 600; color: #54656F; margin-top: 4px; }
+.wa-sh-b { min-height: 48px; border-radius: 24px; border: 0; background: #25D366; color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.wa-sh-b.gray { background: #F0F2F5; color: #111B21; }
+.wa-sh-t { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #ECECEC; }
+.wa-sh-t span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.wa-sh-t small { font-size: 12.5px; color: #667781; }
+.wa-sh-t small.late { color: #E5484D; }
+.wa-sh-e { color: #667781; font-size: 14.5px; padding: 6px 0; }

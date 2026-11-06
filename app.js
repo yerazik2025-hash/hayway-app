@@ -1325,12 +1325,12 @@ function toast(text) {
   async function teamChat(email) {
     const T = await fetchRpc('team_thread', { p_staff: email, p_after: 0 });
     const name = T.staff.name, here = location.hash;
-    app.innerHTML = HWTeam.screen({ back: '#/team', name, status: 'աշխատակից', av: { name }, label: `Գրեք ${datHy(name)}` });
+    app.innerHTML = HWTeam.screen({ back: '#/team', name, status: 'աշխատակից', av: { name }, label: `Գրեք ${datHy(name)}`, more: true });
     app.classList.remove('has-dock', 'gth');
     app.classList.add('wa');
     HWTeam.start({ sb, staff: email, el: document.getElementById('tthread'), sc: document.getElementById('sc'), q: document.getElementById('q'),
       send: document.getElementById('send'), first: T, alive: () => location.hash === here && !!document.getElementById('tthread'),
-      empty: `<div class="wa-empty"><span class="note">Գրեք ${esc(datHy(name))}. նա կստանա իր HayWay հավելվածում</span></div>` });
+      empty: `<div class="wa-empty"><span class="note">Գրեք, թե ինչ պետք է անի ${esc(name)}ը. համակարգը իրեն կբացատրի, կհետևի ու կհիշեցնի։ Ձեր նամակը տեսնում եք միայն դուք։</span></div>` });
   }
 
 

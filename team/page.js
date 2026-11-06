@@ -110,11 +110,11 @@
     if (T.error) throw new Error(T.error.message);
     app.classList.add('wa');
     app.classList.remove('wa-white');
-    app.innerHTML = HWTeam.screen({ back: null, name: CHAT.name, status: CHAT.status, av: CHAT.av, placeholder: 'Նամակ' });
+    app.innerHTML = HWTeam.screen({ back: null, name: CHAT.name, status: CHAT.status, av: CHAT.av, placeholder: 'Նամակ', more: true });
     document.getElementById('wa-back').onclick = () => history.back();
     HWTeam.start({ sb, staff: null, el: document.getElementById('tthread'), sc: document.getElementById('sc'), q: document.getElementById('q'),
       send: document.getElementById('send'), first: T.data, alive: () => !!document.getElementById('tthread'),
-      empty: `<div class="wa-empty"><h3>Բարև${me.name ? ', ' + esc(me.name) : ''}</h3><span class="note">Այստեղ ձեզ կգրի ղեկավարը։ Պատասխանեք նույն տեղում։</span></div>` });
+      empty: `<div class="wa-empty"><h3>Բարև${me.name ? ', ' + esc(me.name) : ''}</h3><span class="note">Այստեղ կստանաք ձեր գործերը։ Հարց ունեք՝ գրեք նույն տեղում։</span></div>` });
   }
   // «Հետ»-ը (կոճակը, iPhone-ի սահեցնելը)՝ «Չատեր»
   window.addEventListener('popstate', () => { if (ME) (location.hash === '#chat' ? showChat(ME) : showList(ME)).catch(() => {}); });
