@@ -1730,7 +1730,7 @@ function toast(text) {
     clearTimeout(r4Poll);
     const [h, R] = await Promise.all([rpc('app_home'), rpc('app_reels')]);
     pendingCount = h.tasks_pending || 0;
-    const list = R.reels || [], conf = R.config || {}, plan = R.plan || {}, models = R.models || [], chat = R.chat || [];
+    const list = R.reels || [], conf = R.config || {}, plan = R.plan || {}, models = R.models || [], avs = R.avatars || [], chat = R.chat || [];
     const brainOk = R.brain && Date.now() - new Date(R.brain.at) < 10 * 60e3;
     const run = R.runner;
     const sub = brainOk || (run && Date.now() - new Date(run.at) < 2 * 864e5) ? '<span class="dot ok"></span>Ամեն օր մեկ ռիլ'
@@ -1747,7 +1747,7 @@ function toast(text) {
     const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find(r4Open) || list[0]);
     if (n && !r) { location.hash = '#/reels'; return; }
     const pubs = list.filter((x) => x.status === 'published');
-    await signAll([r && r.video, r && r.poster, ...pubs.map((x) => x.poster), ...models.map((m) => m.cover)]);
+    await signAll([r && r.video, r && r.poster, ...pubs.map((x) => x.poster), ...models.map((m) => m.cover), ...avs.map((a) => a.cover)]);
     const on = (p) => !!conf[p];
     const plats = (cls) => `<span class="r4-pl ${cls || ''}">${R4P.map(([p, nm]) => `<i class="${on(p) ? '' : 'off'}" title="${nm}${on(p) ? '' : ' · դեռ միացված չէ'}">${R4I[p]}</i>`).join('')}</span>`;
     const offN = R4P.filter(([p]) => !on(p)).map(([, nm]) => nm);
@@ -1792,6 +1792,14 @@ function toast(text) {
         </details>`).join('')}</div>`, { foot: 'Թվերը թարմանում են օրը մեկ։' })
       : sec('Հրապարակումներ', '<div class="card"><p class="none">Թվերը կերևան առաջին հրապարակումից հետո</p></div>');
     // 4) «Իմ AI մոդելը»
+    // 4 AI ավատար (db 0042, Գարիկ 07.11). համակարգի 4 կերպարը՝ ըստ բիզնեսի, տերը ընտրում է մեկին → «Առաջարկվածը» ռիլերը նրանով
+    const avPick = avs.find((a) => a.pick);
+    const avatars = avs.length ? sec('Ռիլերի կերպարը', `<div class="r4-avs">
+        ${avs.map((a) => `<button type="button" class="r4-av${a.pick ? ' on' : ''}" data-av="${a.id}" aria-pressed="${a.pick ? 'true' : 'false'}">
+          <span class="ph">${a.cover && urls[a.cover] ? `<img src="${esc(urls[a.cover])}" alt="" loading="lazy">` : R4I.face}</span>
+          ${a.pick ? `<b>${R4I.ok}</b>` : ''}
+          <span class="nm">${esc(a.name)}</span><span class="s">${esc(a.about || '')}</span></button>`).join('')}
+      </div>`, { foot: avPick ? `Ռիլերը կսարքվեն ${esc(avPick.name)}ով։` : 'Ընտրեք մեկին. ռիլերում նա կխոսի ձեր ընկերության մասին։' }) : '';
     const ph = R.photos || {};
     const mNote = models.map((m) => m.note).filter(Boolean)[0];
     const photos = sec('Իմ AI մոդելը', `<div class="card r4-mod">
@@ -1810,7 +1818,7 @@ function toast(text) {
     // 07.11 Գարիկ. «մինչև մեկը չհրապարակվի, երկրորդը չսարքվի» → հաջորդը սպասում է, մինչև այս մեկը հրապարակվի
     const waitPub = !!nx && list.some((x) => ['ready', 'changes', 'approved', 'publishing', 'failed'].includes(x.status) && x.plan_day !== nx.day);
     const choice = nx ? sec(isTd ? 'Այսօրվա ռիլը' : 'Հաջորդ ռիլը', `<div class="r4-tiles">
-        ${tile(nx.mode !== 'model', `data-mode="suggested" data-day="${nx.day}"`, I.film, 'Առաջարկվածը', 'Համակարգի կերպարով')}
+        ${tile(nx.mode !== 'model', `data-mode="suggested" data-day="${nx.day}"`, avPick && avPick.cover && urls[avPick.cover] ? `<img src="${esc(urls[avPick.cover])}" alt="">` : I.film, 'Առաջարկվածը', avPick ? esc(avPick.name) + 'ով' : 'Համակարգի կերպարով')}
         ${ready.length ? ready.map((m) => tile(nx.mode === 'model' && +nx.model_id === +m.id, `data-mode="model" data-model="${m.id}" data-day="${nx.day}"`, m.cover && urls[m.cover] ? `<img src="${esc(urls[m.cover])}" alt="">` : R4I.face, 'Իմ մոդելով', esc(m.name))).join('')
           : `<button type="button" class="r4-tile dim" data-goph><span class="ic">${R4I.face}</span><span class="t">Իմ մոդելով</span><span class="s">Նախ դրեք նկարներ ↑</span></button>`}
       </div>`, { foot: waitPub ? 'Կսարքվի, երբ վերևի ռիլը հրապարակվի։' : '' }) : '';
@@ -1823,7 +1831,7 @@ function toast(text) {
         ${r4Comp('r4t', true)}
         ${R.brief_n ? `<p class="meta">Համակարգը գիտի ${fmt(R.brief_n)} բան ձեր մասին</p>` : ''}
       </div>`);
-    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(hero + chg + stats + photos + choice + teach));
+    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(hero + chg + stats + avatars + photos + choice + teach));
 
     // ── վարքը ──
     const v = document.getElementById('r4v');
@@ -1914,6 +1922,15 @@ function toast(text) {
       };
       document.getElementById('r4msave').onclick = () => go(false);
       document.getElementById('r4moff').onclick = () => go(true);
+    });
+    // 4 ավատարից մեկը
+    sc.querySelectorAll('[data-av]').forEach((b) => b.onclick = async () => {
+      if (b.classList.contains('on')) return;
+      sc.querySelectorAll('[data-av]').forEach((x) => { x.disabled = true; });
+      const { data, error } = await sb.rpc('app_reel_avatar_pick', { p_id: +b.dataset.av });
+      if (error) { toast('Չստացվեց, փորձեք նորից'); sc.querySelectorAll('[data-av]').forEach((x) => { x.disabled = false; }); return; }
+      toast(data && data.remake ? `Լավ. ռիլը նորից կսարքենք ${data.name}ով` : `Լավ. ռիլերը կլինեն ${data.name}ով`);
+      invalidate(); render();
     });
     // ընտրություն
     sc.querySelectorAll('[data-mode]').forEach((b) => b.onclick = async () => {

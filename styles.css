@@ -927,6 +927,17 @@ body.kb .wa-bar { padding-bottom: 7px; }
 .r4-tile .s { font-size: 13px; color: var(--text3); }
 .r4-tile > b { position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; border-radius: 12px; background: var(--acc); color: var(--bg); display: flex; align-items: center; justify-content: center; }
 .r4-tile > b svg { width: 14px; height: 14px; }
+/* «Ռիլերի կերպարը»՝ 4 AI ավատար (db 0042) */
+.r4-avs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.r4-av { position: relative; border-radius: 18px; border: 2px solid transparent; background: var(--card); box-shadow: var(--edge); color: var(--text); font: inherit; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 6px 12px; text-align: left; cursor: pointer; transition: border-color .2s, transform .3s var(--spring); }
+.r4-av:active { transform: scale(.97); }
+.r4-av.on { border-color: var(--acc); }
+.r4-av .ph { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 5; border-radius: 13px; overflow: hidden; background: var(--fill); color: var(--text2); margin-bottom: 8px; }
+.r4-av .ph img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.r4-av .nm { font-size: 15.5px; font-weight: 600; padding: 0 6px; }
+.r4-av .s { font-size: 12.5px; line-height: 1.35; color: var(--text3); padding: 0 6px; }
+.r4-av > b { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 13px; background: var(--acc); color: var(--bg); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--card); }
+.r4-av > b svg { width: 15px; height: 15px; }
 /* «Սովորեցրեք ռիլերին» */
 .r4-thread { display: flex; flex-direction: column; gap: 8px; }
 .r4-thread:empty { display: none; }
