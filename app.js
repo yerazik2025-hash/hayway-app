@@ -1562,6 +1562,28 @@ function toast(text) {
   const k7dot = (st) => `<span class="k7-st"><span class="dot ${K7ST[st][0]}"></span>${K7ST[st][1]}</span>`;
   const k7thumb = (c) => `<span class="k7-th-s k7-th ${c.c}"></span>`;
   const K7TAG = '<span class="k7-sample">Նմուշ</span>';
+  // 07.11 (Գարիկ «2»). իրական թվերը՝ Երազի համակարգչի Claude-ը Ads Manager-ից (scripts\ka7-ads.ps1 → sync_state.ka7_ads), 4 ժամը մեկ
+  const k7money = (v, cur) => v == null ? '—' : (!cur || /usd|\$/i.test(cur) ? '$' + fmt(v, v < 100 ? 2 : 0) : `${fmt(v, v < 100 ? 2 : 0)} ${esc(cur)}`);
+  const k7st = (s) => { s = String(s || ''); return /active|актив|delivering|показ/i.test(s) && !/not/i.test(s) ? ['ok', 'Աշխատում է'] : /off|выкл|pause|приост|inactive|completed|заверш/i.test(s) ? ['off', 'Անջատված'] : /error|not deliv|reject|отклон|ошиб/i.test(s) ? ['bad', 'Չի ցուցադրվում'] : ['wait', esc(s).slice(0, 24) || '—']; };
+  const k7type = (t) => /lead|лид/i.test(t || '') ? 'հայտ' : /messag|сообщ|переписк/i.test(t || '') ? 'նամակ' : /click|клик/i.test(t || '') ? 'սեղմում' : 'արդյունք';
+  const k7sorted = (ads) => [...ads].sort((a, b) => ((b.results > 0) - (a.results > 0)) || ((a.cost_per_result ?? 9e9) - (b.cost_per_result ?? 9e9)) || ((b.spend || 0) - (a.spend || 0)));
+  const k7real = (R) => {
+    const ads = R.ads || [], cur = R.currency, spend = ads.reduce((x, a) => x + (+a.spend || 0), 0);
+    const types = {}; ads.forEach((a) => { if (a.results > 0) types[k7type(a.result_type)] = (types[k7type(a.result_type)] || 0) + a.results; });
+    const word = Object.keys(types).sort((x, y) => types[y] - types[x])[0] || 'արդյունք';
+    const mine = ads.filter((a) => a.results > 0 && k7type(a.result_type) === word), wN = types[word] || 0, wS = mine.reduce((x, a) => x + (+a.spend || 0), 0);
+    const when = R.checked_at ? new Date(R.checked_at).toLocaleTimeString('hy-AM', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+    const fail = R.failed_at && (!R.checked_at || R.failed_at > R.checked_at)
+      ? group([cell({ icon: I.alert, color: 'y', t: 'Թարմացումը չստացվեց', s: R.problem === 'identity' ? 'Facebook-ը հաստատում է ուզում' : 'Կփորձի նորից' })], 'ic apr') : '';
+    return `<div class="k7-hero"><span class="l">Meta · վերջին 30 օր</span>
+        <div class="hero"><span class="n" data-n="${wN}">${fmt(wN)}</span><span class="u">${word}</span></div>
+        <div class="s"><span>Մեկը՝ <b>${wN ? k7money(wS / wN, cur) : '—'}</b></span><span>${when ? `Թարմ՝ ${when}` : ''}</span></div></div>`
+      + `<div class="kpis k3">${kpi('Ծախս', k7money(spend, cur))}${kpi('Գովազդ', String(ads.length))}${kpi('Միացված', String(ads.filter((a) => k7st(a.status)[0] === 'ok').length))}</div>`
+      + fail
+      + sec('Գովազդները', group(k7sorted(ads).slice(0, 5).map((a) => { const st = k7st(a.status);
+        return cell({ lead: `<span class="dot ${st[0]}" style="margin:0 4px"></span>`, t: esc(a.ad_name), s: `${st[1]} · ${a.results ? fmt(a.results) + ' ' + k7type(a.result_type) : 'արդյունք չկա'}`, v: a.cost_per_result != null ? k7money(a.cost_per_result, cur) : '—', strong: true }); })),
+        { action: '<a class="a" href="#/ads/creatives">Բոլորը</a>' });
+  };
   // կանխատեսում. միջակայք, ոչ մեկ թիվ; շատ փող → մեկի գինը բարձրանում է (լսարանը հոգնում է)
   function k7fc(g) {
     const per = K7.per * (1 + Math.max(0, g - K7.avg) * 0.012);
@@ -1572,6 +1594,14 @@ function toast(text) {
   const K7R = {};
   K7R[''] = () => {
     const f = k7fc(K7.goal), got = 8, t = k7todo();
+    if (K7.real) return [{ title: 'Գովազդ', tab: 'ads', back: ['#/sections', 'Բաժիններ'], sub: `<span class="dot ok"></span> Իրական թվեր · Meta` }, page(
+      k7real(K7.real)
+      + sec('', group([
+        cell({ href: '#/ads/goal', icon: I.target, color: 'b', t: 'Նպատակ', v: `${K7.goal} ամսում` }),
+        cell({ href: '#/ads/forecast', icon: I.chart, color: 'g', t: 'Կանխատեսում', v: `${fmt(f.budget)} ֏` }),
+        cell({ href: '#/ads/leads', icon: I.users, color: 't', t: 'Հայտեր', v: 'նմուշ' }),
+        cell({ href: '#/ads/plan', icon: I.cal, color: 'o', t: 'Ամսվա պլան', v: 'նմուշ' }),
+      ], 'ic'), { foot: 'Նպատակ, կանխատեսում, հայտեր, պլան՝ դեռ նմուշ։' }))];
     return [{ title: 'Գովազդ', tab: 'ads', back: ['#/sections', 'Բաժիններ'], sub: `${K7TAG} <span class="dot ok"></span> Աշխատում է · 8 գովազդ` }, page(
       `<div class="k7-hero"><span class="l">Նոյեմբեր · նոր վարորդ</span>
         <div class="hero"><span class="n" data-n="${got}">${got}</span><span class="u">/ ${K7.goal}</span></div>
@@ -1618,6 +1648,11 @@ function toast(text) {
         : '<div class="k7-btns"><a class="btn gray" href="#/ads/goal">Փոխել</a><button type="button" class="btn pri" id="k7ok">Հաստատել</button></div>'))];
   };
   K7R.creatives = () => {
+    if (K7.real) { const cur = K7.real.currency;
+      return [{ title: 'Գովազդները', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `<span class="dot ok"></span> Meta · 30 օր` }, page(
+        group(k7sorted(K7.real.ads || []).map((a) => { const st = k7st(a.status);
+          return cell({ lead: `<span class="dot ${st[0]}" style="margin:0 4px"></span>`, t: esc(a.ad_name), s: `${st[1]} · ծախս ${k7money(a.spend, cur)}${a.results ? ` · ${fmt(a.results)} ${k7type(a.result_type)}` : ''}`, v: a.cost_per_result != null ? k7money(a.cost_per_result, cur) : '—', strong: true }); }))
+        + '<p class="sec-f">Գինը՝ մեկ արդյունքի համար։</p>')]; }
     const F = { all: () => true, img: (c) => !c.v, vid: (c) => c.v }, ord = ['win', 'test', 'new', 'off'];
     const list = K7CR.filter(F[K7.filter]).sort((a, b) => ord.indexOf(a.st) - ord.indexOf(b.st) || (a.cpl || 9e9) - (b.cpl || 9e9));
     return [{ title: 'Նկարներ ու հոլովակներ', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `${K7TAG} <span class="dot ok"></span> Հոլովակը 40% էժան է` }, page(
@@ -1656,6 +1691,7 @@ function toast(text) {
       cell({ icon: I.clock, color: 's', t: 'Ամենաերկար աշխատողը', v: '62 օր' }),
     ], 'ic'), { foot: 'Մեկ ամսից երկար աշխատողը՝ ապացուցված միտք։' }))];
   route('/ads', async (sub) => {
+    try { const { data } = await sb.from('sync_state').select('value').eq('key', 'ka7_ads').maybeSingle(); K7.real = data && data.value && (data.value.ads || []).length ? data.value : null; } catch (e) {}
     const [o, body] = (K7R[sub] || K7R[''])();
     lastTab = 'ads';
     const sc = mount(o, body);
