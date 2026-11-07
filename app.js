@@ -1604,11 +1604,13 @@ function toast(text) {
     const ready = models.filter((m) => m.status === 'ready');
     const isTd = nx && nx.day === R.today;
     const tile = (sel, attrs, ic, t, s) => `<button type="button" class="r4-tile${sel ? ' on' : ''}" ${attrs}><span class="ic">${ic}</span><span class="t">${t}</span><span class="s">${s}</span>${sel ? `<b>${R4I.ok}</b>` : ''}</button>`;
-    const choice = nx ? sec(isTd ? 'Այսօրվա ռիլը' : 'Վաղվա ռիլը', `<div class="r4-tiles">
+    // 07.11 Գարիկ. «մինչև մեկը չհրապարակվի, երկրորդը չսարքվի» → հաջորդը սպասում է, մինչև այս մեկը հրապարակվի
+    const waitPub = !!nx && list.some((x) => ['ready', 'changes', 'approved', 'publishing', 'failed'].includes(x.status) && x.plan_day !== nx.day);
+    const choice = nx ? sec(isTd ? 'Այսօրվա ռիլը' : 'Հաջորդ ռիլը', `<div class="r4-tiles">
         ${tile(nx.mode !== 'model', `data-mode="suggested" data-day="${nx.day}"`, I.film, 'Առաջարկվածը', 'Համակարգի կերպարով')}
         ${ready.length ? ready.map((m) => tile(nx.mode === 'model' && +nx.model_id === +m.id, `data-mode="model" data-model="${m.id}" data-day="${nx.day}"`, m.cover && urls[m.cover] ? `<img src="${esc(urls[m.cover])}" alt="">` : R4I.face, 'Իմ մոդելով', esc(m.name))).join('')
           : `<button type="button" class="r4-tile dim" data-goph><span class="ic">${R4I.face}</span><span class="t">Իմ մոդելով</span><span class="s">Նախ դրեք նկարներ ↑</span></button>`}
-      </div>`) : '';
+      </div>`, { foot: waitPub ? 'Կսարքվի, երբ վերևի ռիլը հրապարակվի։' : '' }) : '';
     // 6) «Սովորեցրեք ռիլերին»
     const bubbles = (c) => `<div class="r4-msg me">${esc(c.text)}</div>${c.status === 'done' || c.status === 'error' ? `<div class="r4-msg ai">${esc(c.answer || '')}</div>` : '<div class="r4-msg ai typing"><i></i><i></i><i></i></div>'}`;
     const teach = sec('Սովորեցրեք ռիլերին', `<div class="card r4-chat">
