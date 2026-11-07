@@ -1592,16 +1592,23 @@ function toast(text) {
   }
   const k7rec = Math.min(K7.free, Math.round((K7.avg * 1.35) / 5) * 5);   // 30
   const K7R = {};
+  // Հայտ → վարորդ (db 0041, ka7_match). մեկ նոր վարորդի գինը = հայտերի գովազդների ծախսը / միացածներ
+  const k7drivers = () => {
+    if (!K7.L) return '';
+    const T = K7.L.total, ads = (K7.real && K7.real.ads) || [], cur = K7.real && K7.real.currency;
+    const sp = ads.filter((a) => k7type(a.result_type) === 'հայտ').reduce((x, a) => x + (+a.spend || 0), 0);
+    return group([cell({ href: '#/ads/leads', icon: I.users, color: 'g', t: `${fmt(T.joined)} նոր վարորդ`, s: `${fmt(T.leads)} հայտից · ${fmt(T.registered)} գրանցվեց`, v: T.joined && sp ? k7money(sp / T.joined, cur) : '—', strong: true })], 'ic');
+  };
   K7R[''] = () => {
     const f = k7fc(K7.goal), got = 8, t = k7todo();
     if (K7.real) return [{ title: 'Գովազդ', tab: 'ads', back: ['#/sections', 'Բաժիններ'], sub: `<span class="dot ok"></span> Իրական թվեր · Meta` }, page(
-      k7real(K7.real)
+      k7real(K7.real) + k7drivers()
       + sec('', group([
         cell({ href: '#/ads/goal', icon: I.target, color: 'b', t: 'Նպատակ', v: `${K7.goal} ամսում` }),
         cell({ href: '#/ads/forecast', icon: I.chart, color: 'g', t: 'Կանխատեսում', v: `${fmt(f.budget)} ֏` }),
-        cell({ href: '#/ads/leads', icon: I.users, color: 't', t: 'Հայտեր', v: 'նմուշ' }),
+        cell({ href: '#/ads/leads', icon: I.users, color: 't', t: 'Հայտեր', v: K7.L ? fmt(K7.L.total.leads) : 'նմուշ' }),
         cell({ href: '#/ads/plan', icon: I.cal, color: 'o', t: 'Ամսվա պլան', v: 'նմուշ' }),
-      ], 'ic'), { foot: 'Նպատակ, կանխատեսում, հայտեր, պլան՝ դեռ նմուշ։' }))];
+      ], 'ic'), { foot: K7.L ? 'Նպատակ, կանխատեսում, պլան՝ դեռ նմուշ։' : 'Նպատակ, կանխատեսում, հայտեր, պլան՝ դեռ նմուշ։' }))];
     return [{ title: 'Գովազդ', tab: 'ads', back: ['#/sections', 'Բաժիններ'], sub: `${K7TAG} <span class="dot ok"></span> Աշխատում է · 8 գովազդ` }, page(
       `<div class="k7-hero"><span class="l">Նոյեմբեր · նոր վարորդ</span>
         <div class="hero"><span class="n" data-n="${got}">${got}</span><span class="u">/ ${K7.goal}</span></div>
@@ -1663,6 +1670,12 @@ function toast(text) {
           <div class="k7-mt"><span class="p">${c.cpl ? `${fmt(c.cpl)} ֏<small>հայտը</small>` : '—'}</span>${k7dot(c.st)}</div></div>`).join('')}</div>`)];
   };
   K7R.leads = () => {
+    if (K7.L) { const T = K7.L.total, ST = { first_order: '<span class="tag g">Միացավ</span>', registered: '<span class="tag y">Գրանցվեց</span>', lost: '<span class="tag">Չմիացավ</span>' };
+      return [{ title: 'Հայտեր', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `Meta · 30 օր · ${fmt(T.leads)} հայտ · ${fmt(T.joined)} միացավ` }, page(
+        `<div class="group">${K7.L.list.map((l) => `<div class="k7-lead"><div class="h"><span class="nm">${esc(l.nm || 'Անանուն')}</span><span class="tm">${dmy(l.created_at)}</span></div>${l.ad ? `<span class="fr">«${esc(l.ad)}»-ից</span>` : ''}
+          ${l.status !== 'new' ? `<div class="done">${ST[l.status] || ''}${l.manual ? `<button type="button" class="btn plain sm" data-k7m="${l.id}" data-st="auto">Փոխել</button>` : '<span class="tm">ինքն է գտել</span>'}</div>`
+            : `<div class="k7-act"><button type="button" class="btn pri sm" data-k7m="${l.id}" data-st="first_order">Միացավ</button><button type="button" class="btn gray sm" data-k7m="${l.id}" data-st="lost">Չմիացավ</button></div>`}</div>`).join('')}</div>`
+        + '<p class="sec-f">Միացածներին համակարգը ինքն է գտնում։</p>')]; }
     const list = K7.lf === 'todo' ? K7L.filter((l) => !l.st) : K7L;
     return [{ title: 'Հայտեր', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `${K7TAG} Նոյեմբեր · 27 հայտ · 8 միացավ` }, page(
       `<div class="seg"><button type="button" data-k7l="todo" class="${K7.lf === 'todo' ? 'on' : ''}">Նշել · ${k7todo()}</button><button type="button" data-k7l="all" class="${K7.lf === 'all' ? 'on' : ''}">Բոլորը</button></div>`
@@ -1692,6 +1705,7 @@ function toast(text) {
     ], 'ic'), { foot: 'Մեկ ամսից երկար աշխատողը՝ ապացուցված միտք։' }))];
   route('/ads', async (sub) => {
     try { const { data } = await sb.from('sync_state').select('value').eq('key', 'ka7_ads').maybeSingle(); K7.real = data && data.value && (data.value.ads || []).length ? data.value : null; } catch (e) {}
+    try { const L = await rpc('app_ads_leads'); K7.L = L && L.list && L.list.length ? L : null; } catch (e) { K7.L = null; }
     const [o, body] = (K7R[sub] || K7R[''])();
     lastTab = 'ads';
     const sc = mount(o, body);
@@ -1703,6 +1717,9 @@ function toast(text) {
     sc.querySelectorAll('[data-k7y],[data-k7x],[data-k7u]').forEach((b) => (b.onclick = () => {
       const l = K7L.find((x) => x.id === +(b.dataset.k7y || b.dataset.k7x || b.dataset.k7u));
       l.st = b.dataset.k7y ? 'yes' : b.dataset.k7x ? 'no' : null; again();
+    }));
+    sc.querySelectorAll('[data-k7m]').forEach((b) => (b.onclick = async () => {
+      b.disabled = true; try { await sb.rpc('app_ads_mark', { p_id: b.dataset.k7m, p_status: b.dataset.st }); } catch (e) {} invalidate(); again();
     }));
     const ok = document.getElementById('k7ok');
     if (ok) ok.onclick = () => { K7.approved = true; again(); };
