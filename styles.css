@@ -841,3 +841,98 @@ body.kb .wa-bar { padding-bottom: 7px; }
 .wa-sh-t small { font-size: 12.5px; color: #667781; }
 .wa-sh-t small.late { color: #E5484D; }
 .wa-sh-e { color: #667781; font-size: 14.5px; padding: 6px 0; }
+
+/* ───────── Ռիլեր՝ ԿԱ 4 (07.11.2026). ուսումնասիրությունից. մեկ շեշտ (մեղմ կապույտ), ալիքների նշանները՝ սպիտակ, 2–3 թիվ տողում ───────── */
+.r4-hero { gap: 12px; }
+.r4-when { display: flex; justify-content: space-between; gap: 10px; padding: 0 4px; font-size: 13px; color: var(--text3); }
+.r4-player { position: relative; align-self: center; height: min(calc(100svh - 390px), 600px); min-height: 270px; aspect-ratio: 9 / 16; max-width: 100%; border-radius: 18px; overflow: clip; background: var(--fill); box-shadow: var(--edge); }
+.r4-player video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--bg); cursor: pointer; }
+.r4-player .none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.r4-snd { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--topbar); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.r4-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--fill2); }
+.r4-prog b { display: block; height: 100%; width: 0; background: var(--text); }
+.r4-player.busy video { filter: blur(6px) brightness(.55); }
+.r4-busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; }
+.r4-busy p { font-size: 15px; font-weight: 500; }
+.r4-ok { width: 100%; min-height: 58px; border-radius: 18px; border: 0; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--btn); color: var(--on-btn); box-shadow: var(--btn-edge); font: inherit; cursor: pointer; transition: transform .3s var(--spring), background .2s; }
+.r4-ok .l { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; }
+.r4-ok:active { transform: scale(.97); background: var(--btn-on); }
+.r4-ok.arm { background: var(--btn-on); }
+.r4-ok:disabled { opacity: .7; }
+.r4-undo { font-size: 14px; font-weight: 500; padding: 7px 12px; border-radius: 999px; background: var(--glass); font-variant-numeric: tabular-nums; }
+.r4-pl { display: flex; gap: 8px; align-items: center; }
+.r4-pl i { display: flex; opacity: .9; }
+.r4-pl i.off { opacity: .3; }
+.r4-pl.wait i:not(.off) { animation: dots 1.4s ease-in-out infinite; }
+.r4-pl.wait i:nth-child(2) { animation-delay: .15s; } .r4-pl.wait i:nth-child(3) { animation-delay: .3s; } .r4-pl.wait i:nth-child(4) { animation-delay: .45s; }
+.r4-st { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 0 16px; border-radius: 18px; background: var(--card); box-shadow: var(--edge); font-size: 15px; color: var(--text2); }
+.r4-st > span:last-child { margin-left: auto; }
+.r4-st.done a, .r4-st.done i { position: relative; width: 40px; height: 40px; border-radius: 20px; background: var(--fill); color: var(--text); display: flex; align-items: center; justify-content: center; }
+.r4-st.done i.off { opacity: .3; }
+.r4-st.done a b { position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 9px; background: var(--pos); color: var(--bg); display: flex; align-items: center; justify-content: center; }
+.r4-st.done a b svg { width: 12px; height: 12px; }
+.r4-warn { font-size: 14px; color: var(--warn); padding: 0 4px; }
+.r4-sent { padding: 12px 14px; border-radius: 14px; background: var(--fill); font-size: 14.5px; color: var(--text2); line-height: 1.4; overflow-wrap: anywhere; }
+.r4-sent span { color: var(--text3); }
+/* «Ի՞նչ փոխել» ու չատի դաշտը՝ էջի ներսում, ոչ թե էկրանի ներքևում */
+.composer.r4-comp { padding: 0; background: transparent; box-shadow: none; border: 0; z-index: auto; }
+.composer.r4-comp .rec { padding: 0; background: var(--surface); border-radius: 22px; }
+.composer.r4-comp .send, .composer.r4-comp .rec-ok { border-radius: 50%; background: var(--btn); color: var(--on-btn); }
+.composer.r4-comp .send:disabled { background: var(--fill2); color: var(--text3); }
+.r4-tot { display: flex; align-items: baseline; gap: 8px; padding: 0 4px; }
+.r4-tot .n { font-size: 34px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.r4-tot .u { font-size: 14px; color: var(--text3); }
+.r4-pub + .r4-pub { border-top: 1px solid var(--line); }
+.r4-pub summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; min-height: 72px; }
+.r4-pub summary::-webkit-details-marker { display: none; }
+.r4-pub summary img, .r4-th { width: 40px; height: 71px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: var(--fill); display: flex; align-items: center; justify-content: center; color: var(--text3); }
+.r4-pub .bd { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.r4-pub .t { font-size: 15px; font-weight: 500; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.r4-pub .s { font-size: 13px; color: var(--text3); }
+.r4-3 { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+.r4-n { display: inline-flex; align-items: center; gap: 5px; font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.r4-n svg { width: 14px; height: 14px; color: var(--text3); }
+.r4-by { padding: 0 14px 12px 66px; display: flex; flex-direction: column; gap: 2px; }
+.r4-row { display: flex; align-items: center; gap: 10px; min-height: 40px; color: var(--text); text-decoration: none; }
+.r4-row i { display: flex; color: var(--text2); }
+.r4-row .nm { flex: 1; font-size: 14px; color: var(--text2); }
+.r4-row .r4-n { font-size: 13.5px; font-weight: 500; min-width: 46px; justify-content: flex-end; }
+/* AI մոդելներ՝ դեմքերի շարք */
+.r4-faces { display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; margin: 0 -18px; padding: 6px 18px 4px; scroll-snap-type: x proximity; }
+.r4-faces::-webkit-scrollbar { display: none; }
+.r4-face { flex-shrink: 0; width: 72px; display: flex; flex-direction: column; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer; scroll-snap-align: start; padding: 0; }
+.r4-face .c { position: relative; width: 64px; height: 64px; border-radius: 50%; background: var(--fill); display: flex; align-items: center; justify-content: center; color: var(--text2); }
+.r4-face .c img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 50% 22%; }
+.r4-face.add .c { background: transparent; border: 1.5px dashed var(--fill2); color: var(--acc); }
+.r4-face.building .c::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2.5px solid var(--acc-soft); border-top-color: var(--acc); animation: spin 1.6s linear infinite; }
+.r4-face.ready .c { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--pos); }
+.r4-face .c b { position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 11px; background: var(--pos); color: var(--bg); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--surface); }
+.r4-face .c b svg { width: 13px; height: 13px; }
+.r4-face .nm { font-size: 13px; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r4-face .s { font-size: 11.5px; color: var(--text3); margin-top: -3px; }
+.r4-medit { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+/* «Այսօրվա / Վաղվա ռիլը»՝ երկու ընտրության սալիկ */
+.r4-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.r4-tile { position: relative; min-height: 128px; border-radius: 18px; border: 2px solid transparent; background: var(--card); box-shadow: var(--edge); color: var(--text); font: inherit; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 3px; padding: 14px; text-align: left; cursor: pointer; transition: border-color .2s, transform .3s var(--spring); }
+.r4-tile:active { transform: scale(.97); }
+.r4-tile.on { border-color: var(--acc); }
+.r4-tile.dim { opacity: .55; }
+.r4-tile .ic { width: 44px; height: 44px; border-radius: 22px; background: var(--fill); display: flex; align-items: center; justify-content: center; color: var(--text2); margin-bottom: auto; overflow: hidden; }
+.r4-tile .ic img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; }
+.r4-tile .t { font-size: 15.5px; font-weight: 600; }
+.r4-tile .s { font-size: 13px; color: var(--text3); }
+.r4-tile > b { position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; border-radius: 12px; background: var(--acc); color: var(--bg); display: flex; align-items: center; justify-content: center; }
+.r4-tile > b svg { width: 14px; height: 14px; }
+/* «Սովորեցրեք ռիլերին» */
+.r4-thread { display: flex; flex-direction: column; gap: 8px; }
+.r4-thread:empty { display: none; }
+.r4-msg { max-width: 86%; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.r4-msg.me { align-self: flex-end; padding: 9px 14px; border-radius: 18px 18px 6px 18px; background: var(--fill2); }
+.r4-msg.ai { align-self: flex-start; color: var(--text2); padding: 2px; }
+.r4-msg.typing { display: flex; gap: 4px; padding: 8px 4px; }
+.r4-msg.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); animation: dots 1.2s ease-in-out infinite; }
+.r4-msg.typing i:nth-child(2) { animation-delay: .2s; } .r4-msg.typing i:nth-child(3) { animation-delay: .4s; }
+.r4-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -18px; padding: 0 18px; }
+.r4-chips::-webkit-scrollbar { display: none; }
+.r4-chips button { flex-shrink: 0; min-height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--line); background: transparent; color: var(--text2); font: inherit; font-size: 14px; cursor: pointer; }
+.r4-chips button:active { background: var(--fill); }

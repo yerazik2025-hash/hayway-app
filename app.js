@@ -1478,86 +1478,272 @@ function toast(text) {
     };
     app.querySelectorAll('[data-rfhide]').forEach((b) => b.onclick = async () => { b.disabled = true; await sb.rpc('app_reel_ref_hide', { p_id: +b.dataset.rfhide }); invalidate(); render(); });
   }
+  // ───────── Ռիլեր՝ ԿԱ 4 (07.11.2026, db\0040, Գարիկ) ─────────
+  // «միայն ռիլը և ներքևում հաստատման նշան» → տակը՝ «Ի՞նչ փոխել» (գրով կամ ձայնով) → հրապարակումների թվերը 4 ալիքով →
+  // «Իմ AI մոդելը» (իր նկարներից) → ընտրություն «իմ մոդելով / առաջարկվածը» → ամենաներքևում՝ «Սովորեցրեք» չատը (տեքստ + ձայն)։
+  // Սցենարի տեքստը տիրոջը ցույց չի տրվում։ Ուղեղը՝ HayWay PC-ի Claude-ը (scripts\reels-brain.ps1), հրապարակումը՝ reels-run.ps1։
+  // Տեսքը՝ ուսումնասիրությունից (docs\ԿԱ 4 — Ռիլեր.md). մեկ գլխավոր կոճակ բութ մատի տակ, 5 վրկ «Չեղարկել», 2–3 թիվ ամեն տողում։
+  const R4P = [['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['facebook', 'Facebook'], ['youtube', 'YouTube']];
+  const R4I = {
+    tiktok: sv(18, '<path d="M14 3.5v11a3.75 3.75 0 1 1-3.75-3.75"/><path d="M14 3.5c.4 2.6 2.2 4.3 5 4.6"/>'),
+    instagram: sv(18, '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.9"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor"/>'),
+    facebook: sv(18, '<path d="M14.5 3.5h-2a3.5 3.5 0 0 0-3.5 3.5v3H6.5v3.5H9v7h3.5v-7h2.4l.6-3.5h-3V7.6c0-.6.5-1.1 1.1-1.1h.9z"/>'),
+    youtube: sv(18, '<rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10.2 9.4v5.2l4.4-2.6z"/>'),
+    eye: sv(16, '<path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>'),
+    heart: sv(16, '<path d="M12 19.5s-7.5-4.4-7.5-9.7A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5c0 5.3-7.5 9.7-7.5 9.7z"/>'),
+    talk: sv(16, '<path d="M4.5 18.5V6.8A2.3 2.3 0 0 1 6.8 4.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3H8.5z"/>'),
+    ok: sv(22, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.4"'),
+    snd: sv(20, '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
+    mute: sv(20, '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>'),
+    face: sv(26, '<circle cx="12" cy="9" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/>'),
+  };
+  const r4Sum = (r, k) => R4P.reduce((a, [p]) => a + (r.last && r.last[p] ? +r.last[p][k] || 0 : 0), 0);
+  const r4Num = (n) => n >= 1e6 ? fmt(n / 1e6, 1) + 'M' : n >= 1e4 ? fmt(n / 1e3, 0) + 'K' : fmt(n);
+  const r4Open = (r) => ['ready', 'changes', 'approved', 'failed', 'publishing'].includes(r.status);
+  const r4Comp = (x, plus) => `<div class="composer r4-comp">${plus ? `<button type="button" class="cplus" id="${x}plus" aria-label="Ավելացնել ռիլ">${I.plus}</button><input type="file" id="${x}file" accept="video/*" hidden>` : ''}<textarea id="${x}q" rows="1" aria-label="${plus ? 'Նամակ' : 'Ինչ փոխել'}" enterkeyhint="send"></textarea><button class="mic" id="${x}mic" type="button" aria-label="Խոսել">${I.mic}</button><button class="send" id="${x}send" aria-label="Ուղարկել" disabled>${I.send}</button>${recRow(x)}</div>`;
+  function r4Bind(x, onSend) {
+    const q = document.getElementById(x + 'q'), send = document.getElementById(x + 'send');
+    if (!q) return null;
+    const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(132, q.scrollHeight + 2) + 'px'; send.disabled = !q.value.trim(); };
+    q.addEventListener('input', grow);
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer: coarse)').matches) { e.preventDefault(); send.click(); } });
+    send.onclick = async () => { const t = q.value.trim(); if (!t) return; send.disabled = true; q.disabled = true; const ok = await onSend(t); q.disabled = false; if (ok) q.value = ''; grow(); };
+    dictation(q, grow, x);
+    return { q, grow };
+  }
+  // նկարը՝ JPEG ≤1600 px հեռախոսում (HEIC-ն էլ է բացվում Safari-ում), որ բեռնումը թեթև լինի ու ուղեղը կարդա
+  async function r4Jpeg(f) {
+    const url = URL.createObjectURL(f);
+    try {
+      const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.88));
+    } finally { URL.revokeObjectURL(url); }
+  }
   const signedUrls = {};
+  let r4Poll = 0;
   route('/reels', async (n) => {
     lastTab = 'sections';
-    const [h, R, refs0] = await Promise.all([rpc('app_home'), rpc('app_reels'), rpc('app_reel_refs').catch(() => [])]);
+    clearTimeout(r4Poll);
+    const [h, R] = await Promise.all([rpc('app_home'), rpc('app_reels')]);
     pendingCount = h.tasks_pending || 0;
-    const list = R.reels || [], run = R.runner, refs = refs0 || [];
-    const sub = !run ? '<span class="dot wait"></span>Միանում է'
-      : Date.now() - new Date(run.at) < 2 * 864e5 ? `<span class="dot ok"></span>Ամեն օր մեկ ռիլ`
-      : `<span class="dot bad"></span>Գործարանը կանգնած է ${ago(run.at)}`;
+    const list = R.reels || [], conf = R.config || {}, plan = R.plan || {}, models = R.models || [], chat = R.chat || [];
+    const brainOk = R.brain && Date.now() - new Date(R.brain.at) < 10 * 60e3;
+    const run = R.runner;
+    const sub = brainOk || (run && Date.now() - new Date(run.at) < 2 * 864e5) ? '<span class="dot ok"></span>Ամեն օր մեկ ռիլ'
+      : run ? `<span class="dot bad"></span>Համակարգիչը անջատված է ${ago(run.at)}` : '<span class="dot wait"></span>Միանում է';
     const back = n ? ['#/reels', 'Ռիլեր'] : ['#/sections', 'Բաժիններ'];
     const urls = {};
-    // ստորագրված հղումները գործում են 3 ժամ → 2 ժամ վերցնում ենք պահածից, որ ամեն բացելիս Storage-ին չսպասենք (03.11)
     const signAll = async (paths) => {
       paths = paths.filter(Boolean);
       const now = Date.now(), need = paths.filter((p) => !(signedUrls[p] && now - signedUrls[p].t < 2 * 3600e3));
       try { const { data } = need.length ? await sb.storage.from('reels').createSignedUrls(need, 3 * 3600) : { data: [] }; (data || []).forEach((x) => { if (x.signedUrl) signedUrls[x.path] = { u: x.signedUrl, t: now }; }); } catch (e) {}
       paths.forEach((p) => { if (signedUrls[p]) urls[p] = signedUrls[p].u; });
     };
-    const refPaths = refs.filter((f) => f.kind === 'video').map((f) => f.path);
-    if (!list.length) {
-      await signAll(refPaths);
-      mount({ title: 'Ռիլեր', tab: 'sections', back, sub }, page(emptyState(I.film, 'Առաջին ռիլը պատրաստվում է',
-        'Կերևա այստեղ, դուք կհաստատեք։')
-        + reelRefsSec(refs, urls)));
-      bindReelRefs();
-      return;
+    // գլխավորը՝ ձեզ սպասողներից ամենահինը, հետո վերջին հրապարակվածը; #/reels/<n>՝ կոնկրետ ռիլը
+    const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find(r4Open) || list[0]);
+    if (n && !r) { location.hash = '#/reels'; return; }
+    const pubs = list.filter((x) => x.status === 'published');
+    await signAll([r && r.video, r && r.poster, ...pubs.map((x) => x.poster), ...models.map((m) => m.cover)]);
+    const on = (p) => !!conf[p];
+    const plats = (cls) => `<span class="r4-pl ${cls || ''}">${R4P.map(([p, nm]) => `<i class="${on(p) ? '' : 'off'}" title="${nm}${on(p) ? '' : ' · դեռ միացված չէ'}">${R4I[p]}</i>`).join('')}</span>`;
+    const offN = R4P.filter(([p]) => !on(p)).map(([, nm]) => nm);
+
+    // 1) օրվա ռիլը + «Հաստատել»
+    let hero;
+    if (!r) hero = sec('', `<div class="card">${emptyState(I.film, 'Առաջին ռիլը պատրաստվում է', plan.days ? 'Ամսվա պլանը պատրաստ է. ռիլը կերևա այստեղ։' : 'Համակարգը կազմում է ամսվա պլանը։')}</div>`);
+    else {
+      const isToday = r.created_at && new Date(r.created_at).toDateString() === new Date().toDateString();
+      const when = r.status === 'published' ? `Հրապարակված · ${dmy(r.published_at)}` : isToday ? `Այսօր · ${dmy(r.created_at)}` : `Ռիլ #${r.n} · ${dmy(r.created_at)}`;
+      let act = '';
+      if (r.status === 'ready' || r.status === 'failed') act = `${r.status === 'failed' ? `<p class="r4-warn">${esc(r.note || 'Չհրապարակվեց')}. նորից փորձե՞նք։</p>` : ''}
+        <button type="button" class="r4-ok" id="r4ok"><span class="l">${R4I.ok}Հաստատել</span>${plats()}</button>`;
+      else if (r.status === 'approved' || r.status === 'publishing') act = `<div class="r4-st">${plats('wait')}<span>Հրապարակվում է</span></div>`;
+      else if (r.status === 'published') act = `<div class="r4-st done">${R4P.map(([p, nm]) => r[p] ? `<a href="${esc(r[p])}" target="_blank" rel="noopener" title="${nm}">${R4I[p]}<b>${R4I.ok}</b></a>` : `<i class="off" title="${nm}">${R4I[p]}</i>`).join('')}<span>Հրապարակված է</span></div>`;
+      hero = `<section class="sec r4-hero">
+        <p class="r4-when"><span>${when}</span>${plan.days ? '<span>Ամսվա պլանից</span>' : ''}</p>
+        <div class="r4-player${r.status === 'changes' ? ' busy' : ''}" id="r4pl">
+          ${r.video && urls[r.video] ? `<video id="r4v" src="${esc(urls[r.video])}" ${r.poster && urls[r.poster] ? `poster="${esc(urls[r.poster])}"` : ''} playsinline muted loop autoplay preload="metadata"></video>
+            <button type="button" class="r4-snd" id="r4snd" aria-label="Ձայնը">${R4I.mute}</button><i class="r4-prog"><b id="r4bar"></b></i>` : '<p class="none">Վիդեոն բեռնվում է</p>'}
+          ${r.status === 'changes' ? '<div class="r4-busy"><span class="spin"></span><p>Նոր տարբերակն է պատրաստվում</p></div>' : ''}
+        </div>
+        ${act}
+        ${act && offN.length && r.status !== 'published' ? `<p class="sec-f">${offN.join(', ')}՝ կմիանան շուտով</p>` : ''}
+      </section>`;
     }
-    // գլխավորը՝ ձեզ սպասողներից ամենահինը (հրապարակման հերթով), հետո վերջին հրապարակվածը; #/reels/<n>՝ կոնկրետ ռիլը
-    const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find((x) => ['ready', 'changes', 'approved', 'failed'].includes(x.status)) || list[0]);
-    if (!r) { location.hash = '#/reels'; return; }
-    await signAll([r.video, r.poster, ...refPaths, ...(r.voice || []).map((v) => v.path)]);
-    const open = ['ready', 'changes', 'approved', 'failed'].includes(r.status);
-    const pub = r.status === 'published';
-    const views = reelSum(r, 'views');
-    const links = [r.tiktok && `<a class="btn sm gray" href="${esc(r.tiktok)}" target="_blank" rel="noopener">TikTok</a>`, r.instagram && `<a class="btn sm gray" href="${esc(r.instagram)}" target="_blank" rel="noopener">Instagram</a>`].filter(Boolean);
-    const plat = (p, nm) => { const s = r.last && r.last[p]; return s ? cell({ t: nm, s: `${fmt(s.likes)} հավանում · ${fmt(s.comments)} մեկնաբանություն · ${fmt(s.shares)} կիսվել${s.saves != null ? ' · ' + fmt(s.saves) + ' պահել' : ''}`, v: fmt(s.views), strong: true }) : ''; };
-    const others = list.filter((x) => x.id !== r.id);
-    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(`
-      ${sec('', `<div class="card">
-        ${r.video && urls[r.video] ? `<video class="reel-v" src="${esc(urls[r.video])}" ${r.poster && urls[r.poster] ? `poster="${esc(urls[r.poster])}"` : ''} controls playsinline preload="metadata"></video>` : '<p class="none">Վիդեոն դեռ բեռնվում է</p>'}
-        <div>${reelTag(r)}${r.ad ? '' : ' <span class="tag n">առանց գովազդի</span>'}</div>
-        <h3>#${r.n} · ${esc(r.title)}</h3>
-        ${r.learned ? `<p class="meta">Ձեր կարծիքից՝ ${esc(r.learned)}</p>` : ''}
-        ${r.script ? `<div class="ans clip" dir="auto">${esc(r.script)}</div><button class="btn full ans-more" type="button">Կարդալ տեքստը</button>` : ''}
-        ${links.length ? `<div class="act-b">${links.join('')}</div>` : ''}
-      </div>`, { foot: r.status === 'approved' ? 'Կհրապարակվի մոտակա ժամերին։' : r.status === 'changes' ? 'Նոր տարբերակ է պատրաստվում։'
-        : r.status === 'failed' ? esc(r.note || 'Հրապարակումը չստացվեց, նորից կփորձենք։') : '' })}
-      ${sec(open ? 'Ձեր կարծիքը' : 'Կարծիք հաջորդ ռիլի համար', `<div class="card">
-        ${voiceList(r.voice, urls)}
-        ${voiceBox('rc-voice')}
-        <textarea class="in qtext" id="rc" rows="2" placeholder="կամ գրեք">${esc(r.comment || '')}</textarea>
-        <div class="act-b">${open ? `<button type="button" class="btn pri" data-v="publish" ${r.status === 'approved' ? 'disabled' : ''}>Հրապարակել</button><button type="button" class="btn gray" data-v="change">Փոխել</button>`
-          : '<button type="button" class="btn pri" data-v="">Պահել</button>'}</div>
-        <p class="msgline" id="rmsg">${r.owner_at ? `Վերջին կարծիքը՝ ${ago(r.owner_at)}` : ''}</p>
-      </div>`)}
-      ${pub ? sec('Թվեր', `<div class="kpis">
-          ${kpi('Դիտում', fmt(views), '')}${kpi('Հավանում', fmt(reelSum(r, 'likes')), '')}
-          ${kpi('Մեկնաբանություն', fmt(reelSum(r, 'comments')), '')}${kpi('Կիսվել', fmt(reelSum(r, 'shares')), '')}
-        </div>${r.days && r.days.length ? `<div class="card" style="margin-top:8px">${barChart('rv' + r.id, reelDays(r), 'views', fmt, 'դիտում')}</div>` : ''}
-        ${r.last ? `<div style="margin-top:8px">${group([plat('tiktok', 'TikTok'), plat('instagram', 'Instagram')].filter(Boolean))}</div>` : ''}`,
-        { foot: r.last ? '' : 'Թվերը՝ վաղը։' }) : ''}
-      ${reelRefsSec(refs, urls)}
-      ${others.length ? sec('Բոլոր ռիլերը', group(others.map((x) => cell({ href: '#/reels/' + x.n, icon: I.film, color: 'p', t: `#${x.n} · ${esc(x.title)}`,
-        s: x.status === 'published' ? `${fmt(reelSum(x, 'likes'))} հավանում · ${fmt(reelSum(x, 'comments'))} մեկնաբանություն` : (REEL_ST[x.status] || [, x.status])[1],
-        v: x.status === 'published' ? `${fmt(reelSum(x, 'views'))}` : '', strong: true }))), { foot: x0foot(R) }) : ''}
-    `));
-    sc.querySelectorAll('.ans-more').forEach((b) => b.onclick = () => { b.previousElementSibling.classList.remove('clip'); b.remove(); });
-    bindReelRefs();
-    const ta = document.getElementById('rc'), msg = document.getElementById('rmsg');
-    const rv = bindVoice('rc-voice', msg);
-    sc.querySelectorAll('[data-v]').forEach((b) => b.onclick = async () => {
-      if (rv.busy()) { msg.textContent = 'Նախ կանգնեցրեք ձայնագրությունը'; return; }
-      const v = b.dataset.v || null, txt = ta.value.trim(), voice = rv.path();
-      if (v === 'change' && !txt && !voice) { msg.textContent = 'Ասեք ձայնով՝ ինչ փոխել'; return; }
-      if (!v && !txt && !voice) { msg.textContent = 'Ասեք ձայնով կամ գրեք կարծիքը'; return; }
-      sc.querySelectorAll('[data-v]').forEach((x) => { x.disabled = true; });
-      const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: v, p_comment: txt, p_voice: voice });
-      if (error) { msg.textContent = 'Չստացվեց, փորձեք նորից'; sc.querySelectorAll('[data-v]').forEach((x) => { x.disabled = false; }); return; }
+    // 2) «Ի՞նչ փոխել»
+    const chg = r && ['ready', 'failed', 'approved'].includes(r.status) ? sec('Ի՞նչ փոխել', r4Comp('r4c'), { foot: 'Գրեք կամ ասեք ձայնով. կսարքենք նոր տարբերակը։' })
+      : r && r.status === 'changes' && r.comment ? sec('', `<div class="r4-sent"><span>Ուղարկած՝</span> ${esc(r.comment)}</div>`) : '';
+    // 3) հրապարակումները՝ 2–3 թիվ ամեն տողում, բացելիս՝ ըստ ալիքի
+    const tot = pubs.reduce((a, x) => a + r4Sum(x, 'views'), 0);
+    const st3 = (o) => `<span class="r4-n">${R4I.eye}${r4Num(o.views || 0)}</span><span class="r4-n">${R4I.heart}${r4Num(o.likes || 0)}</span><span class="r4-n">${R4I.talk}${r4Num(o.comments || 0)}</span>`;
+    const stats = pubs.length ? sec('Հրապարակումներ', `
+      <div class="r4-tot"><span class="n" data-n="${tot}">${fmt(tot)}</span><span class="u">դիտում · ${pubs.length} ռիլ</span></div>
+      <div class="group r4-pubs">${pubs.map((x) => `<details class="r4-pub"><summary>
+          ${x.poster && urls[x.poster] ? `<img src="${esc(urls[x.poster])}" alt="" loading="lazy">` : `<span class="r4-th">${I.film}</span>`}
+          <span class="bd"><span class="t">${esc(x.title)}</span><span class="s">${dmy(x.published_at)}</span></span>
+          <span class="r4-3">${st3({ views: r4Sum(x, 'views'), likes: r4Sum(x, 'likes'), comments: r4Sum(x, 'comments') })}</span></summary>
+          <div class="r4-by">${R4P.filter(([p]) => x[p] || (x.last && x.last[p])).map(([p, nm]) => `<a class="r4-row" ${x[p] ? `href="${esc(x[p])}" target="_blank" rel="noopener"` : ''}><i>${R4I[p]}</i><span class="nm">${nm}</span>${x.last && x.last[p] ? st3(x.last[p]) : '<span class="r4-n">—</span>'}</a>`).join('') || '<p class="none">Թվերը՝ մի քանի ժամից</p>'}</div>
+        </details>`).join('')}</div>`, { foot: 'Թվերը թարմանում են օրը մեկ։' })
+      : sec('Հրապարակումներ', '<div class="card"><p class="none">Թվերը կերևան առաջին հրապարակումից հետո</p></div>');
+    // 4) «Իմ AI մոդելը»
+    const ph = R.photos || {};
+    const mNote = models.map((m) => m.note).filter(Boolean)[0];
+    const photos = sec('Իմ AI մոդելը', `<div class="card r4-mod">
+        <div class="r4-faces">
+          <label class="r4-face add" for="r4ph"><span class="c">${I.plus}</span><span class="nm">Նկարներ</span><span class="s">ավելացնել</span></label><input type="file" id="r4ph" accept="image/*" multiple hidden>
+          ${models.map((m) => `<button type="button" class="r4-face ${m.status}" data-mod="${m.id}" data-name="${esc(m.name)}"><span class="c">${m.cover && urls[m.cover] ? `<img src="${esc(urls[m.cover])}" alt="">` : R4I.face}${m.status === 'ready' ? `<b>${R4I.ok}</b>` : ''}</span><span class="nm">${esc(m.name)}</span><span class="s">${m.status === 'ready' ? 'պատրաստ' : 'սարքվում է'}</span></button>`).join('')}
+        </div>
+        <p class="meta" id="r4phmsg">${ph.new ? `${fmt(ph.new)} նկար՝ ստուգվում է` : mNote ? esc(mNote) : models.length ? 'Ավելի շատ նկար՝ ավելի նման մոդել' : 'Դրեք ձեր 10–15 նկարը՝ տարբեր կողմերից, լավ լույսով. համակարգը կսարքի ձեր AI մոդելը։'}</p>
+        <div id="r4mbox"></div>
+      </div>`);
+    // 5) մոտակա ռիլը՝ առաջարկվածը թե՞ իմ մոդելով
+    const nx = (plan.next || []).find((p) => p.status !== 'made') || (plan.next || []).find((p) => r && r.plan_day === p.day && ['ready', 'failed'].includes(r.status));
+    const ready = models.filter((m) => m.status === 'ready');
+    const isTd = nx && nx.day === R.today;
+    const tile = (sel, attrs, ic, t, s) => `<button type="button" class="r4-tile${sel ? ' on' : ''}" ${attrs}><span class="ic">${ic}</span><span class="t">${t}</span><span class="s">${s}</span>${sel ? `<b>${R4I.ok}</b>` : ''}</button>`;
+    const choice = nx ? sec(isTd ? 'Այսօրվա ռիլը' : 'Վաղվա ռիլը', `<div class="r4-tiles">
+        ${tile(nx.mode !== 'model', `data-mode="suggested" data-day="${nx.day}"`, I.film, 'Առաջարկվածը', 'Համակարգի կերպարով')}
+        ${ready.length ? ready.map((m) => tile(nx.mode === 'model' && +nx.model_id === +m.id, `data-mode="model" data-model="${m.id}" data-day="${nx.day}"`, m.cover && urls[m.cover] ? `<img src="${esc(urls[m.cover])}" alt="">` : R4I.face, 'Իմ մոդելով', esc(m.name))).join('')
+          : `<button type="button" class="r4-tile dim" data-goph><span class="ic">${R4I.face}</span><span class="t">Իմ մոդելով</span><span class="s">Նախ դրեք նկարներ ↑</span></button>`}
+      </div>`) : '';
+    // 6) «Սովորեցրեք ռիլերին»
+    const bubbles = (c) => `<div class="r4-msg me">${esc(c.text)}</div>${c.status === 'done' || c.status === 'error' ? `<div class="r4-msg ai">${esc(c.answer || '')}</div>` : '<div class="r4-msg ai typing"><i></i><i></i><i></i></div>'}`;
+    const teach = sec('Սովորեցրեք ռիլերին', `<div class="card r4-chat">
+        ${chat.length ? '' : '<p class="meta">Պատմեք ընկերության մասին, ուղարկեք դուր եկած ռիլ կամ ասեք՝ ինչպիսին լինեն ռիլերը։</p>'}
+        <div class="r4-thread" id="r4th">${chat.slice(-6).map(bubbles).join('')}</div>
+        <div class="r4-chips"><button type="button" data-chip="Մեր ընկերության մասին՝ ">Մեր մասին</button><button type="button" data-chip="+">Դուր եկած ռիլ</button><button type="button" data-chip="Ուզում եմ, որ ռիլերը ">Ցանկություններ</button></div>
+        ${r4Comp('r4t', true)}
+        ${R.brief_n ? `<p class="meta">Համակարգը գիտի ${fmt(R.brief_n)} բան ձեր մասին</p>` : ''}
+      </div>`);
+    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(hero + chg + stats + photos + choice + teach));
+
+    // ── վարքը ──
+    const v = document.getElementById('r4v');
+    if (v) {
+      const snd = document.getElementById('r4snd'), bar = document.getElementById('r4bar');
+      v.play().catch(() => {});
+      v.addEventListener('timeupdate', () => { if (v.duration) bar.style.width = (100 * v.currentTime / v.duration) + '%'; });
+      v.onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
+      snd.onclick = (e) => { e.stopPropagation(); v.muted = !v.muted; snd.innerHTML = v.muted ? R4I.mute : R4I.snd; if (!v.muted) v.play().catch(() => {}); };
+    }
+    // «Հաստատել» → 5 վրկ «Չեղարկել», հետո իսկապես (հրապարակումը հետ չի բերվում)
+    const ok = document.getElementById('r4ok');
+    const okIdle = () => { ok.classList.remove('arm'); ok.disabled = false; ok.innerHTML = `<span class="l">${R4I.ok}Հաստատել</span>${plats()}`; };
+    if (ok) ok.onclick = () => {
+      if (ok.dataset.wait) { clearInterval(+ok.dataset.wait); delete ok.dataset.wait; okIdle(); return; }
+      let left = 5;
+      ok.classList.add('arm');
+      const paint = () => { ok.innerHTML = `<span class="l">${R4I.ok}Հաստատված է</span><span class="r4-undo">Չեղարկել · ${left}</span>`; };
+      paint(); navigator.vibrate?.(10);
+      const t = setInterval(async () => {
+        left--; if (left > 0) return paint();
+        clearInterval(t); delete ok.dataset.wait; ok.disabled = true; ok.innerHTML = '<span class="l">Ուղարկվում է…</span>';
+        const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: 'publish', p_comment: '', p_voice: null });
+        if (error) { okIdle(); toast('Չստացվեց, փորձեք նորից'); return; }
+        invalidate(); render();
+      }, 1000);
+      ok.dataset.wait = t;
+    };
+    r4Bind('r4c', async (t) => {
+      const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: 'change', p_comment: t, p_voice: null });
+      if (error) { toast('Չստացվեց, փորձեք նորից'); return false; }
+      invalidate(); render(); return true;
+    });
+    // նկարներ
+    const fi = document.getElementById('r4ph'), pm = document.getElementById('r4phmsg');
+    fi.onchange = async () => {
+      const fs = [...fi.files].slice(0, 30); if (!fs.length) return;
+      const paths = [];
+      for (let i = 0; i < fs.length; i++) {
+        pm.textContent = `Բեռնվում է ${i + 1}/${fs.length}…`;
+        try {
+          const b = await r4Jpeg(fs[i]); if (!b) continue;
+          const path = `photos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+          const up = await sb.storage.from('reels').upload(path, b, { contentType: 'image/jpeg', upsert: false });
+          if (!up.error) paths.push(path);
+        } catch (e) {}
+      }
+      if (!paths.length) { pm.textContent = 'Նկարները չբեռնվեցին, փորձեք նորից'; return; }
+      const { error } = await sb.rpc('app_reel_photo_add', { p_paths: paths });
+      if (error) { pm.textContent = 'Չստացվեց, փորձեք նորից'; return; }
+      toast(`${paths.length} նկար ավելացավ. համակարգը կսարքի մոդելը`);
+      invalidate(); render();
+    };
+    sc.querySelectorAll('[data-mod]').forEach((b) => b.onclick = () => {
+      const box = document.getElementById('r4mbox');
+      if (box.dataset.id === b.dataset.mod) { box.innerHTML = ''; box.dataset.id = ''; return; }
+      box.dataset.id = b.dataset.mod;
+      box.innerHTML = `<div class="r4-medit"><input class="in" id="r4mn" maxlength="40" value="${esc(b.dataset.name)}" aria-label="Անունը"><div class="btns"><button type="button" class="btn gray" id="r4moff">Հանել</button><button type="button" class="btn pri" id="r4msave">Պահել</button></div></div>`;
+      const go = async (off) => {
+        if (off && !confirm('Հանե՞լ այս մոդելը։ Ռիլերը այլևս չեն սարքվի նրանով։')) return;
+        const { error } = await sb.rpc('app_reel_model_set', { p_id: +b.dataset.mod, p_name: document.getElementById('r4mn').value, p_off: off });
+        if (error) { toast('Չստացվեց'); return; }
+        invalidate(); render();
+      };
+      document.getElementById('r4msave').onclick = () => go(false);
+      document.getElementById('r4moff').onclick = () => go(true);
+    });
+    // ընտրություն
+    sc.querySelectorAll('[data-mode]').forEach((b) => b.onclick = async () => {
+      if (b.classList.contains('on')) return;
+      sc.querySelectorAll('[data-mode]').forEach((x) => { x.disabled = true; });
+      const { data, error } = await sb.rpc('app_reel_choose', { p_day: b.dataset.day, p_mode: b.dataset.mode, p_model: b.dataset.model ? +b.dataset.model : null });
+      if (error) { toast('Չստացվեց, փորձեք նորից'); sc.querySelectorAll('[data-mode]').forEach((x) => { x.disabled = false; }); return; }
+      toast(data && data.remake ? 'Լավ. ռիլը նորից կսարքենք' : 'Լավ, այդպես կսարքենք');
       invalidate(); render();
     });
+    const gp = sc.querySelector('[data-goph]');
+    if (gp) gp.onclick = () => { fi.closest('.sec').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    // չատ
+    const th = document.getElementById('r4th');
+    const here = location.hash;
+    function poll() {
+      clearTimeout(r4Poll);
+      r4Poll = setTimeout(async () => {
+        if (location.hash !== here || !document.body.contains(th)) return;
+        try {
+          const X = await fetchRpc('app_reels');
+          th.innerHTML = (X.chat || []).slice(-6).map(bubbles).join('');
+          if ((X.chat || []).some((c) => c.status === 'pending' || c.status === 'working')) poll(); else invalidate();
+        } catch (e) { poll(); }
+      }, 5000);
+    }
+    const tq = r4Bind('r4t', async (t) => {
+      let ref = null;
+      const link = (t.match(/https?:\/\/\S+/) || [])[0];
+      if (link) { const x = await sb.rpc('app_reel_ref_add', { p_kind: 'link', p_path: null, p_url: link, p_note: t.slice(0, 300), p_voice: null }); if (!x.error && x.data) ref = x.data.id; }
+      const { error } = await sb.rpc('app_reel_chat_send', { p_text: t, p_ref: ref });
+      if (error) { toast('Չստացվեց, փորձեք նորից'); return false; }
+      th.insertAdjacentHTML('beforeend', bubbles({ text: t, status: 'pending' }));
+      th.lastElementChild.scrollIntoView({ block: 'nearest' });
+      poll(); return true;
+    });
+    const tfile = document.getElementById('r4tfile');
+    document.getElementById('r4tplus').onclick = () => tfile.click();
+    tfile.onchange = async () => {
+      const f = tfile.files[0]; if (!f) return;
+      if (f.size > 50 * 1048576) { toast('Վիդեոն 50 ՄԲ-ից մեծ է. ուղարկեք հղումը'); return; }
+      toast('Բեռնվում է…');
+      const ext = ((f.name.match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'mp4').toLowerCase();
+      const path = `refs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const up = await sb.storage.from('reels').upload(path, f, { contentType: f.type || 'video/mp4', upsert: false });
+      if (up.error) { toast('Վիդեոն չբեռնվեց, փորձեք նորից'); return; }
+      const note = tq.q.value.trim();
+      const x = await sb.rpc('app_reel_ref_add', { p_kind: 'video', p_path: path, p_url: null, p_note: note || null, p_voice: null });
+      const t = note || 'Ահա ռիլ, որ դուր է գալիս';
+      const { error } = await sb.rpc('app_reel_chat_send', { p_text: t, p_ref: x.data ? x.data.id : null });
+      if (error) { toast('Չստացվեց'); return; }
+      tq.q.value = ''; tq.grow();
+      th.insertAdjacentHTML('beforeend', bubbles({ text: t, status: 'pending' })); poll();
+    };
+    sc.querySelectorAll('[data-chip]').forEach((b) => b.onclick = () => {
+      if (b.dataset.chip === '+') return tfile.click();
+      tq.q.value = b.dataset.chip; tq.grow(); tq.q.focus(); tq.q.setSelectionRange(tq.q.value.length, tq.q.value.length);
+    });
+    if (chat.some((c) => c.status === 'pending' || c.status === 'working')) poll();
   });
   const x0foot = (R) => R.no_ads_left ? '' : 'Թիվը՝ դիտումներ։';
 
@@ -1799,8 +1985,9 @@ function toast(text) {
   // (Gemini-ն գրում ու մաքրում է՝ կետադրություն, «էէ», կրկնություններ) → տեքստը դաշտում։ Ինքը չի ուղարկում. տերը կարդում, ուղղում, ուղարկում է։
   // Enter/✓՝ պատրաստ, Esc/✕՝ չեղարկել, Ctrl+M՝ սկսել։ Միկրոֆոնը փակվում է անմիջապես (iPhone-ի նարնջագույն կետը չի մնում)։
   const VOICE_MAX = 300;   // վրկ
-  function dictation(q, grow) {
-    const mic = document.getElementById('mic'), bar = document.getElementById('rec'), cv = document.getElementById('rec-w'), tEl = document.getElementById('rec-t');
+  // 07.11 (ԿԱ 4). x՝ id-ների նախածանց, որ նույն էջում մի քանի դաշտ լինի (Ռիլեր. «Ի՞նչ փոխել» + «Սովորեցրեք»)
+  function dictation(q, grow, x = '') {
+    const mic = document.getElementById(x + 'mic'), bar = document.getElementById(x + 'rec'), cv = document.getElementById(x + 'rec-w'), tEl = document.getElementById(x + 'rec-t');
     // ⛔ 05.11 (Գարիկ). չատի դաշտում ոչ մի գրություն. ձայնագրումը՝ 🎤-ի վիճակով, հաղորդագրությունը՝ toast-ով
     const box = mic.closest('.composer');
     let rec = null, stream = null, actx = null, raf = 0, t0 = 0, levels = [], chunks = [], keep = false;
@@ -1882,8 +2069,8 @@ function toast(text) {
       if (!matchMedia('(pointer: coarse)').matches) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
     }
     mic.onclick = start;
-    document.getElementById('rec-x').onclick = cancel;
-    document.getElementById('rec-ok').onclick = () => finish();
+    document.getElementById(x + 'rec-x').onclick = cancel;
+    document.getElementById(x + 'rec-ok').onclick = () => finish();
     q.addEventListener('keydown', (e) => { if (e.ctrlKey && (e.key === 'm' || e.key === 'M' || e.code === 'KeyM')) { e.preventDefault(); start(); } });
     document.addEventListener('visibilitychange', function vis() {
       if (!document.body.contains(mic)) return document.removeEventListener('visibilitychange', vis);
@@ -2170,7 +2357,7 @@ function toast(text) {
   const garikLeft = () => `<a class="ibtn hb" href="#/garik/more" aria-label="Ավելին" title="Ավելին">${I.more}</a>`;
   const garikHead = () => `<a class="ibtn hb" href="#/garik/history" aria-label="Հին զրույցներ" title="Հին զրույցներ">${I.hist}</a><button type="button" class="ibtn hb" id="gnew" aria-label="Նոր զրույց" title="Նոր զրույց">${I.compose}</button><a class="ibtn hb gclose" href="${chatBack}" aria-label="Փակել" title="Փակել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.2"')}</a>`;
   const subMount = (title, body, back) => mount({ title: 'GTH', tab: 'garik', compact: true, right: '' }, gsub(title, back) + body);
-  const recRow = () => `<div class="rec" id="rec" hidden><button type="button" class="rec-x" id="rec-x" aria-label="Չեղարկել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"')}</button><span class="rec-dot"></span><canvas class="rec-w" id="rec-w"></canvas><span class="rec-t" id="rec-t">0:00</span><button type="button" class="rec-ok" id="rec-ok" aria-label="Պատրաստ է">${sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</button></div>`;
+  const recRow = (x = '') => `<div class="rec" id="${x}rec" hidden><button type="button" class="rec-x" id="${x}rec-x" aria-label="Չեղարկել">${sv(20, '<path d="M6 6l12 12M18 6 6 18"/>', ' style="stroke-width:2.4"')}</button><span class="rec-dot"></span><canvas class="rec-w" id="${x}rec-w"></canvas><span class="rec-t" id="${x}rec-t">0:00</span><button type="button" class="rec-ok" id="${x}rec-ok" aria-label="Պատրաստ է">${sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', ' style="stroke-width:2.6"')}</button></div>`;
 
   route('/garik', async (arg) => {
     lastTab = 'garik';
