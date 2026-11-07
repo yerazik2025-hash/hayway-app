@@ -1496,6 +1496,8 @@ function toast(text) {
     snd: sv(20, '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
     mute: sv(20, '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>'),
     face: sv(26, '<circle cx="12" cy="9" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/>'),
+    big: sv(20, '<path d="M4.5 9V4.5H9M19.5 9V4.5H15M4.5 15v4.5H9M19.5 15v4.5H15"/>'),
+    dl: sv(20, '<path d="M12 4.5v10.5M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>'),
   };
   const r4Sum = (r, k) => R4P.reduce((a, [p]) => a + (r.last && r.last[p] ? +r.last[p][k] || 0 : 0), 0);
   const r4Num = (n) => n >= 1e6 ? fmt(n / 1e6, 1) + 'M' : n >= 1e4 ? fmt(n / 1e3, 0) + 'K' : fmt(n);
@@ -1566,7 +1568,7 @@ function toast(text) {
         <p class="r4-when"><span>${when}</span>${plan.days ? '<span>Ամսվա պլանից</span>' : ''}</p>
         <div class="r4-player${r.status === 'changes' ? ' busy' : ''}" id="r4pl">
           ${r.video && urls[r.video] ? `<video id="r4v" src="${esc(urls[r.video])}" ${r.poster && urls[r.poster] ? `poster="${esc(urls[r.poster])}"` : ''} playsinline muted loop autoplay preload="metadata"></video>
-            <button type="button" class="r4-snd" id="r4snd" aria-label="Ձայնը">${R4I.mute}</button><i class="r4-prog"><b id="r4bar"></b></i>` : '<p class="none">Վիդեոն բեռնվում է</p>'}
+            <span class="r4-vb"><button type="button" id="r4snd" aria-label="Ձայնը">${R4I.mute}</button><button type="button" id="r4big" aria-label="Մեծացնել">${R4I.big}</button><button type="button" id="r4dl" aria-label="Ներբեռնել">${R4I.dl}</button></span><i class="r4-prog"><b id="r4bar"></b></i>` : '<p class="none">Վիդեոն բեռնվում է</p>'}
           ${r.status === 'changes' ? '<div class="r4-busy"><span class="spin"></span><p>Նոր տարբերակն է պատրաստվում</p></div>' : ''}
         </div>
         ${act}
@@ -1585,7 +1587,7 @@ function toast(text) {
           ${x.poster && urls[x.poster] ? `<img src="${esc(urls[x.poster])}" alt="" loading="lazy">` : `<span class="r4-th">${I.film}</span>`}
           <span class="bd"><span class="t">${esc(x.title)}</span><span class="s">${dmy(x.published_at)}</span></span>
           <span class="r4-3">${st3({ views: r4Sum(x, 'views'), likes: r4Sum(x, 'likes'), comments: r4Sum(x, 'comments') })}</span></summary>
-          <div class="r4-by">${R4P.filter(([p]) => x[p] || (x.last && x.last[p])).map(([p, nm]) => `<a class="r4-row" ${x[p] ? `href="${esc(x[p])}" target="_blank" rel="noopener"` : ''}><i>${R4I[p]}</i><span class="nm">${nm}</span>${x.last && x.last[p] ? st3(x.last[p]) : '<span class="r4-n">—</span>'}</a>`).join('') || '<p class="none">Թվերը՝ մի քանի ժամից</p>'}</div>
+          <div class="r4-by"><a class="r4-row" href="#/reels/${x.n}"><i>${I.film}</i><span class="nm">Դիտել · ներբեռնել</span></a>${R4P.filter(([p]) => x[p] || (x.last && x.last[p])).map(([p, nm]) => `<a class="r4-row" ${x[p] ? `href="${esc(x[p])}" target="_blank" rel="noopener"` : ''}><i>${R4I[p]}</i><span class="nm">${nm}</span>${x.last && x.last[p] ? st3(x.last[p]) : '<span class="r4-n">—</span>'}</a>`).join('') || '<p class="none">Թվերը՝ մի քանի ժամից</p>'}</div>
         </details>`).join('')}</div>`, { foot: 'Թվերը թարմանում են օրը մեկ։' })
       : sec('Հրապարակումներ', '<div class="card"><p class="none">Թվերը կերևան առաջին հրապարակումից հետո</p></div>');
     // 4) «Իմ AI մոդելը»
@@ -1630,6 +1632,30 @@ function toast(text) {
       v.addEventListener('timeupdate', () => { if (v.duration) bar.style.width = (100 * v.currentTime / v.duration) + '%'; });
       v.onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
       snd.onclick = (e) => { e.stopPropagation(); v.muted = !v.muted; snd.innerHTML = v.muted ? R4I.mute : R4I.snd; if (!v.muted) v.play().catch(() => {}); };
+      // 07.11 Գարիկ. «հնարավորություն տուր որ ներբեռնվի ինչպես նաև մեծանա». մեծացնել = ամբողջ էկրան ձայնով (iPhone-ում՝ իր նվագարկիչը)
+      document.getElementById('r4big').onclick = (e) => {
+        e.stopPropagation(); v.muted = false; snd.innerHTML = R4I.snd; v.play().catch(() => {});
+        if (v.requestFullscreen) v.requestFullscreen().catch(() => { if (v.webkitEnterFullscreen) v.webkitEnterFullscreen(); });
+        else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      };
+      // ներբեռնել. հեռախոսում՝ «Կիսվել → Պահել վիդեոն» (iPhone-ի լուսանկարներում), համակարգչում՝ ֆայլ
+      const dl = document.getElementById('r4dl');
+      dl.onclick = async (e) => {
+        e.stopPropagation(); if (dl.disabled) return;
+        const name = `HayWay-ril-${r.n}.mp4`;
+        dl.disabled = true; dl.classList.add('busy');
+        try {
+          const coarse = matchMedia('(pointer: coarse)').matches;
+          if (coarse && navigator.canShare) {
+            const blob = await (await fetch(v.currentSrc || v.src)).blob();
+            const file = new File([blob], name, { type: 'video/mp4' });
+            if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }).catch(() => {}); return; }
+          }
+          const { data } = await sb.storage.from('reels').createSignedUrl(r.video, 600, { download: name });
+          const a = document.createElement('a'); a.href = data ? data.signedUrl : (v.currentSrc || v.src); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        } catch (er) { toast('Չստացվեց, փորձեք նորից'); }
+        finally { dl.disabled = false; dl.classList.remove('busy'); }
+      };
     }
     // «Հաստատել» → 5 վրկ «Չեղարկել», հետո իսկապես (հրապարակումը հետ չի բերվում)
     const ok = document.getElementById('r4ok');

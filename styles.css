@@ -848,7 +848,11 @@ body.kb .wa-bar { padding-bottom: 7px; }
 .r4-player { position: relative; align-self: center; height: min(calc(100svh - 390px), 600px); min-height: 270px; aspect-ratio: 9 / 16; max-width: 100%; border-radius: 18px; overflow: clip; background: var(--fill); box-shadow: var(--edge); }
 .r4-player video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--bg); cursor: pointer; }
 .r4-player .none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.r4-snd { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--topbar); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.r4-vb { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 8px; }
+.r4-vb button { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--topbar); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .3s var(--spring); }
+.r4-vb button:active { transform: scale(.9); }
+.r4-vb button.busy { color: transparent; position: relative; }
+.r4-vb button.busy::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2.4px solid var(--text); border-right-color: transparent; animation: spin .8s linear infinite; }
 .r4-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--fill2); }
 .r4-prog b { display: block; height: 100%; width: 0; background: var(--text); }
 .r4-player.busy video { filter: blur(6px) brightness(.55); }
