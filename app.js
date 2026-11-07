@@ -1747,7 +1747,9 @@ function toast(text) {
     const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find(r4Open) || list[0]);
     if (n && !r) { location.hash = '#/reels'; return; }
     const pubs = list.filter((x) => x.status === 'published');
-    await signAll([r && r.video, r && r.poster, ...pubs.map((x) => x.poster), ...models.map((m) => m.cover), ...avs.map((a) => a.cover)]);
+    // 07.11 Գարիկ. «եթե կուտակվեն… ընտրության հնարավորություն» → 2+ պատրաստ ռիլ՝ փոքր նկարների շարք, սեղմելով՝ այդ ռիլը
+    const queue = list.filter((x) => x.status === 'ready' || x.status === 'failed').sort((x, y) => x.n - y.n);
+    await signAll([...queue.map((x) => x.poster), r && r.video, r && r.poster, ...pubs.map((x) => x.poster), ...models.map((m) => m.cover), ...avs.map((a) => a.cover)]);
     const on = (p) => !!conf[p];
     const plats = (cls) => `<span class="r4-pl ${cls || ''}">${R4P.map(([p, nm]) => `<i class="${on(p) ? '' : 'off'}" title="${nm}${on(p) ? '' : ' · դեռ միացված չէ'}">${R4I[p]}</i>`).join('')}</span>`;
     const offN = R4P.filter(([p]) => !on(p)).map(([, nm]) => nm);
@@ -1763,8 +1765,9 @@ function toast(text) {
         <button type="button" class="r4-ok" id="r4ok"><span class="l">${R4I.ok}Հաստատել</span>${plats()}</button>`;
       else if (r.status === 'approved' || r.status === 'publishing') act = `<div class="r4-st">${plats('wait')}<span>Հրապարակվում է</span></div>`;
       else if (r.status === 'published') act = `<div class="r4-st done">${R4P.map(([p, nm]) => r[p] ? `<a href="${esc(r[p])}" target="_blank" rel="noopener" title="${nm}">${R4I[p]}<b>${R4I.ok}</b></a>` : `<i class="off" title="${nm}">${R4I[p]}</i>`).join('')}<span>Հրապարակված է</span></div>`;
-      hero = `<section class="sec r4-hero">
-        <p class="r4-when"><span>${when}</span>${plan.days ? '<span>Ամսվա պլանից</span>' : ''}</p>
+      hero = `<section class="sec r4-hero${queue.length > 1 ? ' has-q' : ''}">
+        ${queue.length > 1 ? `<div class="r4-q"><p>Պատրաստ ռիլեր · ${queue.length}</p><div class="r4-qs">${queue.map((x) => `<a href="#/reels/${x.n}" class="${x.id === r.id ? 'on' : ''}" aria-label="${esc(x.title)}"${x.id === r.id ? ' aria-current="true"' : ''}>${x.poster && urls[x.poster] ? `<img src="${esc(urls[x.poster])}" alt="" loading="lazy">` : I.film}</a>`).join('')}</div></div>` : ''}
+        <p class="r4-when"><span>${when}</span>${r.plan_day ? '<span>Ամսվա պլանից</span>' : ''}</p>
         <div class="r4-player${r.status === 'changes' ? ' busy' : ''}" id="r4pl">
           ${r.video && urls[r.video] ? `<video id="r4v" src="${esc(urls[r.video])}" ${r.poster && urls[r.poster] ? `poster="${esc(urls[r.poster])}"` : ''} playsinline muted loop autoplay preload="metadata"></video>
             <span class="r4-vb"><button type="button" id="r4snd" aria-label="Ձայնը">${R4I.mute}</button><button type="button" id="r4big" aria-label="Մեծացնել">${R4I.big}</button><button type="button" id="r4dl" aria-label="Ներբեռնել">${R4I.dl}</button></span><i class="r4-prog"><b id="r4bar"></b></i>` : '<p class="none">Վիդեոն բեռնվում է</p>'}
@@ -1776,7 +1779,8 @@ function toast(text) {
     }
     // 2) «Ի՞նչ փոխել»
     // 07.11 Գարիկ. «մեկ անգամը բավարար է» → ամեն ռիլ կարելի է փոխել մեկ անգամ (r.remakes)
-    const chg = r && ['ready', 'failed', 'approved'].includes(r.status) && !(r.remakes >= 1) ? sec('Ի՞նչ փոխել', r4Comp('r4c'), { foot: 'Գրեք կամ ասեք ձայնով. նոր տարբերակը կսարքենք մեկ անգամ։' })
+    // փոխել կարող է միայն համակարգի պլանից սարքվածը (plan_day); ձեռքով տրվածները՝ ոչ
+    const chg = r && !r.plan_day && r.status !== 'changes' ? '' : r && ['ready', 'failed', 'approved'].includes(r.status) && !(r.remakes >= 1) ? sec('Ի՞նչ փոխել', r4Comp('r4c'), { foot: 'Գրեք կամ ասեք ձայնով. նոր տարբերակը կսարքենք մեկ անգամ։' })
       : r && ['ready', 'failed', 'approved'].includes(r.status) && r.remakes >= 1 ? sec('', `<div class="r4-sent">Ռիլը արդեն փոխվել է${r.comment ? `՝ «${esc(r.comment)}»` : ''}։ Հաջորդ ցանկությունները գրեք ներքևում՝ «Սովորեցրեք»-ում։</div>`)
       : r && r.status === 'changes' && r.comment ? sec('', `<div class="r4-sent"><span>Ուղարկած՝</span> ${esc(r.comment)}</div>`) : '';
     // 3) հրապարակումները՝ 2–3 թիվ ամեն տողում, բացելիս՝ ըստ ալիքի
