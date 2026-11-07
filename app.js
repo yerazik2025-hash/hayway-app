@@ -81,6 +81,13 @@ function toast(text) {
     ai: sv(20, '<path d="M4 5h16v11H9l-5 4z"/><path d="m12 7.5 1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z"/>'),
     logo: '<svg width="44" height="44" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#111113"/><path d="M16 6.5c-4 0-7 3-7 6.8 0 4.9 7 12.2 7 12.2s7-7.3 7-12.2c0-3.8-3-6.8-7-6.8z" fill="#FCE000"/><circle cx="16" cy="13.2" r="2.9" fill="#111113"/></svg>',
   };
+  // ԿԱ 7 (07.11). «Գովազդ» բաժնի նշանները
+  I.target = sv(20, '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>');
+  I.img = sv(20, '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/>');
+  I.chart = sv(20, '<path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-6"/>');
+  I.cal = sv(20, '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>');
+  I.check = sv(20, '<path d="m5 12.5 4.5 4.5L19 7.5"/>');
+  I.spark = sv(20, '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>');
 
   // ───────── Տվյալներ ─────────
   async function fetchRpc(fn, args) {
@@ -153,7 +160,7 @@ function toast(text) {
   // հերթը՝ Գարիկ 03.11. «Այսօրը, հետո list.am-ը, հետո ChatGPT-ն»; Գործեր/Որակ/Պայմաններ՝ «պետք չէ», Կարգավորումներում են (SUB); Մրցակիցները՝ Վարորդներից առաջ (Գարիկ 03.11)
   // Գարիկ 03.11. «չատ գպտ-ից հետո ուզում եմ այս բաժինը երևա ռիլերի»
   // Գարիկ 03.11. WhatsApp-ը՝ «Ռիլեր բաժնից առաջ», Մրցակիցները՝ «Վարորդներ բաժնից առաջ»
-  const DOCK = [['', I.home, 'Այսօր'], ['team', I.team, 'Թիմ'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['whatsapp', I.chat, 'WhatsApp'], ['reels', I.film, 'Ռիլեր'], ['rivals', I.trophy, 'Մրցակիցներ'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
+  const DOCK = [['', I.home, 'Այսօր'], ['team', I.team, 'Թիմ'], ['listam', I.mega, 'list.am'], ['geo', I.ai, 'ChatGPT'], ['whatsapp', I.chat, 'WhatsApp'], ['reels', I.film, 'Ռիլեր'], ['ads', I.target, 'Գովազդ'], ['rivals', I.trophy, 'Մրցակիցներ'], ['drivers', I.users, 'Վարորդներ'], ['growth', I.userplus, 'Նորեկներ'],
     ['finance', I.money, 'Ֆինանս']];
   // ներքևում չեղած էջերի «Հետ»-ը
   const SUB = { quality: ['#/settings', 'Կարգավորում'], terms: ['#/settings', 'Կարգավորում'], tasks: ['#/garik', 'GTH'] };
@@ -860,6 +867,7 @@ function toast(text) {
         gc('#/team', I.chat, 'b', 'Թիմ', 'չատ աշխատակցի հետ'),
         gc('#/whatsapp', I.chat, 'g', 'WhatsApp', 'վարորդների նամակներ'),
         gc('#/reels', I.film, 'p', 'Ռիլեր', 'TikTok, Instagram'),
+        gc('#/ads', I.target, 'b', 'Գովազդ', 'Meta · նմուշ'),
       ])}
       ${grid('Կառավարում', [
         gc('#/garik', I.star, 'b', 'GTH', 'Օգնական'),
@@ -1526,6 +1534,144 @@ function toast(text) {
   }
   const signedUrls = {};
   let r4Poll = 0;
+  // ───────── ԿԱ 7 · «Գովազդ» (Meta) բաժին — ՆՄՈՒՇ (07.11.2026, Գարիկի «Այո, դիր»-ով) ─────────
+  // Թվերը օրինակ են (ոչ մի կապ Meta-ի հետ դեռ չկա), վերևում «Նմուշ» նշանը։ Նախագիծը՝ GTH vault «05 Ծրագրային նախագծեր\ka7-meta-ads»։
+  // HayWay = տաքսապարկ → «հաճախորդ» = նոր վարորդ, «Գնեց / Չգնեց» = «Միացավ / Չմիացավ»։
+  // Հոկտեմբեր. 84 200 ֏ → 61 հայտ (1 380 ֏) → 18 միացավ (30%) → 4 680 ֏ մեկը. Նոյեմբեր (7 օր). 37 400 ֏ → 27 հայտ → 8 միացավ։
+  const K7 = { goal: 30, approved: false, filter: 'all', lf: 'todo', per: 4680, avg: 22, free: 40, max: 8000 };
+  const K7CR = [
+    { id: 1, v: 1, c: 'c2', hd: 'Ռիլ #12 · Վարորդի օրը', kind: 'Ռիլ էջից', cpl: 820, leads: 23, st: 'win' },
+    { id: 2, v: 0, c: 'c1', hd: '0% առաջին շաբաթ', kind: 'Նկար', cpl: 1140, leads: 17, st: 'win' },
+    { id: 3, v: 0, c: 'c3', hd: 'Միացիր մեկ օրում', kind: 'Նկար', cpl: 1490, leads: 9, st: 'win' },
+    { id: 4, v: 1, c: 'c4', hd: 'Ռիլ #9 · Առաջին շաբաթը', kind: 'Ռիլ էջից', cpl: 1720, leads: 6, st: 'test' },
+    { id: 5, v: 0, c: 'c2', hd: 'Աշխատիր քո ժամերով', kind: 'Նկար', cpl: 2100, leads: 4, st: 'test' },
+    { id: 6, v: 0, c: 'c1', hd: 'Վճարում՝ ամեն օր', kind: 'Նկար', cpl: 0, leads: 0, st: 'new' },
+    { id: 7, v: 0, c: 'c3', hd: 'Մեքենա ունե՞ս', kind: 'Նկար', cpl: 3900, leads: 2, st: 'off' },
+    { id: 8, v: 0, c: 'c4', hd: 'Լավագույն պարկը', kind: 'Նկար', cpl: 4300, leads: 0, st: 'off' },
+  ];
+  const K7ST = { win: ['ok', 'Հաղթող'], test: ['wait', 'Փորձվում է'], new: ['wait', 'Նոր'], off: ['off', 'Անջատված'] };
+  const K7L = [
+    { id: 1, nm: 'Արմեն Ս.', tm: 'Այսօր 14:20', cr: 1, st: null },
+    { id: 2, nm: 'Դավիթ Մ.', tm: 'Այսօր 11:05', cr: 2, st: null },
+    { id: 3, nm: 'Гриша К.', tm: 'Երեկ 21:40', cr: 1, st: null },
+    { id: 4, nm: 'Տիգրան Հ.', tm: 'Երեկ 18:12', cr: 3, st: 'yes' },
+    { id: 5, nm: 'Սամվել Ա.', tm: 'Երեկ 10:30', cr: 2, st: 'no' },
+    { id: 6, nm: 'Կարեն Պ.', tm: '05.11 19:55', cr: 1, st: 'yes' },
+  ];
+  const k7todo = () => K7L.filter((l) => !l.st).length;
+  const k7dot = (st) => `<span class="k7-st"><span class="dot ${K7ST[st][0]}"></span>${K7ST[st][1]}</span>`;
+  const k7thumb = (c) => `<span class="k7-th-s k7-th ${c.c}"></span>`;
+  const K7TAG = '<span class="k7-sample">Նմուշ</span>';
+  // կանխատեսում. միջակայք, ոչ մեկ թիվ; շատ փող → մեկի գինը բարձրանում է (լսարանը հոգնում է)
+  function k7fc(g) {
+    const per = K7.per * (1 + Math.max(0, g - K7.avg) * 0.012);
+    const budget = Math.round((g * per) / 5000) * 5000;
+    return { budget, per: Math.round(per / 10) * 10, lo: Math.max(1, Math.floor(budget / (per * 1.12))), hi: Math.ceil(budget / (per * 0.9)), day: Math.round(budget / 30 / 100) * 100 };
+  }
+  const k7rec = Math.min(K7.free, Math.round((K7.avg * 1.35) / 5) * 5);   // 30
+  const K7R = {};
+  K7R[''] = () => {
+    const f = k7fc(K7.goal), got = 8, t = k7todo();
+    return [{ title: 'Գովազդ', tab: 'ads', back: ['#/sections', 'Բաժիններ'], sub: `${K7TAG} <span class="dot ok"></span> Աշխատում է · 8 գովազդ` }, page(
+      `<div class="k7-hero"><span class="l">Նոյեմբեր · նոր վարորդ</span>
+        <div class="hero"><span class="n" data-n="${got}">${got}</span><span class="u">/ ${K7.goal}</span></div>
+        <div class="prog y"><span style="width:${Math.round((got / K7.goal) * 100)}%"></span></div>
+        <div class="s"><span>Կանխատեսում՝ <b>${f.lo}–${f.hi}</b></span><span>Մնաց 23 օր</span></div></div>`
+      + `<div class="kpis k3">${kpi('Ծախս', `${fmt(37400)} ֏`)}${kpi('Հայտ', '27', `${fmt(1385)} ֏`)}${kpi('Մեկ վարորդ', `${fmt(4680)} ֏`, '<span class="pill up">▼ 12%</span>')}</div>`
+      + (t ? group([cell({ href: '#/ads/leads', icon: I.alert, color: 'y', t: `${t} հայտ՝ նշեք`, s: 'Միացա՞վ, թե՞ ոչ', bold: true })], 'ic apr') : '')
+      + sec('Լավագույնները', group(K7CR.filter((c) => c.st === 'win').map((c) => cell({ href: '#/ads/creatives', lead: k7thumb(c), t: esc(c.hd), s: `${c.kind} · ${c.leads} հայտ`, v: `${fmt(c.cpl)} ֏`, strong: true }))), { action: '<a class="a" href="#/ads/creatives">Բոլորը</a>' })
+      + sec('', group([
+        cell({ href: '#/ads/goal', icon: I.target, color: 'b', t: 'Նպատակ', v: `${K7.goal} ամսում` }),
+        cell({ href: '#/ads/forecast', icon: I.chart, color: 'g', t: 'Կանխատեսում', v: `${fmt(f.budget)} ֏` }),
+        cell({ href: '#/ads/creatives', icon: I.img, color: 'p', t: 'Նկարներ ու հոլովակներ', v: `${K7CR.length}` }),
+        cell({ href: '#/ads/leads', icon: I.users, color: 't', t: 'Հայտեր', v: '27' }),
+        cell({ href: '#/ads/plan', icon: I.cal, color: 'o', t: 'Ամսվա պլան', v: 'Նոյեմբեր' }),
+      ], 'ic')))];
+  };
+  K7R.goal = () => {
+    const warn = K7.goal > K7.free ? `Պարկում ազատ տեղ՝ ${K7.free}։` : K7.goal > k7rec ? 'Շատ է. մեկի գինը կթանկանա։' : '';
+    return [{ title: 'Նպատակ', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: K7TAG }, page(
+      `<div class="k7-hero"><span class="l">Քանի՞ նոր վարորդ ամսում</span>
+        <div class="k7-step"><button type="button" data-k7d="-5" aria-label="Պակաս">−</button><div class="n">${K7.goal}<span class="u">նոր վարորդ</span></div><button type="button" data-k7d="5" aria-label="Ավել">+</button></div>
+        <div class="k7-chips">${[10, 20, 30, 40, 50].map((n) => `<button type="button" data-k7g="${n}" class="${n === K7.goal ? 'on' : ''} ${n === k7rec ? 'rec' : ''}">${n}</button>`).join('')}</div></div>`
+      + (warn ? `<p class="k7-warn">${warn}</p>` : '')
+      + sec(`Խելամիտ՝ ${k7rec}`, group([
+        cell({ icon: I.chart, color: 's', t: 'Ձեր ամսական միջինը', v: `${K7.avg}` }),
+        cell({ icon: I.car, color: 's', t: 'Ազատ տեղ պարկում', v: `${K7.free}` }),
+        cell({ icon: I.money, color: 's', t: 'Մեկի առավելագույն գինը', v: `${fmt(K7.max)} ֏` }),
+      ], 'ic'))
+      + '<a class="btn pri" href="#/ads/forecast">Հաշվել</a>')];
+  };
+  K7R.forecast = () => {
+    const f = k7fc(K7.goal);
+    return [{ title: 'Կանխատեսում', tab: 'ads', back: ['#/ads/goal', 'Նպատակ'], sub: K7TAG }, page(
+      `<div class="k7-hero"><span class="l">Բյուջե ամսում · ${K7.goal} վարորդի համար</span>
+        <div class="hero"><span class="n" data-n="${f.budget}">${fmt(f.budget)}</span><span class="u">֏</span></div>
+        <div class="s"><span>Օրական՝ <b>${fmt(f.day)} ֏</b></span><span>Ձեր քարտից</span></div></div>`
+      + `<div class="kpis k3">${kpi('Նոր վարորդ', `${f.lo}–${f.hi}`)}${kpi('Մեկի գինը', `~${fmt(f.per)} ֏`)}${kpi('Հայտ', `~${Math.round(f.budget / 1380)}`)}</div>`
+      + sec('Ինչից է հաշվված', group([
+        cell({ icon: I.check, color: 'g', t: 'Հոկտեմբերի 61 հայտը' }),
+        cell({ icon: I.check, color: 'g', t: '18 միացած վարորդ' }),
+        cell({ icon: I.check, color: 'g', t: 'Լավագույն 3 գովազդը' }),
+      ], 'ic'), { foot: 'Գումարը ավելանում է միայն ձեր «Այո»-ով։' })
+      + (K7.approved ? `<div class="k7-ok">${I.check}<span>Հաստատված է · նմուշ</span></div>`
+        : '<div class="k7-btns"><a class="btn gray" href="#/ads/goal">Փոխել</a><button type="button" class="btn pri" id="k7ok">Հաստատել</button></div>'))];
+  };
+  K7R.creatives = () => {
+    const F = { all: () => true, img: (c) => !c.v, vid: (c) => c.v }, ord = ['win', 'test', 'new', 'off'];
+    const list = K7CR.filter(F[K7.filter]).sort((a, b) => ord.indexOf(a.st) - ord.indexOf(b.st) || (a.cpl || 9e9) - (b.cpl || 9e9));
+    return [{ title: 'Նկարներ ու հոլովակներ', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `${K7TAG} <span class="dot ok"></span> Հոլովակը 40% էժան է` }, page(
+      `<div class="seg">${[['all', 'Բոլորը'], ['img', 'Նկարներ'], ['vid', 'Հոլովակներ']].map(([k, l]) => `<button type="button" data-k7f="${k}" class="${K7.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>`
+      + group([cell({ icon: I.spark, color: 'p', t: 'Նորերը պատրաստվում են', s: 'Հաղթողների նմանությամբ', v: '3' })], 'ic')
+      + `<div class="k7-grid">${list.map((c) => `<div class="k7-cr ${c.st === 'off' ? 'off' : ''}">
+          <div class="k7-th ${c.c}"><span class="kind">${c.v ? I.film : I.img}${c.kind}</span><span class="car">${I.car}</span><span class="hd">${esc(c.hd)}</span></div>
+          <div class="k7-mt"><span class="p">${c.cpl ? `${fmt(c.cpl)} ֏<small>հայտը</small>` : '—'}</span>${k7dot(c.st)}</div></div>`).join('')}</div>`)];
+  };
+  K7R.leads = () => {
+    const list = K7.lf === 'todo' ? K7L.filter((l) => !l.st) : K7L;
+    return [{ title: 'Հայտեր', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `${K7TAG} Նոյեմբեր · 27 հայտ · 8 միացավ` }, page(
+      `<div class="seg"><button type="button" data-k7l="todo" class="${K7.lf === 'todo' ? 'on' : ''}">Նշել · ${k7todo()}</button><button type="button" data-k7l="all" class="${K7.lf === 'all' ? 'on' : ''}">Բոլորը</button></div>`
+      + (list.length ? `<div class="group">${list.map((l) => {
+        const c = K7CR.find((x) => x.id === l.cr);
+        return `<div class="k7-lead"><div class="h"><span class="nm">${esc(l.nm)}</span><span class="tm">${l.tm}</span></div><span class="fr">«${esc(c.hd)}»-ից</span>
+          ${l.st ? `<div class="done">${l.st === 'yes' ? '<span class="tag g">Միացավ</span>' : '<span class="tag">Չմիացավ</span>'}<button type="button" class="btn plain sm" data-k7u="${l.id}">Փոխել</button></div>`
+            : `<div class="k7-act"><button type="button" class="btn pri sm" data-k7y="${l.id}">Միացավ</button><button type="button" class="btn gray sm" data-k7x="${l.id}">Չմիացավ</button></div>`}</div>`;
+      }).join('')}</div>` : `<div class="k7-ok">${I.check}<span>Բոլորը նշված են</span></div>`)
+      + '<p class="sec-f">Ձեր նշումից գովազդը սովորում է։</p>')];
+  };
+  K7R.plan = () => [{ title: 'Նոյեմբերի պլան', tab: 'ads', back: ['#/ads', 'Գովազդ'], sub: `${K7TAG} <span class="dot ok"></span> Թարմացված է 01.11` }, page(
+    sec('Հոկտեմբերին սովորեցինք', group([
+      cell({ icon: I.film, color: 'p', t: 'Հոլովակը նկարից էժան է', v: '−40%' }),
+      cell({ icon: I.star, color: 'y', t: 'Լավագույն միտքը՝ «0% շաբաթ»' }),
+      cell({ icon: I.clock, color: 's', t: 'Երեկոյան հայտերը ավելի են միանում' }),
+    ], 'ic'))
+    + sec('Այս ամիս', group([
+      cell({ icon: I.target, color: 'b', t: '30 նոր վարորդ', v: `${fmt(k7fc(30).budget)} ֏` }),
+      cell({ icon: I.spark, color: 'p', t: '5 նոր միտք', s: 'Իրար չնմանվող' }),
+      cell({ icon: I.film, color: 'p', t: 'Ռիլ #12-ը՝ գովազդ' }),
+      cell({ icon: I.chat, color: 's', t: 'Ռուսերեն տարբերակ՝ փորձ' }),
+    ], 'ic'))
+    + sec('Մրցակիցները', group([
+      cell({ icon: I.trophy, color: 's', t: 'Տաքսապարկերի գովազդ', v: '14' }),
+      cell({ icon: I.clock, color: 's', t: 'Ամենաերկար աշխատողը', v: '62 օր' }),
+    ], 'ic'), { foot: 'Մեկ ամսից երկար աշխատողը՝ ապացուցված միտք։' }))];
+  route('/ads', async (sub) => {
+    const [o, body] = (K7R[sub] || K7R[''])();
+    lastTab = 'ads';
+    const sc = mount(o, body);
+    const again = () => render(true);
+    sc.querySelectorAll('[data-k7d]').forEach((b) => (b.onclick = () => { K7.goal = Math.max(5, Math.min(80, K7.goal + +b.dataset.k7d)); K7.approved = false; again(); }));
+    sc.querySelectorAll('[data-k7g]').forEach((b) => (b.onclick = () => { K7.goal = +b.dataset.k7g; K7.approved = false; again(); }));
+    sc.querySelectorAll('[data-k7f]').forEach((b) => (b.onclick = () => { K7.filter = b.dataset.k7f; again(); }));
+    sc.querySelectorAll('[data-k7l]').forEach((b) => (b.onclick = () => { K7.lf = b.dataset.k7l; again(); }));
+    sc.querySelectorAll('[data-k7y],[data-k7x],[data-k7u]').forEach((b) => (b.onclick = () => {
+      const l = K7L.find((x) => x.id === +(b.dataset.k7y || b.dataset.k7x || b.dataset.k7u));
+      l.st = b.dataset.k7y ? 'yes' : b.dataset.k7x ? 'no' : null; again();
+    }));
+    const ok = document.getElementById('k7ok');
+    if (ok) ok.onclick = () => { K7.approved = true; again(); };
+  });
+
   route('/reels', async (n) => {
     lastTab = 'sections';
     clearTimeout(r4Poll);

@@ -116,7 +116,7 @@
   /* երկու սյուն՝ թերթի պես (նախ ձախը վերևից ներքև, հետո աջը). ամեն բլոկ ամբողջական է մնում */
   :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13))){display:block;columns:2;column-gap:24px}
   :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>*{max-width:none;break-inside:avoid;margin:0 0 26px}
-  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>:is(.seg,.kpis.k3){column-span:all;margin-bottom:26px}
+  :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>:is(.seg,.kpis.k3,.k7-hero,.k7-grid){column-span:all;margin-bottom:26px}
   :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>.seg{max-width:560px}
   :root.dk .page:not(.gthc):is(:has(>:nth-child(3)),:has(>.sec~.sec)):not(:has(.group>.cell:nth-child(13)))>.btn.full{display:flex;width:100%}
   /* երկար ցուցակ՝ երկու սյուն տողեր (նույն քարտի ներսում) */
@@ -129,3 +129,6 @@
   :root[data-dk-tab="sections"] .page .gcells{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 }
 }
+
+/* ԿԱ 7 (07.11). «Նկարներ ու հոլովակներ» ցանցը համակարգչում՝ 4–5 սյուն, ոչ թե 2 մեծ սալիկ */
+@media screen and (min-width:1024px) and (hover:hover) and (pointer:fine){:root.dk.dk-in .k7-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
