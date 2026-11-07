@@ -1576,7 +1576,9 @@ function toast(text) {
       </section>`;
     }
     // 2) «Ի՞նչ փոխել»
-    const chg = r && ['ready', 'failed', 'approved'].includes(r.status) ? sec('Ի՞նչ փոխել', r4Comp('r4c'), { foot: 'Գրեք կամ ասեք ձայնով. կսարքենք նոր տարբերակը։' })
+    // 07.11 Գարիկ. «մեկ անգամը բավարար է» → ամեն ռիլ կարելի է փոխել մեկ անգամ (r.remakes)
+    const chg = r && ['ready', 'failed', 'approved'].includes(r.status) && !(r.remakes >= 1) ? sec('Ի՞նչ փոխել', r4Comp('r4c'), { foot: 'Գրեք կամ ասեք ձայնով. նոր տարբերակը կսարքենք մեկ անգամ։' })
+      : r && ['ready', 'failed', 'approved'].includes(r.status) && r.remakes >= 1 ? sec('', `<div class="r4-sent">Ռիլը արդեն փոխվել է${r.comment ? `՝ «${esc(r.comment)}»` : ''}։ Հաջորդ ցանկությունները գրեք ներքևում՝ «Սովորեցրեք»-ում։</div>`)
       : r && r.status === 'changes' && r.comment ? sec('', `<div class="r4-sent"><span>Ուղարկած՝</span> ${esc(r.comment)}</div>`) : '';
     // 3) հրապարակումները՝ 2–3 թիվ ամեն տողում, բացելիս՝ ըստ ալիքի
     const tot = pubs.reduce((a, x) => a + r4Sum(x, 'views'), 0);
