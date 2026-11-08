@@ -380,7 +380,7 @@ function toast(text) {
     const bars = rows.map((r, i) => `<i class="${r.now ? 't' : ''}${r.has ? '' : ' nd'}" style="--g:${r.has ? Math.max(3, Math.round(r.commission / max * 100)) : 0}%;--h:${r.has ? Math.max(0, Math.round(r.net / max * 100)) : 0}%;--k:${i}"></i>`).join('');
     const axis = M ? `<div class="axis mo">${rows.map((r) => `<span>${r.ax}</span>`).join('')}</div>`
       : `<div class="axis"><span>${rows.length ? rows[0].ax : ''}</span><span>${rows.length > 8 ? rows[Math.floor(rows.length / 2)].ax : ''}</span><span>${rows.length && rows[rows.length - 1].now ? 'այսօր' : (rows.length ? rows[rows.length - 1].ax : '')}</span></div>`;
-    const tot = rows.reduce((s, r) => s + (r.has ? +r.net || 0 : 0), 0);
+    const tot = rows.reduce((s, r) => s + (r.has && !r.now ? +r.net || 0 : 0), 0);   // 08.11. լրիվ օրերը, ինչպես մեծ թիվը (db4)
     return `<div class="card hc">
         <div class="lab"><span>${lab}</span><span class="aux">թարմ՝ ${ago(D.last_sync)}</span></div>
         <div class="val"><span data-n="${val}">${fmt(val)}</span><small>֏</small></div>
@@ -2089,9 +2089,9 @@ function toast(text) {
     const np = ni && ni.period, ex = ni && ni.expenses;
     const allCost = np ? +np.payment_costs + +np.other_costs : 0;
     const feeSec = fe ? (np ? sec('Մաքուր շահույթ · 30 օր', `<div class="kpis">
-        ${kpi('Պարկի եկամուտ', short(np.commission), `${String(fe.park_commission_pct).replace('.', ',')}% պատվերներից`)}
+        ${kpi('Պարկի եկամուտ', short(np.commission), np.gmv ? `${(np.commission / np.gmv * 100).toFixed(2).replace('.', ',')}% պատվերներից` : '')}
         ${kpi('Բոլոր ծախսերը', short(allCost), np.commission ? `${Math.round(allCost / np.commission * 100)}% եկամտից` : '')}
-        ${kpi('Մաքուր շահույթ', `<span class="${+np.net < 0 ? 'neg' : ''}">${short(np.net)}</span>`, 'եկամուտ − բոլոր ծախսերը')}
+        ${kpi('Մաքուր շահույթ', `<span class="${+np.net < 0 ? 'neg' : ''}">${np.est_days ? '≈' + NB : ''}${short(np.net)}</span>`, np.est_days ? `${np.est_days} օրը՝ մոտավոր` : 'եկամուտ − բոլոր ծախսերը')}
       </div>`) + sec('Ծախսեր · 30 օր', group([
         kv('Վճարային', `<span class="neg">${short(np.payment_costs)}</span>`, 'Idram, Telcell, EasyPay, PrimeBridge'),
         kv('Հարկ', `<span class="neg">${short(np.tax)}</span>`, `${String(ex.tax_pct).replace('.', ',')}% եկամտից`),
@@ -2103,7 +2103,7 @@ function toast(text) {
         ${kpi('Վճարային ծախսեր', short(pc.total_amd), `${String(fe.costs_pct_of_park_commission).replace('.', ',')}% եկամտից`)}
         ${kpi('Մաքուր', short(fe.park_net_after_costs_amd), 'եկամուտ − ծախսեր')}
       </div>`))
-      + sec('Ով ինչքան է վերցնում · 30 օր', group([
+      + sec(`Ով ինչքան է վերցնում · ${fe.days || 30} օր`, group([
         kv('Idram · լիցքավորում', `<span class="neg">${short(pc.idram_topups.cost_amd)}</span>`, `${rateS(pc.idram_topups.rate)} · ${short(pc.idram_topups.volume_amd)}-ից`),
         kv('Telcell · լիցքավորում', `<span class="neg">${short(pc.telcell_topups.cost_amd)}</span>`, `${rateS(pc.telcell_topups.rate)} · ${short(pc.telcell_topups.volume_amd)}-ից`),
         kv('EasyPay · լիցքավորում', `<span class="neg">${short(pc.easypay_topups.cost_amd)}</span>`, `${rateS(pc.easypay_topups.rate)} · ${short(pc.easypay_topups.volume_amd)}-ից`),
@@ -2111,17 +2111,24 @@ function toast(text) {
         kv('Yandex · վարորդից', short(+fe.yandex.fee_amd + +fe.yandex.vat_amd + +fe.yandex.other_amd), `≈${String(fe.yandex.pct_of_gross).replace('.', ',')}% պատվերներից, ԱԱՀ-ով`),
         kv('Պատենտի տուրք · վարորդից', short(fe.state_duty_amd), 'պետությանը'),
       ])) : '';
+    // 08.11. ձեռքով դրված գումարները վարորդների հաշվին (մրցանակ, ուղղում). մաքուրից դեռ չեն հանվում (db4, app_finance.manual)
+    const mn = f.manual;
+    const manSec = mn && (+mn.to_drivers || +mn.from_drivers) ? sec(`Ձեռքով · ${mn.days} օր`, group([
+        kv('Տրված վարորդներին', `<span class="neg">${short(mn.to_drivers)}</span>`, `${fmt(mn.to_drivers_n)} անգամ${+mn.prizes ? ` · մրցանակ ${short(mn.prizes)}` : ''}`),
+        kv('Հանված վարորդներից', short(mn.from_drivers), `${fmt(mn.from_drivers_n)} անգամ`),
+      ]), { foot: 'Մաքուր շահույթից չի հանված։' }) : '';
     const fd = (f.days || []).filter((d) => d.day < today());
     const sm = (a, k) => a.reduce((s, d) => s + (+d[k] || 0), 0);
     const w = { gmv: sm(fd.slice(-7), 'gmv'), commission: sm(fd.slice(-7), 'commission') }, p = { gmv: sm(fd.slice(-14, -7), 'gmv'), commission: sm(fd.slice(-14, -7), 'commission') };
-    const tops = (f.topups_by_provider || []);
+    const tops = (f.topups_by_provider || []), topsSum = tops.reduce((s, t) => s + (+t.sum || 0), 0);
     mount({ title: 'Ֆինանսներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot ok"></span>Ֆինանսիստ' }, page(`
       ${sec('Վերջին 7 օր', `<div class="kpis">
         ${kpi('Շրջանառություն', short(w.gmv), delta(w.gmv, p.gmv))}
         ${kpi('Պարկի եկամուտ', short(w.commission), delta(w.commission, p.commission))}
       </div>`, { foot: estNote(notes, 15) })}
       ${feeSec}
-      ${sec('Եկամուտ ըստ օրերի', `<div class="card">${barChart('ch-comm', f.days, 'commission', (v) => amd(Math.round(v)), '')}</div>`)}
+      ${manSec}
+      ${sec('Եկամուտ ըստ օրերի', `<div class="card">${barChart('ch-comm', fd, 'commission', (v) => amd(Math.round(v)), '')}</div>`)}
       ${sec('Վերջին 30 օր', group([
         kv('Շրջանառություն', short(m.gmv)),
         kv('Կանխիկ · Քարտ · Կորպ.', `${pct(m.cash, m.gmv)} · ${pct(m.cashless, m.gmv)} · ${pct(m.corporate, m.gmv)}%`),
@@ -2134,7 +2141,7 @@ function toast(text) {
         kv('Վարորդների դրական հաշվեկշիռ', short(b.positive)),
         cell({ href: '#/drivers/debt', t: 'Պարտք', s: `${b.negative_drivers} վարորդ`, v: `<span class="neg">${short(b.negative)}</span>`, strong: true }),
       ]), { foot: driversLine(notes) })}
-      ${sec('Լիցքավորումներ ըստ ծառայության', tops.length ? group(tops.map((t) => cell({ t: esc(t.provider), s: `${fmt(t.count)} գործարք`, v: short(t.sum), strong: true, extra: `<div class="mbar"><span style="width:${pct(t.sum, m.topups)}%"></span></div>` }))) : '<div class="group"><p class="none">Տվյալ չկա</p></div>', { foot: 'Վերջին 30 օրը։' })}
+      ${sec('Լիցքավորումներ ըստ ծառայության', tops.length ? group(tops.map((t) => cell({ t: esc(t.provider), s: `${fmt(t.count)} գործարք`, v: short(t.sum), strong: true, extra: `<div class="mbar"><span style="width:${pct(t.sum, topsSum)}%"></span></div>` }))) : '<div class="group"><p class="none">Տվյալ չկա</p></div>', { foot: `Վերջին ${f.tops_days || 30} օրը։` })}
     `));
   });
 
