@@ -76,8 +76,9 @@
   let filter = 'all', query = '', listTimer = 0;
   async function showList(me) {
     clearTimeout(listTimer);
-    const [T, M] = await Promise.all([sb.rpc('team_thread', { p_staff: null, p_after: 0 }), sb.rpc('team_me')]);
+    const [T, M, W] = await Promise.all([sb.rpc('team_thread', { p_staff: null, p_after: 0 }), sb.rpc('team_me'), sb.rpc('staff_wa_list')]);
     if (T.error) throw new Error(T.error.message);
+    WA = W.error ? null : W.data;   // null = այս աշխատակցին WhatsApp-ը միացված չէ (sync_state wa_staff)
     const msgs = (T.data.msgs || []).filter((m) => m.who !== 'sys'), lastM = msgs[msgs.length - 1];
     const unread = (M.data && M.data.unread) || 0;
     app.classList.add('wa', 'wa-white');
@@ -99,6 +100,19 @@
           <span class="wa-row-l"><b>${esc(CHAT.name)}</b><time>${lastM ? HWTeam.listTime(lastM.at) : ''}</time></span>
           <span class="wa-row-p"><span>${prev}</span>${unread ? `<i class="wa-n">${unread}</i>` : ''}</span></span></button>`
       : `<p style="padding:24px 16px;text-align:center;color:#667781">${filter === 'unread' ? 'Չկարդացած նամակ չկա' : 'Ոչինչ չգտնվեց'}</p>`;
+    if (WA) {
+      const n = WA.items.length, nw = WA.items.filter((x) => x.left_min < 120).length;
+      const prevW = n ? `${n} նոր հարց${nw ? ` · ${nw}-ը շտապ է` : ''}` : 'Բոլորին պատասխանել ես';
+      const showW = (filter === 'all' || n > 0) && (!query || ('հաճախորդների հարցեր whatsapp ' + WA.items.map((x) => x.name + ' ' + x.question).join(' ')).toLowerCase().includes(query));
+      if (showW) {
+        const rows = document.getElementById('warows');
+        if (rows.querySelector('p')) rows.innerHTML = '';
+        rows.insertAdjacentHTML('afterbegin', `<button type="button" class="wa-row${n ? ' unread' : ''}" id="openwa"><span class="wa-av wq-av" style="width:52px;height:52px">${WQ_IC.chat}</span><span class="wa-row-b">
+          <span class="wa-row-l"><b>Հաճախորդների հարցեր</b><time>${n ? HWTeam.listTime(WA.items[n - 1].at) : ''}</time></span>
+          <span class="wa-row-p"><span>${esc(prevW)}</span>${n ? `<i class="wa-n">${n}</i>` : ''}</span></span></button>`);
+        document.getElementById('openwa').onclick = () => { history.pushState({ wa: 1 }, '', '#wa'); showWA(me); };
+      }
+    }
     const o = document.getElementById('openchat');
     if (o) o.onclick = () => { history.pushState({ chat: 1 }, '', '#chat'); showChat(me); };
     listTimer = setTimeout(() => { if (document.getElementById('walist') && document.visibilityState === 'visible') showList(me).catch(() => {}); else if (document.getElementById('walist')) listTimer = setTimeout(() => showList(me).catch(() => {}), 4000); }, 6000);
@@ -116,8 +130,116 @@
       send: document.getElementById('send'), first: T.data, alive: () => !!document.getElementById('tthread'),
       empty: `<div class="wa-empty"><h3>Բարև${me.name ? ', ' + esc(me.name) : ''}</h3><span class="note">Այստեղ կստանաք ձեր գործերը։ Հարց ունեք՝ գրեք նույն տեղում։</span></div>` });
   }
+  // ── «Հաճախորդների հարցեր» (08.11, db\0043. Գարիկ. «արամի ուղացը մի անգամից գնա հաճախորդին», «հնարավորինս պարզ»)։
+  // Մեկ հարց էկրանին (ամենաշտապը առաջինը), պատասխանը արդեն գրված է ու ուղղվում է հենց տեղում, «Ուղարկել»-ը՝ ներքևում (բթամատի գոտի, 52px),
+  // հաստատման պատուհան չկա՝ փոխարենը «Չեղարկել» (ուղարկողը սպասում է 8 վրկ)։ Ուղղածից համակարգը սովորում է (wa_lessons)։
+  const WQ_IC = {
+    chat: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4.5"/></svg>',
+    send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 20 4l-4 16-4-7z"/><path d="m12 13 8-9"/></svg>',
+    ok: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  };
+  let WA = null, waTimer = 0, toastTimer = 0;
+  const leftL = (m) => m >= 120 ? `մնաց ${Math.floor(m / 60)} ժ` : m > 0 ? `մնաց ${m} ր` : 'ժամկետն անցնում է';
+  async function waLoad() { const W = await sb.rpc('staff_wa_list'); if (W.error) throw new Error(W.error.message); WA = W.data; return WA; }
+  function toast(text, undo) {
+    clearTimeout(toastTimer);
+    const old = document.getElementById('wqt'); if (old) old.remove();
+    app.insertAdjacentHTML('beforeend', `<div class="wq-toast" id="wqt" role="status"><span>${esc(text)}</span>${undo ? '<button type="button" id="wqu">Չեղարկել</button>' : ''}</div>`);
+    if (undo) document.getElementById('wqu').onclick = undo;
+    toastTimer = setTimeout(() => { const el = document.getElementById('wqt'); if (el) el.remove(); }, undo ? 8000 : 3500);
+  }
+  async function showWA(me, keepToast) {
+    clearTimeout(listTimer); clearTimeout(waTimer);
+    if (!keepToast) { const t0 = document.getElementById('wqt'); if (t0) t0.remove(); }
+    await waLoad();
+    const toastEl = document.getElementById('wqt');
+    app.classList.add('wa'); app.classList.remove('wa-white');
+    const items = WA.items, it = items[0];
+    const head = `<div class="wa-top"><div class="wa-top-in"><button type="button" class="wa-back" id="wa-back" aria-label="Հետ">${HWTeam.IC.back}</button>`
+      + `<span class="wa-av wq-av" style="width:36px;height:36px">${WQ_IC.chat.replace(/"26"/g, '"20"')}</span><span class="wa-who"><b>Հաճախորդների հարցեր</b>`
+      + `<small>${items.length ? (items.length === 1 ? 'մեկ հարց' : `1 / ${items.length}`) : 'բոլորին պատասխանել ես'}</small></span></div></div>`;
+    const keep = () => { if (toastEl && !document.getElementById('wqt')) app.appendChild(toastEl); };
+    if (!it) {
+      app.innerHTML = head + `<div class="wa-scroll" id="sc"><div class="wq"><div class="wq-empty"><i>${WQ_IC.ok}</i><h3>Բոլոր հարցերին պատասխանել ես</h3>`
+        + `<span>${WA.drafting ? `Համակարգը պատրաստում է ևս ${WA.drafting} պատասխան։` : 'Նոր հարց գալիս՝ ծանուցում կստանաս։'}</span></div></div></div>`;
+      keep();
+      document.getElementById('wa-back').onclick = () => history.back();
+      waTimer = setTimeout(() => { if (location.hash === '#wa' && !document.getElementById('wqx')) showWA(me, true).catch(() => {}); }, 15000);
+      return;
+    }
+    const hist = it.history || [];
+    const bub = (dir, text, old) => `<div class="wa-msg ${dir === 'in' ? 'in' : 'out'} tail${old ? ' old' : ''}">${esc(text)}</div>`;
+    app.innerHTML = head + `<div class="wa-scroll" id="sc"><div class="wq">
+        <div class="wq-head"><span class="wa-av" style="width:40px;height:40px;font-size:17px">${esc(it.name.trim().charAt(0).toUpperCase() || '?')}</span><b>${esc(it.name)}</b>`
+        + `<span class="wq-left${it.left_min < 120 ? ' soon' : ''}">${leftL(it.left_min)}</span></div>`
+        + (hist.length ? `<button type="button" class="wq-hist" id="wqh">Նախորդ նամակները (${hist.length})</button><div id="wqhb" hidden>${hist.map((m) => bub(m.dir, m.text, true)).join('')}</div>` : '')
+        + bub('in', it.question)
+        + (it.answered ? '<div class="wq-note">Այս հարցին արդեն պատասխանել են հեռախոսից։ Եթե էլ պետք չէ, սեղմիր «Բաց թողնել»։</div>' : '')
+        + (it.ask ? `<div class="wq-note warn">Համակարգը սա լրիվ չգիտի. ${esc(it.ask)}${/[։.?!՞]$/.test(it.ask.trim()) ? '' : '։'}<br>Գրիր ճիշտ պատասխանը՝ ներքևում։</div>` : '')
+        + `<label class="wq-lab" for="wqx">Պատասխանը</label>
+        <textarea class="wq-text" id="wqx" rows="4" enterkeyhint="enter" spellcheck="true">${esc(it.draft)}</textarea>
+        <div class="wq-hint" id="wqm" aria-live="polite"></div>
+      </div></div>
+      <div class="wq-bar"><button type="button" class="wq-btn skip" id="wqs">Բաց թողնել</button><button type="button" class="wq-btn send" id="wqo">${WQ_IC.send}Ուղարկել</button></div>`;
+    keep();
+    document.getElementById('wa-back').onclick = () => history.back();
+    const x = document.getElementById('wqx'), hint = document.getElementById('wqm'), sc = document.getElementById('sc');
+    const grow = () => { x.style.height = 'auto'; x.style.height = Math.max(120, x.scrollHeight + 4) + 'px'; };
+    const paintHint = () => {
+      const edited = x.value.trim() !== it.draft.trim();
+      x.classList.remove('bad');
+      hint.className = 'wq-hint' + (edited ? ' edited' : '');
+      hint.innerHTML = edited ? 'Ուղղել ես. համակարգը կսովորի սրանից։ <button type="button" id="wqr">Վերադարձնել</button>' : 'Ստուգիր. պետք է՝ ուղղիր, հետո «Ուղարկել»։';
+      const r = document.getElementById('wqr'); if (r) r.onclick = () => { x.value = it.draft; grow(); paintHint(); };
+    };
+    grow(); paintHint();
+    x.addEventListener('input', () => { grow(); paintHint(); });
+    x.addEventListener('focus', () => setTimeout(() => x.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300));
+    const h = document.getElementById('wqh');
+    if (h) h.onclick = () => { const b = document.getElementById('wqhb'); b.hidden = !b.hidden; h.textContent = b.hidden ? `Նախորդ նամակները (${hist.length})` : 'Թաքցնել նախորդը'; };
+    const btnO = document.getElementById('wqo'), btnS = document.getElementById('wqs');
+    let busy = false;
+    const act = async (kind) => {
+      if (busy) return;
+      const text = x.value.trim();
+      if (kind === 'send' && !text) { x.classList.add('bad'); hint.className = 'wq-hint bad'; hint.textContent = 'Գրիր պատասխանը, հետո «Ուղարկել»։'; x.focus(); return; }
+      busy = true; (kind === 'send' ? btnO : btnS).setAttribute('aria-busy', 'true');
+      const edited = text !== it.draft.trim();
+      const r = kind === 'send' ? await sb.rpc('staff_wa_send', { p_id: it.id, p_text: text }) : await sb.rpc('staff_wa_skip', { p_id: it.id });
+      busy = false; btnO.removeAttribute('aria-busy'); btnS.removeAttribute('aria-busy');
+      if (r.error) { hint.className = 'wq-hint bad'; hint.textContent = 'Չստացվեց՝ ' + r.error.message + '. Փորձիր նորից։'; return; }
+      const st = r.data && r.data.status;
+      if (st === 'expired') { toast('Ժամկետն անցել էր. WhatsApp-ը 24 ժամից հետո պատասխանել թույլ չի տալիս։'); return showWA(me, true); }
+      if (st !== 'approved' && st !== 'rejected') { toast('Այս հարցին արդեն պատասխանել են։'); return showWA(me, true); }
+      const undo = async () => {
+        const u = await sb.rpc('staff_wa_undo', { p_id: it.id });
+        const t1 = document.getElementById('wqt'); if (t1) t1.remove();
+        if (u.error || !u.data || !u.data.undone) { toast('Արդեն ուղարկված է, չեղարկել չի ստացվում։'); return; }
+        toast('Չեղարկվեց'); showWA(me, true).catch(() => {});
+      };
+      toast(kind === 'send' ? `Ուղարկվեց${edited ? ' · համակարգը կսովորի' : ''}` : 'Բաց թողնվեց', undo);
+      showWA(me, true).catch(() => {});
+    };
+    btnO.onclick = () => act('send');
+    btnS.onclick = () => act('skip');
+    // նոր հարցերը՝ ինքնաբերաբար, բայց ոչ երբ Արամը գրում կամ ուղղում է
+    waTimer = setTimeout(function tick() {
+      if (location.hash !== '#wa' || !document.getElementById('wqx')) return;
+      if (document.activeElement === x || x.value.trim() !== it.draft.trim()) { waTimer = setTimeout(tick, 15000); return; }
+      waLoad().then(() => { const top = WA.items[0]; if (!top || top.id !== it.id || top.draft !== it.draft) showWA(me, true); else waTimer = setTimeout(tick, 15000); })
+        .catch(() => { waTimer = setTimeout(tick, 15000); });
+    }, 15000);
+    sc.scrollTop = 0;
+  }
+
   // «Հետ»-ը (կոճակը, iPhone-ի սահեցնելը)՝ «Չատեր»
-  window.addEventListener('popstate', () => { if (ME) (location.hash === '#chat' ? showChat(ME) : showList(ME)).catch(() => {}); });
+  const route = () => (location.hash === '#chat' ? showChat(ME) : location.hash === '#wa' && WA !== null ? showWA(ME) : showList(ME));
+  window.addEventListener('popstate', () => { if (ME) route().catch(() => {}); });
+  // ծանուցումից (sw.js postMessage) → «Հաճախորդների հարցեր»
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => {
+    const go = e.data && e.data.go;
+    if (ME && WA !== null && go && String(go).includes('#wa')) { history.pushState({ wa: 1 }, '', '#wa'); showWA(ME).catch(() => {}); }
+  });
   let ME = null;
 
   async function boot() {
@@ -136,7 +258,8 @@
     if (me.role !== 'staff') { location.replace('../#/team'); return; }   // տերը՝ իր հավելվածի «Թիմ»
     ME = me;
     if (location.hash === '#chat') history.replaceState(null, '', location.pathname);
-    try { await showList(me); } catch (e) { app.innerHTML = `<div class="login"><p class="msgline">${esc(e.message)}</p><button class="btn pri" onclick="location.reload()">Նորից</button></div>`; }
+    const wantWA = location.hash === '#wa';
+    try { await showList(me); if (wantWA && WA) await showWA(me); else if (wantWA) history.replaceState(null, '', location.pathname); } catch (e) { app.innerHTML = `<div class="login"><p class="msgline">${esc(e.message)}</p><button class="btn pri" onclick="location.reload()">Նորից</button></div>`; }
   }
   boot();
 })();

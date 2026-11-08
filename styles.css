@@ -1014,3 +1014,40 @@ body.kb .wa-bar { padding-bottom: 7px; }
 .k7-lead .k7-act .btn { flex: 1 1 0; min-height: 44px; }
 .k7-lead .done { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .tag.g { background: var(--pos-bg); color: var(--pos); } .tag.r { background: var(--neg-bg); color: var(--neg); } .tag.y { background: var(--warn-bg); color: var(--warn); }
+
+/* ───────── Աշխատակցի «Հաճախորդների հարցեր» (08.11, db\0043). մեկ հարց էկրանին, «Ուղարկել»՝ բթամատի գոտում, 8 վրկ «Չեղարկել» ───────── */
+.wa-av.wq-av { background: #25D366; color: #fff; }
+.wq { display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 20px; min-height: 100%; }
+.wq-head { display: flex; align-items: center; gap: 10px; padding: 2px 2px 4px; }
+.wq-head b { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; color: #111B21; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wq-left { flex-shrink: 0; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #fff; color: #54656F; }
+.wq-left.soon { background: #FFE8E8; color: #C62828; }
+.wq-hist { align-self: center; min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,.75); color: #54656F; font: inherit; font-size: 14px; cursor: pointer; }
+.wq .wa-msg { max-width: 88%; }
+.wq .wa-msg.old { opacity: 1; background: rgba(255,255,255,.7); color: #3B4A54; font-size: 15px; }
+.wq .wa-msg.out.old { background: rgba(217,253,211,.7); }
+.wq-note { padding: 10px 12px; border-radius: 10px; font-size: 15px; line-height: 1.4; background: #E7F3FF; color: #0B4A8B; }
+.wq-note.warn { background: #FFF4D6; color: #6B4A00; }
+.wq-lab { margin: 6px 2px -4px; font-size: 14px; font-weight: 600; color: #54656F; }
+.wq-text { width: 100%; min-height: 120px; resize: none; border: 2px solid #D1D7DB; border-radius: 14px; padding: 12px 14px; background: #fff; color: #111B21;
+  font: inherit; font-size: 17px; line-height: 1.45; outline: none; }
+.wq-text:focus { border-color: #25D366; }
+.wq-text.bad { border-color: #E5484D; }
+.wq-hint { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -2px 2px 0; font-size: 14px; color: #667781; min-height: 24px; }
+.wq-hint.edited { color: #0A7D3B; font-weight: 500; }
+.wq-hint.bad { color: #C62828; font-weight: 500; }
+.wq-hint button { border: 0; background: transparent; padding: 4px 2px; color: #1F7AE0; font: inherit; font-size: 14px; font-weight: 500; text-decoration: underline; cursor: pointer; }
+.wq-bar { flex-shrink: 0; display: flex; gap: 10px; padding: 10px 12px calc(10px + var(--safe-b)); background: #F7F7F7; box-shadow: 0 -1px 0 rgba(0,0,0,.08); }
+.wq-btn { min-height: 52px; padding: 0 12px; white-space: nowrap; border-radius: 26px; font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .1s; }
+.wq-btn:active { transform: scale(.98); }
+.wq-btn.skip { flex: 1; border: 1.5px solid #C9D1D6; background: #fff; color: #3B4A54; }
+.wq-btn.send { flex: 2; border: 0; background: #1DA851; color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.wq-btn[aria-busy="true"] { opacity: .6; }
+.wq-empty { margin: auto; text-align: center; color: #54656F; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.wq-empty i { width: 64px; height: 64px; border-radius: 32px; background: #D9FDD3; color: #1DA851; display: flex; align-items: center; justify-content: center; }
+.wq-empty h3 { margin: 0; font-size: 19px; color: #111B21; }
+.wq-empty span { font-size: 15px; line-height: 1.4; }
+.wq-toast { position: absolute; left: 12px; right: 12px; bottom: calc(84px + var(--safe-b)); z-index: 25; display: flex; align-items: center; gap: 12px;
+  min-height: 52px; padding: 8px 8px 8px 16px; border-radius: 14px; background: #1F2C34; color: #fff; font-size: 15px; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+.wq-toast span { flex: 1; min-width: 0; }
+.wq-toast button { min-height: 44px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #53BDEB; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
