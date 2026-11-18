@@ -13,7 +13,7 @@ from decimal import Decimal
 from .config import T
 from .loaders import classify_fleet
 from .model import Data, Finding
-from .util import ZERO, amd, day_end, day_start, dmy, hm, pct, phone_key
+from .util import WEEKDAYS_HY, ZERO, amd, day_end, day_start, dmy, hm, pct, phone_key
 
 PROV_NAME = {'idram': 'Idram', 'telcell': 'Telcell', 'easypay': 'EasyPay', 'other': 'այլ'}
 
@@ -36,6 +36,9 @@ class Ctx:
         self.bank_ok = data.bank is not None and data.bank_until is not None and data.bank_until >= day
         self.pb_ok = data.pb is not None and data.pb_until is not None and data.pb_until >= day
         self.summary = {}
+        self.tx_by_driver = defaultdict(list)
+        for t in data.fleet or []:
+            self.tx_by_driver[(t.park, t.driver_id)].append(t)
 
     def add(self, level, code, title, detail='', amount=None, rows=None, columns=None, park=''):
         self.f.append(Finding(level, code, title, detail, amount, rows or [], columns or [], park))
@@ -46,6 +49,11 @@ class Ctx:
 
     def park_name(self, p):
         return self.cfg['parks'].get(p, {}).get('name', p)
+
+    def snap_late(self, d) -> bool:
+        """Balance taken after the end of the Fleet data: the opening balance cannot be derived."""
+        u = self.data.fleet_until
+        return bool(d.balance is not None and d.balance_at and u and d.balance_at > u + timedelta(minutes=2))
 
     def fleet_day_start(self) -> date:
         """First Yerevan day fully covered by the Fleet data used in the audit."""
@@ -67,6 +75,14 @@ def check_inputs(c: Ctx):
         if not c.fleet_ok:
             c.add('skip', 'fleet_short', f'Fleet-ի տվյալները չեն ծածկում {dmy(c.day)} օրը ամբողջությամբ',
                   f'Կա մինչև {dmy(d.fleet_until) if d.fleet_until else "—"}։ Օրվա ստուգումները թերի են։')
+        else:
+            # an empty day for a park that worked all week = a broken export, not a quiet day
+            for p in sorted(d.fleet_parks):
+                today = sum(1 for t in d.fleet if t.park == p and t.day == c.day)
+                week = sum(1 for t in d.fleet if t.park == p and c.day - timedelta(days=7) <= t.day < c.day)
+                if not today and week:
+                    c.add('skip', 'fleet_empty_day', f'Fleet · {c.park_name(p)}՝ {dmy(c.day)}-ին ոչ մի գործարք',
+                          f'Նախորդ 7 օրում կար {week}։ Հավանաբար արտահանումը թերի է։', park=p)
         need_from = day_start(c.day - timedelta(days=int(cfg['lookback_days'])))
         if d.fleet_from and d.fleet_from > need_from:
             c.add('info', 'fleet_history', 'Fleet-ի պատմությունը կարճ է',
@@ -76,7 +92,17 @@ def check_inputs(c: Ctx):
                   'config.json-ում categories_verified=false։ Թվերը նախնական են, մինչև տերը կհաստատի։')
     if d.drivers is None:
         c.add('skip', 'no_drivers', 'Վարորդների հաշվեկշիռները չկան',
-              'Պարտքերի ցուցակը չի կազմվել, ելքերի ծագումը՝ մոտավոր (սկզբնական մնացորդը անհայտ է)։')
+              'Պարտքերի ցուցակը և «մինուս ենք թե ոչ»-ը չեն ստուգվել, ելքերի ծագումը՝ մոտավոր։')
+    else:
+        unknown = [x for x in d.drivers if x.balance is None]
+        if unknown:
+            c.add('skip', 'balances_missing', f'{len(unknown)} վարորդի հաշվեկշիռը անհայտ է (ընդամենը {len(d.drivers)})',
+                  'Պարտքերը և «մինուս ենք թե ոչ»-ը չեն ստուգվել։ Վարորդների ֆայլում պետք է balance սյունակ։')
+        late = [x for x in d.drivers if c.snap_late(x)]
+        if late:
+            c.add('skip', 'balances_after_fleet', f'{len(late)} վարորդի հաշվեկշիռը վերցված է Fleet-ի տվյալներից ՀԵՏՈ',
+                  f'Fleet-ը՝ մինչև {d.fleet_until:%d.%m.%Y %H:%M}։ Այդ վարորդների ելքերի ծագումը մոտավոր է։ '
+                  'Հաշվեկշիռները պետք է վերցնել գործարքներից առաջ։')
     if d.bank is None:
         c.add('skip', 'no_bank', 'Բիզնես հաշվի քաղվածքը չկա',
               'Yandex, Idram, Telcell, EasyPay փոխանցումները չեն ստուգվել։')
@@ -175,7 +201,7 @@ def _ledger(c: Ctx, park, did, txs, cashless):
     d = c.drivers.get((park, did))
     approx = True
     opening = ZERO
-    if d is not None and d.balance is not None:
+    if d is not None and d.balance is not None and not c.snap_late(d):
         snap = d.balance_at or c.data.fleet_until
         opening = d.balance - sum((t.amount for t in txs if t.kind != 'ignore' and t.at < snap), ZERO)
         approx = False
@@ -205,10 +231,9 @@ def _ledger(c: Ctx, park, did, txs, cashless):
         if k == 'ignore' or not a:
             continue
         if k == 'payout' and a < 0:
-            pre = dict(b)
             took = debit(-a, EARN_ORDER)
             if t.day == c.day:
-                payouts.append((t, took, pre))
+                payouts.append((t, took))
         elif a > 0:
             credit('P' if k in ('topup', 'topup_fee') else 'E', a)
         elif k in ('order_fee', 'order_income') and t.order_id in cashless:
@@ -227,16 +252,18 @@ def check_withdrawals(c: Ctx):
     for t in c.data.fleet:
         if t.at >= c.win_start:
             by_drv[(t.park, t.driver_id)].append(t)
-    flagged, over, n, total, from_top_total, over_total = [], [], 0, ZERO, ZERO, ZERO
+    flagged, n, total, from_top_total = [], 0, ZERO, ZERO
+    over = {True: ([], [ZERO]), False: ([], [ZERO])}       # approx? -> rows, total
     for (park, did), txs in by_drv.items():
         if not any(t.kind == 'payout' and t.day == c.day for t in txs):
             continue
-        txs.sort(key=lambda t: (t.at, t.id))
+        # same timestamp: credits first, so an order's income is in before its fee
+        txs.sort(key=lambda t: (t.at, t.amount < 0, t.id))
         payouts, approx = _ledger(c, park, did, txs, cashless)
         nm, ph = c.who(park, did)
         week_tops = sum((t.amount for t in txs if t.kind == 'topup' and t.amount > 0
                          and c.day - timedelta(days=6) <= t.day <= c.day), ZERO)
-        for t, took, pre in payouts:
+        for t, took in payouts:
             n += 1
             total += -t.amount
             fp = took.get('P', ZERO)
@@ -249,42 +276,61 @@ def check_withdrawals(c: Ctx):
             if fp >= min_flag:
                 flagged.append(row)
             if took.get('D'):
-                over_total += took['D']
-                over.append({**row, 'Մնացորդից ավել': amd(took['D'])})
+                over[approx][1][0] += took['D']
+                over[approx][0].append({**row, 'Մնացորդից ավել': amd(took['D'])})
     c.summary['payouts'] = {'n': n, 'sum': str(total), 'from_topups': str(from_top_total)}
     if flagged:
         c.add('warn', 'payout_from_topup', f'Ելքեր լիցքավորված գումարից՝ {len(flagged)} հատ',
               f'Վարորդը հանել է գումար, որը պատվերներից չի վաստակել, այլ լիցքավորել է ({amd(from_top_total)} ընդամենը)։ '
               f'Դրա լիցքավորման և ելքի միջնորդավճարները կարող են մեր վրա ընկնել։',
               amount=from_top_total, rows=flagged, columns=list(flagged[0]))
-    if over:
-        lvl = 'crit' if all('Նշում' not in r for r in over) else 'warn'
-        c.add(lvl, 'payout_over_balance', f'Ելք՝ հաշվեկշռից ավել՝ {len(over)} հատ',
-              f'Վարորդին փոխանցվել է ավելին, քան ուներ հաշվին → {amd(over_total)} պարկի գումարն է։',
-              amount=over_total, rows=over, columns=list(over[0]))
-    if n and not flagged and not over:
+    for approx, (rows, tot) in over.items():
+        if rows:
+            c.add('warn' if approx else 'crit', 'payout_over_balance_approx' if approx else 'payout_over_balance',
+                  f'Ելք՝ հաշվեկշռից ավել՝ {len(rows)} հատ' + (' (մոտավոր)' if approx else ''),
+                  f'Վարորդին փոխանցվել է ավելին, քան ուներ հաշվին → {amd(tot[0])} պարկի գումարն է։'
+                  + (' Սկզբնական մնացորդը անհայտ է, ստուգել։' if approx else ''),
+                  amount=tot[0], rows=rows, columns=list(rows[0]))
+    if n and not flagged and not over[True][0] and not over[False][0]:
         c.add('ok', 'payouts_clean', f'Վարորդների {n} ելքը ({amd(total)}) պատվերներից վաստակած գումարից է', '')
     elif not n:
         c.add('info', 'payouts_none', 'Այդ օրը Fleet-ում վարորդների ելք չկա', '')
 
 
 # ───────────────────────── 4. balances, manual credits ─────────────────────────
+def _balance_end_of_day(c: Ctx, d):
+    """Driver balance at the end of the audit day, from the snapshot and the transactions in between."""
+    if d.balance is None or c.snap_late(d):
+        return None
+    snap, end = d.balance_at or c.data.fleet_until, day_end(c.day)
+    txs = c.tx_by_driver.get((d.park, d.id), [])
+    if snap >= end:
+        return d.balance - sum((t.amount for t in txs if t.kind != 'ignore' and end <= t.at < snap), ZERO)
+    return d.balance + sum((t.amount for t in txs if t.kind != 'ignore' and snap <= t.at < end), ZERO)
+
+
 def check_balances(c: Ctx):
     if c.data.drivers is None:
         return
     lim = T(c.cfg, 'debt_alert_amd')
-    neg = sorted((d for d in c.data.drivers if d.balance is not None and d.balance < 0), key=lambda d: d.balance)
-    pos = sum((d.balance for d in c.data.drivers if d.balance and d.balance > 0), ZERO)
-    debt = -sum((d.balance for d in neg), ZERO)
-    c.summary['balances'] = {'owed_to_drivers': str(pos), 'drivers_owe': str(debt), 'debtors': len(neg)}
-    c.add('info', 'balances', f'Վարորդների հաշիվներում՝ {amd(pos)}, պարտքեր՝ {amd(debt)}',
-          f'{len(neg)} վարորդ մինուսում է։ Դրական մնացորդը այն գումարն է, որ վարորդները կարող են հանել։', amount=debt)
-    big = [d for d in neg if -d.balance >= lim]
+    bal = [(d, _balance_end_of_day(c, d) if c.fleet_ok else d.balance) for d in c.data.drivers]
+    known = [(d, b) for d, b in bal if b is not None]
+    neg = sorted(((d, b) for d, b in known if b < 0), key=lambda x: x[1])
+    pos = sum((b for _, b in known if b > 0), ZERO)
+    debt = -sum((b for _, b in neg), ZERO)
+    complete = len(known) == len(bal) and bool(bal)
+    c.summary['balances'] = {'owed_to_drivers': str(pos), 'drivers_owe': str(debt), 'debtors': len(neg), 'complete': complete}
+    if not known:
+        return
+    c.add('info', 'balances', f'Վարորդների հաշիվներում՝ {amd(pos)}, պարտքեր՝ {amd(debt)} ({dmy(c.day)}-ի վերջին)',
+          f'{len(neg)} վարորդ մինուսում է։ Դրական մնացորդը այն գումարն է, որ վարորդները կարող են հանել։'
+          + ('' if complete else f' {len(bal) - len(known)} վարորդ հաշվի առնված չէ (մնացորդը անհայտ է)։'), amount=debt)
+    big = [(d, b) for d, b in neg if -b >= lim]
     if big:
-        r = [{'Պարկ': c.park_name(d.park), 'Վարորդ': d.name or d.id, 'Հեռախոս': d.phone, 'Պարտք': amd(-d.balance)}
-             for d in big[:int(c.cfg['thresholds']['list_limit'])]]
+        r = [{'Պարկ': c.park_name(d.park), 'Վարորդ': d.name or d.id, 'Հեռախոս': d.phone, 'Պարտք': amd(-b)}
+             for d, b in big[:int(c.cfg['thresholds']['list_limit'])]]
         c.add('warn', 'debt_big', f'Մեծ պարտքեր (≥ {amd(lim)})՝ {len(big)} վարորդ',
-              f'Ընդամենը {amd(-sum((d.balance for d in big), ZERO))}', rows=r, columns=list(r[0]))
+              f'Ընդամենը {amd(-sum((b for _, b in big), ZERO))}', rows=r, columns=list(r[0]))
 
 
 def check_manual(c: Ctx):
@@ -322,15 +368,16 @@ def _period(cover, s: date, prev: date | None):
 
 
 def _settle(c: Ctx, key, title, daily_net, daily_gross, daily_cnt, ptype, verified, fee_payer, rate):
-    """Compare bank receipts from one payer with what Fleet says it owes.
-    daily_net[d]: amount that should reach the bank for day d. ptype: 'provider' | 'yandex'."""
+    """Compare bank receipts from one payer with what Fleet says it owes for the CONFIGURED period.
+    daily_net[d]: amount that should reach the bank for day d. ptype: 'provider' | 'yandex'.
+
+    Only the configured period can make a receipt green. Other windows are searched only to
+    explain a mismatch in words; a partial match never hides a shortfall."""
     pc = c.cfg['providers'].get(key) if ptype == 'provider' else c.cfg['yandex']
     rec = defaultdict(lambda: ZERO)
-    rec_rows = defaultdict(list)
     for b in c.data.bank:
         if b.source == key and b.amount > 0:
             rec[b.day] += b.amount
-            rec_rows[b.day].append(b)
     first_fleet = c.fleet_day_start()
 
     def net(a, z):
@@ -345,113 +392,99 @@ def _settle(c: Ctx, key, title, daily_net, daily_gross, daily_cnt, ptype, verifi
     row = {'Աղբյուր': title, 'Գրաֆիկ': pc.get('schedule', ''), 'Ստացվել է': '—', 'Պետք էր': '—', 'Տարբ.': '—', 'Վիճակ': ''}
     days_before = sorted(d for d in rec if d < c.day)
     last = max((d for d in rec if d <= c.day), default=None)
-    lvl_miss = 'crit'
-    # schedule
-    lb_tops = sum((v for d, v in daily_gross.items() if d <= c.day), ZERO)
+    maxgap = int(pc.get('max_gap_days', 3))
+    word = 'լիցքավորում' if ptype == 'provider' else 'շրջանառություն'
     if last is None:
-        if lb_tops:
-            c.add(lvl_miss, f'{key}_none', f'{title}-ից փոխանցում չի եկել {c.cfg["lookback_days"]} օրում',
-                  f'Բայց այդ ընթացքում Fleet-ում կա {amd(lb_tops)} {"լիցքավորում" if ptype == "provider" else "շրջանառություն"}։',
-                  amount=lb_tops)
+        since = max(first_fleet, c.data.bank_from or first_fleet)
+        moved = gross(since, c.day)
+        if not moved:
+            row['Վիճակ'] = 'շարժ չկա'
+        elif (c.day - since).days > maxgap:
+            c.add('crit', f'{key}_none', f'{title}-ից փոխանցում չի եկել {dmy(since)}-ից ի վեր',
+                  f'Բայց այդ ընթացքում Fleet-ում կա {amd(moved)} {word}։', amount=net(since, c.day))
             row['Վիճակ'] = '🔴 չկա'
         else:
-            row['Վիճակ'] = 'շարժ չկա'
+            c.add('skip', f'{key}_short_history', f'{title}՝ քաղվածքը շատ կարճ է գրաֆիկը ստուգելու համար',
+                  f'Քաղվածքը՝ {dmy(since)}-ից։ Պետք է առնվազն {maxgap + 1} օր։')
+            row['Վիճակ'] = '⛔'
         return row, None
     gap = (c.day - last).days
-    maxgap = int(pc.get('max_gap_days', 3))
     if gap > maxgap:
-        c.add(lvl_miss, f'{key}_late', f'{title}-ը ուշանում է. վերջին փոխանցումը՝ {dmy(last)} ({gap} օր առաջ)',
+        c.add('crit', f'{key}_late', f'{title}-ը ուշանում է. վերջին փոխանցումը՝ {dmy(last)} ({gap} օր առաջ)',
               f'Գրաֆիկը՝ {pc.get("schedule", "")}։ Չփոխանցված՝ ≈ {amd(net(last, c.day))}։', amount=net(last, c.day))
     if c.day not in rec:
         wd = pc.get('weekday')
         exp_wd = pc.get('expect_weekdays')
         if wd is not None and c.day.weekday() == int(wd):
-            c.add('crit', f'{key}_missed_day', f'{title}-ի {dmy(c.day)} ({["երկուշաբթի", "երեքշաբթի", "չորեքշաբթի", "հինգշաբթի", "ուրբաթ", "շաբաթ", "կիրակի"][c.day.weekday()]}) փոխանցումը չի եկել', f'Գրաֆիկը՝ {pc.get("schedule", "")}։')
+            c.add('crit', f'{key}_missed_day', f'{title}-ի {dmy(c.day)} ({WEEKDAYS_HY[c.day.weekday()]}) փոխանցումը չի եկել',
+                  f'Գրաֆիկը՝ {pc.get("schedule", "")}։')
         elif exp_wd and c.day.weekday() in exp_wd and gap <= maxgap:
             c.add('warn', f'{key}_missed_day', f'{title}-ից {dmy(c.day)}-ին փոխանցում չի եկել', f'Վերջինը՝ {dmy(last)}։')
         row['Վիճակ'] = f'այսօր չկա, վերջինը՝ {dmy(last)}'
-        return _with_next(row, _next_expected(c, pc, last, days_before, net))
-    # a receipt today: match it
+        return _with_next(row, _next_expected(c, pc, last, net))
+    # a receipt today: compare with the configured period only
     R = rec[c.day]
     row['Ստացվել է'] = amd(R)
     prev = days_before[-1] if days_before else None
     per = _period(pc['cover'], c.day, prev)
-    tol = c.tol
-    if per and per[0] >= first_fleet:
-        a, z = per
-        N, G = net(a, z), gross(a, z)
-        diff = R - N
-        row['Պետք էր'] = amd(N)
-        row['Տարբ.'] = amd(diff, sign=True)
-        row['Ժամանակահատված'] = f'{dmy(a)}–{dmy(z)}'
-        if abs(diff) <= tol:
-            c.add('ok', f'{key}_match', f'{title}՝ {amd(R)} = {_what(ptype)} {dmy(a)}–{dmy(z)} ✓', '')
-            row['Վիճակ'] = '✅'
-            return _with_next(row, net(z + timedelta(days=1), c.day))
-    else:
-        a = z = None
-        N = G = None
-        row['Վիճակ'] = 'ժամանակահատվածը անհայտ'
-    # search other periods: exact, or exact after a commission taken from us
-    exact, by_rate = None, None          # (distance from the configured period, start, end, net)
-    for zz in [c.day - timedelta(days=i) for i in range(0, 5)]:
-        for k in range(0, 16):
-            aa = zz - timedelta(days=k)
-            if aa < first_fleet:
-                break
-            n_ = net(aa, zz)
-            if not n_:
-                continue
-            dist = (abs((aa - a).days) + abs((zz - z).days)) if a else k
-            if abs(R - n_) <= tol and (exact is None or dist < exact[0]):
-                exact = (dist, aa, zz, n_)
-            if rate is not None:
-                exp = n_ - gross(aa, zz) * rate / 100
-                # commission is rounded per payment: allow 1 AMD per top-up
-                if abs(R - exp) <= max(tol, Decimal(cnt(aa, zz))) and (by_rate is None or dist < by_rate[0]):
-                    by_rate = (dist, aa, zz, n_)
-    best = ('exact',) + exact if exact else (('rate',) + by_rate if by_rate else None)
-    if best:
-        best = (best[0], best[2], best[3], best[1], best[4])   # kind, start, end, dist, net
-    if best and best[0] == 'exact':
-        _, aa, zz, _, n_ = best
-        c.add('ok', f'{key}_match', f'{title}՝ {amd(R)} = {_what(ptype)} {dmy(aa)}–{dmy(zz)} ✓',
-              f'Կոնֆիգի ժամանակահատվածը ({dmy(a)}–{dmy(z)}) չհամընկավ, բայց գումարը ճշգրիտ համընկնում է այլ օրերի հետ։ '
-              f'Ստուգեք config-ի cover կանոնը։' if a else '')
-        row.update({'Պետք էր': amd(n_), 'Տարբ.': amd(R - n_, sign=True), 'Ժամանակահատված': f'{dmy(aa)}–{dmy(zz)}', 'Վիճակ': '✅'})
-        return _with_next(row, net(zz + timedelta(days=1), c.day))
-    if best and best[0] == 'rate':
-        _, aa, zz, _, n_ = best
-        lost = n_ - R
-        lvl = 'ok' if fee_payer == 'park' else 'crit'
-        c.add(lvl, f'{key}_fee_on_us', f'{title}-ը պահել է {pct(lost, gross(aa, zz))} միջնորդավճար ՄԵԶԱՆԻՑ՝ {amd(lost)}',
-              f'{dmy(aa)}–{dmy(zz)}. վարորդներին հաշվեգրվել է {amd(n_)}, բանկ է եկել {amd(R)}։ '
-              f'Միջնորդավճարը պետք է պահվեր վարորդից։', amount=lost)
-        row.update({'Պետք էր': amd(n_), 'Տարբ.': amd(R - n_, sign=True), 'Ժամանակահատված': f'{dmy(aa)}–{dmy(zz)}',
-                    'Վիճակ': '🔴 միջնորդավճարը մեզնից' if lvl == 'crit' else '✅ (պարկն է վճարում)'})
-        return _with_next(row, net(zz + timedelta(days=1), c.day))
-    # no exact match anywhere
+    if per is None or per[0] < first_fleet:
+        why = ('նախորդ փոխանցումը քաղվածքում չկա' if per is None else
+               f'Fleet-ի պատմությունը սկսվում է {dmy(first_fleet)}-ից, պետք է {dmy(per[0])}-ից')
+        c.add('skip', f'{key}_period_unknown', f'{title}՝ {amd(R)} — հնարավոր չէ համեմատել',
+              f'Ժամանակահատվածը որոշելու համար {why}։ Երկարացրու քաղվածքը կամ Fleet-ի պատմությունը։', amount=R)
+        row['Վիճակ'] = '⛔ չստուգվեց'
+        return row, None
+    a, z = per
+    N, G, n = net(a, z), gross(a, z), cnt(a, z)
+    diff = R - N
+    row.update({'Պետք էր': amd(N), 'Տարբ.': amd(diff, sign=True), 'Ժամանակահատված': f'{dmy(a)}–{dmy(z)}'})
+    nxt = net(z + timedelta(days=1), c.day)
+    if abs(diff) <= c.tol:
+        c.add('ok', f'{key}_match', f'{title}՝ {amd(R)} = {_what(ptype)} {dmy(a)}–{dmy(z)} ✓', '')
+        row['Վիճակ'] = '✅'
+        return _with_next(row, nxt)
+    if rate is not None and G:
+        exp = N - G * rate / 100
+        # commission is rounded per payment (≤ 0.5 AMD each), capped at 0.05% of the volume
+        rtol = max(c.tol, min(Decimal(n) / 2, G * Decimal('0.0005')))
+        if abs(R - exp) <= rtol:
+            lost = N - R
+            lvl = 'ok' if fee_payer == 'park' else 'crit'
+            c.add(lvl, f'{key}_fee_on_us', f'{title}-ը պահել է {pct(lost, G)} միջնորդավճար ՄԵԶԱՆԻՑ՝ {amd(lost)}',
+                  f'{dmy(a)}–{dmy(z)}. վարորդներին հաշվեգրվել է {amd(N)}, բանկ է եկել {amd(R)}։ '
+                  + ('Պայմանագրով միջնորդավճարը պարկն է վճարում։' if lvl == 'ok' else 'Միջնորդավճարը պետք է պահվեր վարորդից։'),
+                  amount=lost)
+            row['Վիճակ'] = '🔴 միջնորդավճարը մեզնից' if lvl == 'crit' else '✅ (պարկն է վճարում)'
+            return _with_next(row, nxt)
     lvl = 'crit' if verified else 'warn'
     unv = '' if verified else ' (բանաձևը դեռ հաստատված չէ)'
-    if N is None:
-        c.add(lvl, f'{key}_unmatched', f'{title}՝ {amd(R)} չհամընկավ ոչ մի ժամանակահատվածի հետ{unv}',
-              'Նախորդ փոխանցումը տվյալներում չկա, ժամանակահատվածը հնարավոր չէ որոշել։', amount=R)
-        row['Վիճակ'] = '🟠 չհամընկավ'
-        return row, None
-    diff = R - N
+    hint = _explain(R, a, z, c.day, net, c.tol)
     if diff < 0:
         implied = (N - R) / G if G else None
-        hint = (f'Տարբերությունը {pct(N - R, G)} է {"լիցքավորումներից" if ptype == "provider" else "շրջանառությունից"}'
-                f'{" — նման է միջնորդավճարի, որ պահվել է մեզանից" if implied is not None and 0 < implied <= Decimal("0.05") and ptype == "provider" else ""}։')
+        fee_like = ptype == 'provider' and implied is not None and 0 < implied <= Decimal('0.05')
         c.add(lvl, f'{key}_short', f'{title}-ից պակաս է եկել {amd(-diff)}{unv}',
-              f'{dmy(a)}–{dmy(z)}. պետք էր {amd(N)}, եկել է {amd(R)}։ {hint}', amount=-diff)
+              f'{dmy(a)}–{dmy(z)}. պետք էր {amd(N)}, եկել է {amd(R)} ({pct(N - R, G)} {word}ից'
+              f'{", նման է մեզանից պահված միջնորդավճարի" if fee_like else ""})։ {hint}', amount=-diff)
         row['Վիճակ'] = '🔴 պակաս' if lvl == 'crit' else '🟠 պակաս'
     else:
         c.add('warn', f'{key}_over', f'{title}-ից ավել է եկել {amd(diff)}{unv}',
               f'{dmy(a)}–{dmy(z)}. Fleet-ում {amd(N)}, բանկում {amd(R)}։ '
-              + ('Հնարավոր է՝ ինչ-որ վարորդի վճարում չի հաշվեգրվել Fleet-ում։' if ptype == 'provider' else ''), amount=diff)
+              + ('Հնարավոր է՝ ինչ-որ վարորդի վճարում չի հաշվեգրվել Fleet-ում։ ' if ptype == 'provider' else '') + hint,
+              amount=diff)
         row['Վիճակ'] = '🟠 ավել'
-    return _with_next(row, net(z + timedelta(days=1), c.day))
+    return _with_next(row, nxt)
+
+
+def _explain(R, a, z, day, net, tol):
+    """Words only: which days the received amount does match, if any."""
+    for aa in _days(a, z):
+        for zz in _days(aa, z):
+            if (aa, zz) != (a, z) and abs(net(aa, zz) - R) <= tol:
+                return f'Եկած գումարը համապատասխանում է միայն {dmy(aa)}–{dmy(zz)} օրերին. մնացած օրերի գումարը չի եկել։'
+    for zz in _days(z + timedelta(days=1), day):
+        if abs(net(a, zz) - R) <= tol:
+            return f'Եկած գումարը համապատասխանում է {dmy(a)}–{dmy(zz)} օրերին. ստուգել config-ի cover կանոնը։'
+    return ''
 
 
 def _what(ptype):
@@ -464,7 +497,7 @@ def _with_next(row, nxt):
     return row, nxt
 
 
-def _next_expected(c, pc, last, days_before, net):
+def _next_expected(c, pc, last, net):
     lag = int(pc['cover'].get('lag_days', 1))
     if pc['cover']['type'] != 'since_previous_receipt':
         return None
@@ -520,83 +553,129 @@ def check_settlements(c: Ctx):
 
 # ───────────────────────── 6. PrimeBridge ─────────────────────────
 def check_primebridge(c: Ctx):
+    """Pair every PrimeBridge row with one Fleet debit, over ALL loaded rows (not just the audit
+    day), successful rows first and then by closest time, so a neighbour day cannot steal a debit
+    and a duplicate payout cannot hide. Only the audit day is reported."""
     if not (c.fleet_ok and c.pb_ok):
         return
     pbc = c.cfg['primebridge']
     win = timedelta(hours=float(pbc.get('match_window_hours', 48)))
     tol = c.tol
-    lo, hi = day_start(c.day) - win, day_end(c.day) + win
-    fpay = [t for t in c.data.fleet if t.kind == 'payout' and t.amount < 0 and lo <= t.at < hi]
-    fees = [t for t in c.data.fleet if t.kind == 'payout_fee' and t.amount < 0 and lo <= t.at < hi]
-    refunds = [t for t in c.data.fleet if (t.kind == 'payout_refund' or (t.kind == 'payout' and t.amount > 0)) and t.at >= lo]
-    used, used_fee = set(), set()
+    pay = defaultdict(list)       # (park, driver) -> Fleet payout debits
+    fee_tx = defaultdict(list)
+    refund_tx = defaultdict(list)
+    for t in c.data.fleet:
+        k = (t.park, t.driver_id)
+        if t.kind == 'payout' and t.amount < 0:
+            pay[k].append(t)
+        elif t.kind == 'payout_fee' and t.amount < 0:
+            fee_tx[k].append(t)
+        elif t.kind == 'payout_refund' or (t.kind == 'payout' and t.amount > 0):
+            refund_tx[k].append(t)
 
     def ids_for(p):
         if p.driver_id:
             return {(pk, p.driver_id) for pk in c.cfg['parks'] if not p.park or pk == p.park}
         return {(d.park, d.id) for d in c.by_phone.get(phone_key(p.phone), []) if not p.park or d.park == p.park}
 
-    def person(p, m, ids):
-        for k in ([(m.park, m.driver_id)] if m else []) + sorted(ids):
+    rank = {'ok': 0, 'pending': 1, 'failed': 2}
+    pairs = []
+    for i, p in enumerate(c.data.pb):
+        for k in ids_for(p):
+            for t in pay.get(k, []):
+                dt = abs(t.at - p.at)
+                if dt <= win and (abs(-t.amount - p.amount) <= tol or abs(-t.amount - p.amount - p.fee) <= tol):
+                    pairs.append((rank[p.state], dt, i, id(t), t))
+    pairs.sort(key=lambda x: (x[0], x[1], x[2]))
+    match, used = {}, set()
+    for _, _, i, tid, t in pairs:
+        if i not in match and tid not in used:
+            match[i] = t
+            used.add(tid)
+
+    # refunds: failed/pending payouts claim them first; one left over after a SUCCESSFUL payout = paid twice
+    used_ref, refunded = set(), {}
+    order = sorted(match, key=lambda i: (c.data.pb[i].state == 'ok', c.data.pb[i].at))
+    for i in order:
+        m = match[i]
+        r = next((r for r in sorted(refund_tx.get((m.park, m.driver_id), []), key=lambda r: r.at)
+                  if id(r) not in used_ref and m.at <= r.at <= m.at + win and abs(r.amount + m.amount) <= tol), None)
+        if r:
+            used_ref.add(id(r))
+            refunded[i] = r
+    # separate fee lines: each one used once, close in time, all rows in chronological order
+    used_fee, fee_paid_by_driver = set(), set()
+    for i in sorted(match, key=lambda i: c.data.pb[i].at):
+        p, m = c.data.pb[i], match[i]
+        if not p.ok or p.fee <= 0:
+            continue
+        if abs(-m.amount - p.amount - p.fee) <= tol:
+            fee_paid_by_driver.add(i)
+            continue
+        f = next((f for f in sorted(fee_tx.get((m.park, m.driver_id), []), key=lambda f: abs(f.at - m.at))
+                  if id(f) not in used_fee and abs(f.at - m.at) <= win and abs(-f.amount - p.fee) <= tol), None)
+        if f:
+            used_fee.add(id(f))
+            fee_paid_by_driver.add(i)
+
+    def person(p, m):
+        for k in ([(m.park, m.driver_id)] if m else []) + sorted(ids_for(p)):
             if k in c.drivers:
                 d = c.drivers[k]
                 return p.name or d.name or d.id, p.phone or d.phone
         return p.name or p.driver_id or p.phone, p.phone
 
-    no_debit, no_debit_sum, failed_stuck, fee_on_us, fee_on_us_sum = [], ZERO, [], [], ZERO
-    pb_day = [p for p in c.data.pb if p.day == c.day]
-    # neighbours are matched too (a payout at 23:59 may be debited after midnight), only the audit day is reported
-    pb_win = [p for p in c.data.pb if lo <= p.at < hi]
-    for p in sorted(pb_win, key=lambda p: (p.day != c.day, p.at)):
-        ids = ids_for(p)
-        cand = [t for t in fpay if id(t) not in used and (t.park, t.driver_id) in ids and abs(t.at - p.at) <= win
-                and (abs(-t.amount - p.amount) <= tol or abs(-t.amount - p.amount - p.fee) <= tol)]
-        cand.sort(key=lambda t: abs(t.at - p.at))
-        m = cand[0] if cand else None
-        if m:
-            used.add(id(m))
-        if p.day != c.day:
-            continue
-        who, ph = person(p, m, ids)
+    no_debit, twice, stuck, fee_on_us = [], [], [], []
+    s_no_debit = s_twice = s_fee = ZERO
+    day_rows = [(i, p) for i, p in enumerate(c.data.pb) if p.day == c.day]
+    for i, p in sorted(day_rows, key=lambda x: x[1].at):
+        m = match.get(i)
+        who, ph = person(p, m)
+        base = {'Վարորդ': who, 'Հեռախոս': ph, 'Գումար': amd(p.amount), 'Ժամ': hm(p.at), 'PB №': p.ref}
         if p.ok and not m:
-            no_debit_sum += p.amount + p.fee
-            no_debit.append({'Վարորդ': who, 'Հեռախոս': ph, 'Գումար': amd(p.amount), 'Ժամ': hm(p.at), 'PB №': p.ref})
-        elif not p.ok and m:
-            back = [r for r in refunds if (r.park, r.driver_id) == (m.park, m.driver_id) and r.at >= m.at and abs(r.amount + m.amount) <= tol]
-            if not back:
-                failed_stuck.append({'Վարորդ': who, 'Հեռախոս': ph, 'Գումար': amd(p.amount), 'Կարգավիճակ': p.status, 'PB №': p.ref})
-        if p.ok and m and p.fee > 0:
-            inside = abs(-m.amount - p.amount - p.fee) <= tol
-            sep = next((f for f in fees if id(f) not in used_fee and (f.park, f.driver_id) == (m.park, m.driver_id)
-                        and abs(-f.amount - p.fee) <= tol), None)
-            if sep:
-                used_fee.add(id(sep))
-            if not inside and not sep:
-                fee_on_us.append({'Վարորդ': who, 'Ելք': amd(p.amount), 'Միջնորդավճար': amd(p.fee), 'PB №': p.ref})
-                fee_on_us_sum += p.fee
-    no_pb = [t for t in fpay if t.day == c.day and id(t) not in used]
-    ok_day = [p for p in pb_day if p.ok]
+            s_no_debit += p.amount + p.fee
+            no_debit.append(base)
+        elif p.ok and i in refunded:
+            s_twice += p.amount
+            twice.append({**base, 'Վերադարձ': f'{amd(refunded[i].amount)} · {refunded[i].at:%d.%m %H:%M}'})
+        elif p.state == 'failed' and m and i not in refunded:
+            stuck.append({**base, 'Կարգավիճակ': p.status})
+        if p.ok and m and p.fee > 0 and i not in fee_paid_by_driver:
+            s_fee += p.fee
+            fee_on_us.append({'Վարորդ': who, 'Ելք': amd(p.amount), 'Միջնորդավճար': amd(p.fee), 'PB №': p.ref})
+    no_pb = [t for k, lst in pay.items() for t in lst if t.day == c.day and id(t) not in used]
+    stray = [r for k, lst in refund_tx.items() for r in lst if r.day == c.day and id(r) not in used_ref]
+    ok_day = [p for _, p in day_rows if p.ok]
     sent = sum((p.amount for p in ok_day), ZERO)
     fee_sum = sum((p.fee for p in ok_day), ZERO)
     c.summary['primebridge'] = {'n': len(ok_day), 'sent': str(sent), 'fees': str(fee_sum)}
-    c.add('info', 'pb_day', f'PrimeBridge-ով վարորդներին ուղարկվել է {amd(sent)}', f'{len(ok_day)} փոխանցում, միջնորդավճար՝ {amd(fee_sum)}', amount=sent)
+    c.add('info', 'pb_day', f'PrimeBridge-ով վարորդներին ուղարկվել է {amd(sent)}',
+          f'{len(ok_day)} փոխանցում, միջնորդավճար՝ {amd(fee_sum)}', amount=sent)
     if no_debit:
         c.add('crit', 'pb_no_debit', f'PrimeBridge-ը ուղարկել է գումար, բայց Fleet-ում վարորդի հաշվից չի հանվել՝ {len(no_debit)} հատ',
-              f'Սա պարկի կորուստ է՝ {amd(no_debit_sum)} (միջնորդավճարով)։', amount=no_debit_sum, rows=no_debit, columns=list(no_debit[0]))
+              f'Սա պարկի կորուստ է՝ {amd(s_no_debit)} (միջնորդավճարով)։ Կրկնակի փոխանցումն էլ է այստեղ երևում։',
+              amount=s_no_debit, rows=no_debit, columns=list(no_debit[0]))
+    if twice:
+        c.add('crit', 'pb_paid_twice', f'Հաջող փոխանցումից հետո Fleet-ում գումարը վերադարձվել է վարորդին՝ {len(twice)} հատ',
+              f'Վարորդը ստացել է երկու անգամ՝ {amd(s_twice)}։', amount=s_twice, rows=twice, columns=list(twice[0]))
     if fee_on_us:
         lvl = 'crit' if pbc['fee_payer'] == 'driver' else 'info'
-        c.add(lvl, 'pb_fee_on_us', f'PrimeBridge-ի միջնորդավճարը վճարել ենք ՄԵՆՔ՝ {amd(fee_on_us_sum)} ({len(fee_on_us)} փոխանցում)',
-              'Վարորդի հաշվից հանվել է միայն ուղարկված գումարը, միջնորդավճարը՝ ոչ։', amount=fee_on_us_sum,
+        c.add(lvl, 'pb_fee_on_us', f'PrimeBridge-ի միջնորդավճարը վճարել ենք ՄԵՆՔ՝ {amd(s_fee)} ({len(fee_on_us)} փոխանցում)',
+              'Վարորդի հաշվից հանվել է միայն ուղարկված գումարը, միջնորդավճարը՝ ոչ։', amount=s_fee,
               rows=fee_on_us, columns=list(fee_on_us[0]))
-    if failed_stuck:
-        c.add('warn', 'pb_failed_no_refund', f'Չկայացած փոխանցումներ, որոնց գումարը վարորդին չի վերադարձվել՝ {len(failed_stuck)}',
-              'Fleet-ում հաշվից հանվել է, PrimeBridge-ում չի կատարվել, վերադարձ չկա։', rows=failed_stuck, columns=list(failed_stuck[0]))
+    if stuck:
+        c.add('warn', 'pb_failed_no_refund', f'Չկայացած փոխանցումներ, որոնց գումարը վարորդին չի վերադարձվել՝ {len(stuck)}',
+              'Fleet-ում հաշվից հանվել է, PrimeBridge-ում չի կատարվել, վերադարձ չկա։', rows=stuck, columns=list(stuck[0]))
     if no_pb:
         r = [{'Պարկ': c.park_name(t.park), 'Վարորդ': c.who(t.park, t.driver_id)[0], 'Գումար': amd(-t.amount), 'Ժամ': hm(t.at)} for t in no_pb]
         c.add('warn', 'fleet_payout_no_pb', f'Fleet-ում ելք կա, PrimeBridge-ում փոխանցում չկա՝ {len(no_pb)} հատ',
               f'Ընդամենը {amd(-sum((t.amount for t in no_pb), ZERO))}։ Կամ սպասման մեջ է, կամ ուրիշ ճանապարհով է գնացել։',
               rows=r, columns=list(r[0]))
-    if ok_day and not (no_debit or fee_on_us or no_pb):
+    if stray:
+        r = [{'Պարկ': c.park_name(t.park), 'Վարորդ': c.who(t.park, t.driver_id)[0], 'Գումար': amd(t.amount), 'Ժամ': hm(t.at)} for t in stray]
+        c.add('warn', 'fleet_refund_unexplained', f'Fleet-ում ելքի վերադարձ կա, բայց չկայացած PrimeBridge փոխանցում չկա՝ {len(stray)}',
+              'Ստուգել՝ ինչու է գումարը վերադարձվել վարորդին։', rows=r, columns=list(r[0]))
+    if ok_day and not (no_debit or twice or fee_on_us or no_pb or stray):
         c.add('ok', 'pb_match', f'PrimeBridge-ի {len(ok_day)} փոխանցումը համընկնում է Fleet-ի ելքերի հետ ✓', '')
 
 
@@ -636,6 +715,10 @@ def check_bank(c: Ctx):
         c.add('warn', 'bank_breaks', f'Քաղվածքի մնացորդը չի կապվում {len(breaks)} տեղում',
               'Հնարավոր է՝ քաղվածքում տողեր պակասում են։', rows=breaks[:20], columns=list(breaks[0]))
     closing = next((b.balance for b in reversed(seq) if b.day <= c.day), None)
+    if c.data.bank_closing is not None:
+        if closing is not None and abs(closing - c.data.bank_closing) > c.tol:
+            c.add('warn', 'bank_balance_differs', f'Քաղվածքի մնացորդը ({amd(closing)}) ≠ ձեռքով տրվածին ({amd(c.data.bank_closing)})', '')
+        closing = c.data.bank_closing
     if closing is not None:
         c.summary['bank_closing'] = str(closing)
         if closing < 0:
@@ -644,9 +727,16 @@ def check_bank(c: Ctx):
 
 def check_position(c: Ctx):
     s = c.summary
-    if 'bank_closing' not in s or 'balances' not in s:
+    if not c.bank_ok or c.data.drivers is None:
+        return                                   # already reported as ⛔ above
+    closing = s.get('bank_closing')
+    if closing is None:
+        c.add('skip', 'position_no_bank_balance', '«Մինուս ենք թե ոչ»-ը չստուգվեց. բանկի մնացորդը անհայտ է',
+              'Քաղվածքում մնացորդի սյունակ չկա։ Արտահանիր մնացորդով կամ տուր --bank-balance։')
         return
-    bank = Decimal(s['bank_closing'])
+    if not s.get('balances', {}).get('complete'):
+        return                                   # balances_missing / balances_after_fleet already reported
+    bank = Decimal(closing)
     owed = Decimal(s['balances']['owed_to_drivers'])
     recv = Decimal(s.get('receivable', '0'))
     pb = c.data.pb_balance or ZERO
@@ -657,7 +747,7 @@ def check_position(c: Ctx):
             {'Հոդված': 'Պարտք ենք վարորդներին (դրական մնացորդներ)', 'Գումար': amd(-owed)}, {'Հոդված': 'Արդյունք', 'Գումար': amd(pos, sign=True)}]
     lvl = 'ok' if pos >= 0 else ('crit' if verified else 'warn')
     c.add(lvl, 'position', 'Մինուսում չենք' if pos >= 0 else f'ՄԻՆՈՒՍ ենք՝ {amd(pos)}',
-          'Մեր գումարը + գալիքը − այն, ինչ վարորդները կարող են հանել։', amount=pos, rows=rows, columns=['Հոդված', 'Գումար'])
+          f'{dmy(c.day)}-ի վերջին. մեր գումարը + գալիքը − այն, ինչ վարորդները կարող են հանել։', amount=pos, rows=rows, columns=['Հոդված', 'Գումար'])
 
 
 def run(data: Data, cfg: dict, day: date):

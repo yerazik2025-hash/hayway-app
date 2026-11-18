@@ -43,6 +43,7 @@ def _read_xlsx(path: Path):
         raise SystemExit('Need openpyxl for .xlsx files: pip install openpyxl (or save the file as CSV)')
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     ws = wb.worksheets[0]
+    ws.reset_dimensions()          # exports often carry a stale <dimension>; trusting it silently drops rows
     return [list(r) for r in ws.iter_rows(values_only=True)]
 
 
@@ -54,7 +55,8 @@ def read_table(path, columns: dict):
         data = json.loads(path.read_text(encoding='utf-8'))
         if isinstance(data, dict):
             data = next((v for v in data.values() if isinstance(v, list)), [])
-        grid = [list(data[0].keys())] + [list(r.values()) for r in data] if data else [[]]
+        keys = list(dict.fromkeys(k for r in data for k in r)) if data else []
+        grid = [keys] + [[r.get(k) for k in keys] for r in data] if data else [[]]
     elif path.suffix.lower() in ('.xlsx', '.xlsm'):
         grid = _read_xlsx(path)
     else:
@@ -105,7 +107,7 @@ def load_fleet_file(path, cfg, notes, default_park=''):
                 order_id=_s(r.get('order_id')), description=_s(r.get('description')),
                 created_by=_s(r.get('created_by'))))
         except ValueError as e:
-            notes.append(('warn', f'Fleet ֆայլ {Path(path).name}, տող {r["_row"]}: չկարդացվեց ({e})'))
+            notes.append(('skip', f'Fleet ֆայլ {Path(path).name}, տող {r["_row"]}: չկարդացվեց ({e}). Գումարները թերի են։'))
     if not default_park and any(not t.park for t in out):
         raise ValueError(f'{Path(path).name}: no "park" column; pass --park for this file')
     return out
@@ -128,19 +130,25 @@ def load_drivers_file(path, cfg, notes, default_park=''):
     return out
 
 
-_DEBIT_MARK = re.compile(r'^(d|dr|debit|дт|дебет|ելք|расход|списание|-)$', re.I)
+_DEBIT_MARK = re.compile(r'^(d|dr|д|дт|debit|debet|дебет|դ|դեբետ|ելք|расход|списание|out|withdrawal|-)\.?$', re.I)
+_CREDIT_MARK = re.compile(r'^(c|cr|к|кт|credit|кредит|կ|կրեդիտ|մուտք|приход|поступление|in|deposit|\+)\.?$', re.I)
 
 
 def classify_bank(tx: BankTx, cfg) -> str:
-    hay = f'{tx.counterparty} | {tx.purpose}'
-    for rule in cfg['bank']['classify']:
-        cp, pu = rule.get('counterparty'), rule.get('purpose')
-        if cp and not re.search(cp, hay, re.I):
+    """The counterparty decides first; the purpose text only when no counterparty rule matched
+    (an Idram transfer whose purpose mentions Yandex is still Idram)."""
+    rules = cfg['bank']['classify']
+    for field in (tx.counterparty, f'{tx.counterparty} | {tx.purpose}'):
+        if not field.strip(' |'):
             continue
-        if pu and not re.search(pu, tx.purpose, re.I):
-            continue
-        if cp or pu:
-            return rule['source']
+        for rule in rules:
+            cp, pu = rule.get('counterparty'), rule.get('purpose')
+            if cp and not re.search(cp, field, re.I):
+                continue
+            if pu and not re.search(pu, tx.purpose, re.I):
+                continue
+            if cp or pu:
+                return rule['source']
     return ''
 
 
@@ -151,12 +159,19 @@ def load_bank_file(path, cfg, notes):
     if 'at' not in have or not ({'amount'} <= set(have) or {'credit', 'debit'} & set(have)):
         raise ValueError(f'{Path(path).name}: need a date column and amount (or credit/debit) columns; found {have}')
     out = []
+    has_dir = 'direction' in have
     for r in rows:
         try:
             if 'amount' in have and _s(r.get('amount')):
                 amt = money(r['amount'])
-                if amt > 0 and _DEBIT_MARK.match(_s(r.get('direction'))):
-                    amt = -amt
+                if has_dir:
+                    mark = _s(r.get('direction'))
+                    if _DEBIT_MARK.match(mark):
+                        amt = -abs(amt)
+                    elif _CREDIT_MARK.match(mark):
+                        amt = abs(amt)
+                    elif mark:
+                        raise ValueError(f'անհայտ ուղղություն «{mark}» (մուտք է, թե ելք)')
             else:
                 cr, dr = money_or_none(r.get('credit')), money_or_none(r.get('debit'))
                 if cr is None and dr is None:
@@ -169,6 +184,9 @@ def load_bank_file(path, cfg, notes):
             out.append(tx)
         except ValueError as e:
             notes.append(('crit', f'Բանկի քաղվածք, տող {r["_row"]}: չկարդացվեց ({e}). Այդ տողը ստուգումից դուրս է։'))
+    if out and 'amount' in have and not has_dir and not ({'credit', 'debit'} & set(have)) and all(b.amount >= 0 for b in out):
+        raise ValueError(f'{Path(path).name}: բոլոր գումարները դրական են, և մուտք/ելք սյունակ չկա. '
+                         'հնարավոր չէ տարբերել մուտքը ելքից։ Ավելացրու files.bank.columns.direction կամ credit/debit։')
     return out
 
 
@@ -177,21 +195,41 @@ def load_pb_file(path, cfg, notes):
     rows, have = read_table(path, spec['columns'])
     if not {'at', 'amount'} <= set(have) or not ({'driver_id', 'phone'} & set(have)):
         raise ValueError(f'{Path(path).name}: need date, amount and driver_id or phone columns; found {have}')
-    oks = [s.lower() for s in spec.get('ok_statuses', [])]
+    unknown = {}
     out = []
     for r in rows:
         try:
             st = _s(r.get('status'))
+            state = pb_state(st, spec) if 'status' in have else 'ok'
+            if state is None:
+                unknown[st] = unknown.get(st, 0) + 1
+                state = 'ok'           # counted as sent: then a missing Fleet debit shows up as a loss
             out.append(PBPayout(
                 at=parse_dt(r['at']), amount=abs(money(r['amount'])), fee=abs(money_or_none(r.get('fee')) or 0),
-                ok=(not st) or st.lower() in oks, status=st, driver_id=_s(r.get('driver_id')),
+                ok=state == 'ok', state=state, status=st, driver_id=_s(r.get('driver_id')),
                 phone=_s(r.get('phone')), name=_s(r.get('name')), park=_s(r.get('park')),
                 dest=_s(r.get('dest')), ref=_s(r.get('ref')), row=r['_row']))
         except ValueError as e:
             notes.append(('crit', f'PrimeBridge ֆայլ, տող {r["_row"]}: չկարդացվեց ({e}). Այդ տողը ստուգումից դուրս է։'))
     if 'status' not in have:
         notes.append(('warn', 'PrimeBridge ֆայլում կարգավիճակի սյունակ չկա. բոլոր տողերը համարվել են հաջողված։'))
+    if unknown:
+        notes.append(('warn', 'PrimeBridge-ի անծանոթ կարգավիճակներ (համարվել են հաջողված)՝ '
+                      + ', '.join(f'«{k or "դատարկ"}» ×{v}' for k, v in unknown.items())
+                      + '։ Ավելացրու files.primebridge.status_* կանոններում։'))
+    if 'fee' not in have and cfg['primebridge'].get('fee_column_required', True):
+        notes.append(('skip', 'PrimeBridge ֆայլում միջնորդավճարի սյունակ չկա. «միջնորդավճարը մեզ վրա» ստուգումը չի արվել։'))
     return out
+
+
+def pb_state(status: str, spec) -> str | None:
+    s = status.strip().lower()
+    if not s:
+        return None
+    for state in ('failed', 'pending', 'ok'):      # failed first: "неуспешно" contains "успешно"
+        if re.search(spec[f'status_{state}'], s, re.I):
+            return state
+    return None
 
 
 def classify_fleet(txs, cfg):

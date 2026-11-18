@@ -261,3 +261,231 @@ class Setup(unittest.TestCase):
             self.assertEqual(propose(cid, name, None)[0]['kind'], kind, name)
         self.assertIsNone(propose('q', 'Аренда авто', None)[0])
         self.assertEqual(propose('card', 'Оплата картой', False)[0]['kind'], 'ignore')
+
+
+def _rebalance(bank, start=Decimal(3_000_000)):
+    bank.sort(key=lambda b: b.at)
+    bal = start
+    for i, b in enumerate(bank, 1):
+        bal += b.amount
+        b.balance, b.row = bal, i
+
+
+class Regression(unittest.TestCase):
+    """One test per bug found by the independent review (18.11.2026). Each one used to end green."""
+
+    def setUp(self):
+        self.cfg, _ = test_config(Path(tempfile.mkdtemp()))
+
+    def run_(self, d, day=D, cfg=None):
+        return checks.run(d, cfg or self.cfg, day)
+
+    def test_partial_receipt_is_a_shortfall_not_another_period(self):
+        for got, short in ((4000, 2000), (2000, 4000)):
+            d = build(clean=True)
+            for b in d.bank:
+                if b.source == 'idram' and b.day == D:
+                    b.amount = Decimal(got)
+            _rebalance(d.bank)
+            f, _ = self.run_(d)
+            x = find(f, 'idram_short')
+            self.assertEqual((x.level, x.amount), ('crit', Decimal(short)))
+            self.assertIn('միայն 13.11.2026', x.detail)
+            self.assertNotIn('idram_match', codes(f))
+
+    def test_pb_status_words(self):
+        from finaudit.loaders import pb_state
+        spec = self.cfg['files']['primebridge']
+        for st, want in [('Հաջողված', 'ok'), ('Executed', 'ok'), ('Успешно выполнен', 'ok'), ('SUCCESS', 'ok'),
+                         ('Неуспешно', 'failed'), ('Ձախողված', 'failed'), ('declined', 'failed'),
+                         ('В обработке', 'pending'), ('pending', 'pending'), ('???', None), ('', None)]:
+            self.assertEqual(pb_state(st, spec), want, st)
+
+    def test_pb_unknown_status_counts_as_sent(self):
+        import csv
+        from finaudit.loaders import load_pb_file
+        tmp = Path(tempfile.mkdtemp()) / 'pb.csv'
+        with open(tmp, 'w', newline='', encoding='utf-8') as fh:
+            w = csv.writer(fh)
+            w.writerow(['created_at', 'driver_id', 'amount', 'fee', 'status'])
+            w.writerow([f'{D} 17:00:00', 'd6', '7000', '100', 'Տարօրինակ'])
+        notes = []
+        rows = load_pb_file(tmp, self.cfg, notes)
+        self.assertTrue(rows[0].ok)
+        self.assertEqual(notes[0][0], 'warn')
+        d = build(clean=True)
+        d.pb += rows
+        f, _ = self.run_(d)
+        self.assertEqual(find(f, 'pb_no_debit').amount, Decimal(7100))
+
+    def test_duplicate_pb_payout_across_days(self):
+        from fixtures import at
+        from finaudit.model import FleetTx, PBPayout
+        d = build(clean=True)
+        y = D - timedelta(days=1)
+        d.fleet.append(FleetTx('taxi', 'dup', at(y, 22), 'd1', 'payout_pb', 'payout_pb', Decimal(-10000)))
+        d.pb += [PBPayout(at=at(y, 22, 1), amount=Decimal(10000), fee=Decimal(0), ok=True, driver_id='d1', ref='a'),
+                 PBPayout(at=at(D, 9), amount=Decimal(10000), fee=Decimal(0), ok=True, driver_id='d1', ref='b')]
+        d.pb_from = y
+        f, _ = self.run_(d)
+        self.assertEqual(find(f, 'pb_no_debit').rows[0]['PB №'], 'b')
+
+    def test_refund_after_successful_payout(self):
+        from fixtures import at
+        from finaudit.model import FleetTx
+        d = build(clean=True)
+        d.fleet.append(FleetTx('taxi', 'r1', at(D, 15), 'd1', 'payout_pb_refund', 'payout_pb_refund', Decimal(5100)))
+        f, _ = self.run_(d)
+        self.assertEqual(find(f, 'pb_paid_twice').level, 'crit')
+
+    def test_failed_then_successful_retry(self):
+        from finaudit.model import PBPayout
+        d = build(clean=True)
+        p = d.pb[0]
+        d.pb.insert(0, PBPayout(at=p.at - timedelta(minutes=5), amount=p.amount, fee=p.fee, ok=False, status='failed',
+                                driver_id=p.driver_id, ref='try1'))
+        f, _ = self.run_(d)
+        self.assertNotIn('pb_no_debit', codes(f))
+
+    def test_fee_line_is_not_reused_from_another_day(self):
+        from fixtures import at
+        from finaudit.model import FleetTx, PBPayout
+        d = build(clean=True)
+        y = D - timedelta(days=1)
+        d.fleet += [FleetTx('taxi', 'p1', at(y, 10), 'd1', 'payout_pb', 'payout_pb', Decimal(-3000)),
+                    FleetTx('taxi', 'f1', at(y, 10, 1), 'd1', 'payout_pb_fee', 'payout_pb_fee', Decimal(-150)),
+                    FleetTx('taxi', 'p2', at(D, 10), 'd1', 'payout_pb', 'payout_pb', Decimal(-3000))]
+        d.pb += [PBPayout(at=at(y, 10, 2), amount=Decimal(3000), fee=Decimal(150), ok=True, driver_id='d1', ref='y'),
+                 PBPayout(at=at(D, 10, 2), amount=Decimal(3000), fee=Decimal(150), ok=True, driver_id='d1', ref='t')]
+        d.pb_from = y
+        f, _ = self.run_(d)
+        self.assertEqual(find(f, 'pb_fee_on_us').amount, Decimal(150))
+
+    def test_no_balances_is_not_green(self):
+        d = build(clean=True)
+        for x in d.drivers:
+            x.balance = None
+        f, _ = self.run_(d)
+        self.assertIn('balances_missing', codes(f, 'skip'))
+        self.assertNotIn('position', codes(f))
+
+    def test_bank_without_balance_column(self):
+        d = build(clean=True)
+        for b in d.bank:
+            b.balance = None
+        f, _ = self.run_(d)
+        self.assertIn('position_no_bank_balance', codes(f, 'skip'))
+        d.bank_closing = Decimal(1_000_000)
+        f, _ = self.run_(d)
+        self.assertEqual(find(f, 'position').level, 'ok')
+
+    def test_balance_taken_after_fleet_data(self):
+        d = build(clean=True)
+        for x in d.drivers:
+            x.balance_at = d.fleet_until + timedelta(days=1)
+        f, _ = self.run_(d)
+        self.assertIn('balances_after_fleet', codes(f, 'skip'))
+
+    def test_over_balance_not_downgraded_by_an_approximate_row(self):
+        from fixtures import at
+        from finaudit.model import Driver, FleetTx
+        d = build(clean=True)
+        bat = d.drivers[0].balance_at
+        d.fleet += [FleetTx('taxi', 'o1', at(D, 9), 'd8', 'payout_pb', 'payout_pb', Decimal(-50000)),
+                    FleetTx('taxi', 'o2', at(D, 9), 'zz', 'payout_pb', 'payout_pb', Decimal(-500))]
+        d.drivers.append(Driver('taxi', 'd8', 'Արթուր Ա.', '', Decimal(-50000), bat))
+        f, _ = self.run_(d)
+        self.assertEqual(find(f, 'payout_over_balance').amount, Decimal(50000))
+        self.assertEqual(find(f, 'payout_over_balance_approx').level, 'warn')
+
+    def test_xlsx_with_stale_dimension(self):
+        import openpyxl
+        import re as _re
+        import shutil
+        import zipfile
+        from finaudit.loaders import load_bank_file
+        tmp = Path(tempfile.mkdtemp())
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Ամսաթիվ', 'Ստացող/Վճարող', 'Մուտք', 'Ելք'])
+        for i in range(1, 11):
+            ws.append([f'{i:02d}.11.2026', 'IDRAM LLC', 1000 * i, None])
+        wb.save(tmp / 'ok.xlsx')
+        with zipfile.ZipFile(tmp / 'ok.xlsx') as zi, zipfile.ZipFile(tmp / 'bad.xlsx', 'w') as zo:
+            for it in zi.infolist():
+                data = zi.read(it.filename)
+                if it.filename.endswith('sheet1.xml'):
+                    data = _re.sub(rb'<dimension ref="[^"]+"', b'<dimension ref="A1:D4"', data)
+                zo.writestr(it, data)
+        notes = []
+        self.assertEqual(len(load_bank_file(tmp / 'bad.xlsx', self.cfg, notes)), 10)
+        shutil.rmtree(tmp)
+
+    def test_pb_without_fee_column(self):
+        import csv
+        from finaudit.loaders import load_pb_file
+        tmp = Path(tempfile.mkdtemp()) / 'pb.csv'
+        with open(tmp, 'w', newline='', encoding='utf-8') as fh:
+            csv.writer(fh).writerows([['date', 'driver_id', 'amount', 'status'], [f'{D} 10:00', 'd1', '5000', 'success']])
+        notes = []
+        load_pb_file(tmp, self.cfg, notes)
+        self.assertIn('skip', [n[0] for n in notes])
+
+    def test_bank_direction_markers(self):
+        import csv
+        from finaudit.loaders import load_bank_file
+        tmp = Path(tempfile.mkdtemp())
+        rows = [['Дата', 'Контрагент', 'Сумма', 'Дт/Кт'], ['16.11.2026', 'Прайм Бридж', '50 000,00', 'Д'],
+                ['16.11.2026', 'IDRAM', '6 000,00', 'К'], ['16.11.2026', 'X', '1,00', 'Դեբետ']]
+        with open(tmp / 'b.csv', 'w', newline='', encoding='utf-8') as fh:
+            csv.writer(fh, delimiter=';').writerows(rows)
+        notes = []
+        got = [b.amount for b in load_bank_file(tmp / 'b.csv', self.cfg, notes)]
+        self.assertEqual(got, [Decimal('-50000'), Decimal('6000'), Decimal('-1')])
+        with open(tmp / 'c.csv', 'w', newline='', encoding='utf-8') as fh:
+            csv.writer(fh, delimiter=';').writerows([r[:3] for r in rows])
+        with self.assertRaises(ValueError):            # unsigned amounts and no direction: refuse to guess
+            load_bank_file(tmp / 'c.csv', self.cfg, [])
+        with open(tmp / 'e.csv', 'w', newline='', encoding='utf-8') as fh:
+            csv.writer(fh, delimiter=';').writerows([rows[0], ['16.11.2026', 'X', '5,00', '?']])
+        notes = []
+        load_bank_file(tmp / 'e.csv', self.cfg, notes)
+        self.assertEqual(notes[0][0], 'crit')
+
+    def test_money_and_dash_cells(self):
+        from finaudit.util import money_or_none
+        self.assertEqual(money('10.000'), Decimal(10000))
+        self.assertEqual(money('1.234.567'), Decimal(1234567))
+        self.assertEqual(money('1234.5600'), Decimal('1234.56'))
+        self.assertIsNone(money_or_none('-'))
+        self.assertIsNone(money_or_none(' — '))
+
+    def test_missed_monday_easypay_flags_on_tuesday(self):
+        d = build(clean=True)
+        d.bank = [b for b in d.bank if not (b.source == 'easypay' and b.day == D)]
+        _rebalance(d.bank)
+        d.bank_until = D + timedelta(days=1)
+        f, _ = self.run_(d, day=D + timedelta(days=1))
+        self.assertEqual(find(f, 'easypay_late').level, 'crit')
+
+    def test_counterparty_wins_over_purpose(self):
+        from finaudit.loaders import classify_bank
+        from finaudit.model import BankTx
+        from fixtures import at
+        self.assertEqual(classify_bank(BankTx(at(D), Decimal(1), 'IDRAM LLC', 'по договору с Яндекс'), self.cfg), 'idram')
+        self.assertEqual(classify_bank(BankTx(at(D), Decimal(1), '', 'Yandex payout'), self.cfg), 'yandex')
+
+    def test_empty_fleet_day_for_a_working_park(self):
+        d = build(clean=True)
+        d.fleet = [t for t in d.fleet if not (t.park == 'delivery' and t.day == D)]
+        f, _ = self.run_(d)
+        self.assertIn('fleet_empty_day', codes(f, 'skip'))
+
+    def test_short_statement_is_not_a_missing_transfer(self):
+        d = build(clean=True)
+        d.bank = [b for b in d.bank if b.day >= D - timedelta(days=1)]
+        _rebalance(d.bank)
+        d.bank_from = D - timedelta(days=1)
+        f, _ = self.run_(d)
+        self.assertNotIn('telcell_none', codes(f))
+        self.assertIn('telcell_short_history', codes(f, 'skip'))

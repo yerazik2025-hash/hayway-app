@@ -20,12 +20,12 @@
               "expect_weekdays": [0, 1, 2, 3, 4], "cover": {"type": "since_previous_receipt", "lag_days": 1}},
     "telcell": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "10 օրը մեկ", "max_gap_days": 12,
                 "cover": {"type": "since_previous_receipt", "lag_days": 1}},
-    "easypay": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն երկուշաբթի", "weekday": 0, "max_gap_days": 8,
+    "easypay": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն երկուշաբթի", "weekday": 0, "max_gap_days": 7,
                 "cover": {"type": "since_previous_receipt", "lag_days": 1}}
   },
   "yandex": {"formula_verified": false, "schedule": "ամեն օր", "max_gap_days": 3, "expect_weekdays": [0, 1, 2, 3, 4],
              "cover": {"type": "since_previous_receipt", "lag_days": 1}},
-  "primebridge": {"fee_payer": "driver", "match_window_hours": 48},
+  "primebridge": {"fee_payer": "driver", "match_window_hours": 48, "fee_column_required": true},
   "bank": {
     "classify": [
       {"source": "yandex", "counterparty": "yandex|яндекс|յանդեքս"},

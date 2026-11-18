@@ -86,6 +86,12 @@ class PBPayout:
     dest: str = ''
     ref: str = ''
     row: int = 0
+    state: str = ''                  # ok | failed | pending (derived from ok when not given)
+
+    def __post_init__(self):
+        if not self.state:
+            self.state = 'ok' if self.ok else 'failed'
+        self.ok = self.state == 'ok'
 
     @property
     def day(self) -> date:
@@ -115,6 +121,7 @@ class Data:
     bank: Optional[list] = None               # list[BankTx]
     bank_from: Optional[date] = None
     bank_until: Optional[date] = None
+    bank_closing: Optional[Decimal] = None   # given by hand when the statement has no balance column
     pb: Optional[list] = None                 # list[PBPayout]
     pb_from: Optional[date] = None
     pb_until: Optional[date] = None

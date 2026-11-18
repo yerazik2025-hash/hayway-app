@@ -95,8 +95,9 @@ def transactions(c, park, since: datetime, until: datetime, chunk_days=3):
 
 
 def drivers(c, park):
-    out, offset, now = [], 0, datetime.now(YEREVAN)
+    out, offset = [], 0
     while True:
+        now = datetime.now(YEREVAN)            # per page: the balance is as of this request
         r = _post(c, '/v1/parks/driver-profiles/list', {
             'query': {'park': {'id': c['park_id']}},
             'fields': {'account': ['id', 'balance'], 'driver_profile': ['id', 'first_name', 'last_name', 'phones']},
@@ -105,6 +106,8 @@ def drivers(c, park):
         for it in items:
             dp, acc = it.get('driver_profile', {}), (it.get('accounts') or [{}])
             phones = dp.get('phones') or []
+            if not it.get('accounts'):
+                raise FleetError(f'driver {dp.get("id")}: no account/balance in the answer')
             out.append(Driver(
                 park=park, id=str(dp.get('id', '')),
                 name=' '.join(x for x in (dp.get('last_name'), dp.get('first_name')) if x),

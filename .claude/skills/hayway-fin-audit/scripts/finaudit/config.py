@@ -41,13 +41,13 @@ DEFAULTS = {
                     'schedule': '10 օրը մեկ', 'max_gap_days': 12,
                     'cover': {'type': 'since_previous_receipt', 'lag_days': 1}},
         'easypay': {'name': 'EasyPay', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
-                    'schedule': 'ամեն երկուշաբթի', 'weekday': 0, 'max_gap_days': 8,
+                    'schedule': 'ամեն երկուշաբթի', 'weekday': 0, 'max_gap_days': 7,
                     'cover': {'type': 'since_previous_receipt', 'lag_days': 1}},
     },
     'yandex': {'name': 'Yandex', 'parks': ['taxi', 'delivery'], 'schedule': 'ամեն օր', 'max_gap_days': 3,
                'expect_weekdays': [0, 1, 2, 3, 4],
                'cover': {'type': 'since_previous_receipt', 'lag_days': 1}, 'formula_verified': False},
-    'primebridge': {'fee_payer': 'driver', 'match_window_hours': 48},
+    'primebridge': {'fee_payer': 'driver', 'match_window_hours': 48, 'fee_column_required': True},
     'bank': {
         'classify': [
             {'source': 'yandex', 'counterparty': r'yandex|яндекс|յանդեքս'},
@@ -91,7 +91,11 @@ DEFAULTS = {
             'park': ['park'],
             'dest': ['destination', 'dest', 'wallet', 'Ուր', 'Куда'],
             'ref': ['id', 'ref', 'transaction_id'],
-        }, 'ok_statuses': ['success', 'succeeded', 'ok', 'done', 'completed', 'paid', 'հաջող', 'կատարված', 'успешно', 'выполнен']},
+        },
+            'status_failed': r'fail|error|declin|reject|cancel|refus|неуспеш|ошиб|отклон|отмен|отказ|ձախող|մերժ|չեղարկ|սխալ',
+            'status_pending': r'pend|process|wait|queue|в обработ|ожида|в процесс|սպաս|ընթացք|մշակ',
+            'status_ok': r'success|succe|^ok$|done|complet|paid|execut|sent|успеш|выполн|исполн|проведен|оплачен|հաջող|կատարվ|ավարտ|ուղարկվ',
+        },
     },
 }
 

@@ -37,6 +37,8 @@ def money(x) -> Decimal:
     neg = False
     if s.startswith('(') and s.endswith(')'):
         neg, s = True, s[1:-1]
+    if re.fullmatch(r'-?\d{1,3}(\.\d{3})+', s):
+        s = s.replace('.', '')                         # 10.000 / 1.234.567: dots as thousands (AMD has no 3-decimal amounts)
     if ',' in s and '.' in s:
         if s.rfind(',') > s.rfind('.'):
             s = s.replace('.', '').replace(',', '.')   # 1.234,56
@@ -58,7 +60,7 @@ def money(x) -> Decimal:
 
 
 def money_or_none(x):
-    if x is None or (isinstance(x, str) and not _MONEY_JUNK.sub('', x.strip())):
+    if x is None or (isinstance(x, str) and _MONEY_JUNK.sub('', x.strip()) in ('', '-', '—', '–', '−')):
         return None
     return money(x)
 

@@ -46,8 +46,8 @@ def build_data(a, cfg) -> Data:
     if a.fleet == 'api':
         from finaudit import fleet_api
         since = day_start(day - timedelta(days=int(cfg['lookback_days'])))
-        until = datetime.now(YEREVAN)
         d.fleet, d.drivers = [], []
+        until = None
         for park in cfg['parks']:
             c = fleet_api.creds(cfg, park)
             if not c:
@@ -55,8 +55,12 @@ def build_data(a, cfg) -> Data:
                                         f'({cfg["parks"][park]["env_prefix"]}_PARK_ID / _API_KEY)'))
                 continue
             try:
+                # balances FIRST, then transactions up to a moment after them: the ledger can then
+                # derive each driver's opening balance exactly (no gap between the two)
+                drv = fleet_api.drivers(c, park)
+                until = datetime.now(YEREVAN)
                 d.fleet += fleet_api.transactions(c, park, since, until)
-                d.drivers += fleet_api.drivers(c, park)
+                d.drivers += drv
                 d.fleet_parks.add(park)
             except fleet_api.FleetError as e:
                 d.notes.append(('skip', f'Fleet · {cfg["parks"][park]["name"]}՝ API սխալ. {e}'))
@@ -92,6 +96,8 @@ def build_data(a, cfg) -> Data:
             d.bank_from, d.bank_until = _period(a.bank_period)
         elif d.bank:
             d.bank_from, d.bank_until = min(b.day for b in d.bank), max(b.day for b in d.bank)
+        if a.bank_balance:
+            d.bank_closing = money(a.bank_balance)
     if a.pb:
         d.pb = []
         for path in a.pb:
@@ -115,6 +121,7 @@ def main(argv=None):
     ap.add_argument('--drivers-file', action='append', help='[park=]path with balances, repeatable')
     ap.add_argument('--bank', action='append', help='business account statement (csv/xlsx), repeatable')
     ap.add_argument('--bank-period', help='FROM:TO the statement covers')
+    ap.add_argument('--bank-balance', help='business account balance at the end of --date, AMD (if the statement has no balance column)')
     ap.add_argument('--pb', action='append', help='PrimeBridge payouts export (csv/xlsx), repeatable')
     ap.add_argument('--pb-period', help='FROM:TO the PrimeBridge export covers')
     ap.add_argument('--pb-balance', help='PrimeBridge account balance at end of day, AMD')
