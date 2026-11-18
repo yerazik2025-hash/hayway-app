@@ -1,0 +1,38 @@
+{
+  "_readme": "Copy to config.json (git-ignored; the repo is public). Amounts in AMD. Fill categories with scripts/fleet_setup.py and set categories_verified to true only after the owner confirms the table. See SKILL.md, references/rules.md.",
+  "thresholds": {
+    "large_topup_amd": 10000,
+    "withdrawal_from_topup_min_amd": 1000,
+    "manual_credit_alert_amd": 10000,
+    "debt_alert_amd": 20000,
+    "settlement_tolerance_amd": 1,
+    "list_limit": 50
+  },
+  "lookback_days": 35,
+  "parks": {
+    "taxi": {"name": "Տաքսի", "env_prefix": "FLEET_TAXI"},
+    "delivery": {"name": "Առաքում", "env_prefix": "FLEET_DELIVERY"}
+  },
+  "categories_verified": false,
+  "categories": {},
+  "providers": {
+    "idram": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն օր", "max_gap_days": 3,
+              "expect_weekdays": [0, 1, 2, 3, 4], "cover": {"type": "since_previous_receipt", "lag_days": 1}},
+    "telcell": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "10 օրը մեկ", "max_gap_days": 12,
+                "cover": {"type": "since_previous_receipt", "lag_days": 1}},
+    "easypay": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն երկուշաբթի", "weekday": 0, "max_gap_days": 8,
+                "cover": {"type": "since_previous_receipt", "lag_days": 1}}
+  },
+  "yandex": {"formula_verified": false, "schedule": "ամեն օր", "max_gap_days": 3, "expect_weekdays": [0, 1, 2, 3, 4],
+             "cover": {"type": "since_previous_receipt", "lag_days": 1}},
+  "primebridge": {"fee_payer": "driver", "match_window_hours": 48},
+  "bank": {
+    "classify": [
+      {"source": "yandex", "counterparty": "yandex|яндекс|յանդեքս"},
+      {"source": "idram", "counterparty": "idram|идрам|իդրամ"},
+      {"source": "telcell", "counterparty": "telcell|телсел|թելսել"},
+      {"source": "easypay", "counterparty": "easy\\s*pay|изи\\s*пэй|իզի\\s*փեյ"},
+      {"source": "primebridge", "counterparty": "prime\\s*bridge|прайм|պրայմ"}
+    ]
+  }
+}
