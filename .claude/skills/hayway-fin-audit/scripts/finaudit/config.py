@@ -49,7 +49,7 @@ DEFAULTS = {
     'yandex': {'name': 'Yandex', 'parks': ['taxi', 'delivery'], 'schedule': 'ամեն օր', 'max_gap_days': 3,
                'expect_weekdays': [0, 1, 2, 3, 4],
                'cover': {'type': 'since_previous_receipt', 'lag_days': 1}, 'formula_verified': False},
-    'primebridge': {'fee_payer': 'driver', 'match_window_hours': 48, 'fee_column_required': True},
+    'primebridge': {'fee_payer': 'driver', 'match_window_hours': 48, 'fee_column_required': True, 'required': True},
     'provider_reports': {'match_window_hours': 6},
     'bank': {
         'classify': [

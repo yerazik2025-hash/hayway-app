@@ -866,3 +866,42 @@ class Accounts(unittest.TestCase):
             b.account = '111'
         f, _ = checks.run(d, cfg, D)
         self.assertNotIn('bank_account_missing', codes(f))
+
+
+class Learned(unittest.TestCase):
+    def test_code_learned_from_unique_time_match(self):
+        """No payment number in Fleet: the only top-up of that amount within minutes is the payment; its code is learned
+        and a later payment with the same code but an ambiguous time is still matched."""
+        from fixtures import at
+        from finaudit.model import FleetTx, ProviderPayment
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), providers={'idram': {'contract_fee_pct': 2.0}})
+        d = build(clean=True)
+        y = D - timedelta(days=2)
+        d.fleet += [FleetTx('taxi', 'u1', at(y, 14, 3), 'd4', 'topup_idram', 'topup_idram', Decimal(2940)),
+                    FleetTx('taxi', 'u2', at(D, 13, 0), 'd4', 'topup_idram', 'topup_idram', Decimal(1960)),
+                    FleetTx('taxi', 'u3', at(D, 13, 1), 'd3', 'topup_idram', 'topup_idram', Decimal(1960))]
+        d.provider_reports = {'idram': [
+            ProviderPayment('idram', at(y, 14, 2), Decimal(3000), Decimal(60), Decimal(2940), ref='A1', account='777777'),
+            ProviderPayment('idram', at(D, 13, 0), Decimal(2000), Decimal(40), Decimal(1960), ref='A2', account='777777'),
+            ProviderPayment('idram', at(D, 13, 1), Decimal(2000), Decimal(40), Decimal(1960), ref='A3', account='888888')]}
+        f, _ = checks.run(d, cfg, D)
+        self.assertNotIn('idram_not_credited', codes(f))        # A1 by time -> code 777777 = d4 -> A2 -> A3 is left with u3
+        orphans = find(f, 'idram_credit_without_payment').rows
+        self.assertEqual({r['Fleet'] for r in orphans} & {'u1', 'u2', 'u3'}, set())   # only the fixture's own d9 top-ups
+
+    def test_tier_fee(self):
+        from monthly_act import tier_fee
+        tiers = [{'upto': 1000000, 'fixed': 35000}, {'upto': 10000000, 'pct': 3.5}, {'pct': 3.0}]
+        self.assertEqual(tier_fee(tiers, Decimal(400000)), Decimal(35000))
+        self.assertEqual(tier_fee(tiers, Decimal(1069925)), Decimal('37447.38'))
+        self.assertEqual(tier_fee(tiers, Decimal(20000000)), Decimal('600000.00'))
+
+    def test_primebridge_optional(self):
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), primebridge={'required': False})
+        d = build(clean=True)
+        d.pb = None
+        f, _ = checks.run(d, cfg, D)
+        self.assertEqual(report.status(f)[0], '✅ Ամեն ինչ ճիշտ է')
+        cfg, _ = test_config(Path(tempfile.mkdtemp()))
+        f, _ = checks.run(d, cfg, D)
+        self.assertIn('no_pb', codes(f, 'skip'))

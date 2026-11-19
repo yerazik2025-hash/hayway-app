@@ -11,7 +11,11 @@ Checks per contract:
   1. the act adds up: opening + collected − transferred − commission (− cancellations/refunds ...) = closing;
   2. commission ÷ collected = the contract % (Idram: 2%);
   3. "transferred to us" = the sum of this contract's receipts in the bank statement(s) for that month;
-  4. (with Fleet) collected − commission = what landed on the drivers' balances in Fleet that month.
+  4. (with Fleet) collected − commission = what landed on the drivers' balances in Fleet that month;
+  5. (with Fleet) the act's second column = money sent to drivers from the Idram OUT account (PrimeBridge payouts)
+     vs what was debited from drivers' Fleet balances for payouts that month.
+With --telcell-report (Telcell's daily e-mails): monthly volume, Telcell's fee by its tiers, and how much
+Telcell actually kept on each transfer in the bank.
 Read-only. Exit code 2 when something does not match.
 """
 from __future__ import annotations
@@ -72,12 +76,68 @@ def provider_for(cfg, contract: str):
     return None, None
 
 
+def tier_fee(tiers, volume: Decimal) -> Decimal:
+    """Telcell 04.2026 offer: up to 1 mln a month -> 35 000 fixed; 1-10 mln -> 3.5%; over 10 mln -> 3%."""
+    for t in tiers:
+        if t.get('upto') is None or volume <= Decimal(str(t['upto'])):
+            return Decimal(str(t['fixed'])) if 'fixed' in t else (volume * Decimal(str(t['pct'])) / 100).quantize(Decimal('0.01'))
+    return ZERO
+
+
+def telcell_month(cfg, files, bank, notes, tol) -> int:
+    from collections import defaultdict
+    from finaudit.loaders import load_provider_report
+    key = next((k for k, p in cfg['providers'].items() if p['type'] == 'telcell'), None)
+    if not key:
+        return 0
+    pc = cfg['providers'][key]
+    rows = {}
+    for f in files:
+        for p in load_provider_report(f, key, cfg, notes):
+            rows[p.ref or (p.at, p.account, p.gross)] = p          # the same payment may be in two reports
+    rows = list(rows.values())
+    if not rows:
+        return 0
+    first, last = min(p.day for p in rows), max(p.day for p in rows)
+    vol = defaultdict(lambda: [0, ZERO])
+    for p in rows:
+        vol[p.day.replace(day=1)][0] += 1
+        vol[p.day.replace(day=1)][1] += p.gross
+    print(f'## Telcell · {first:%d.%m.%Y}–{last:%d.%m.%Y}\n')
+    tiers = pc.get('fee_tiers')
+    for m0, (n, v) in sorted(vol.items()):
+        m_end = (m0 + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        full = first <= m0 and last >= m_end            # the fee is per calendar month: only for a fully covered month
+        fee = tier_fee(tiers, v) if tiers and full else None
+        print(f'- {m0:%m.%Y}{"" if full else " (մասնակի)"}՝ {n} վճարում, {amd(v)}'
+              + (f', Telcell-ի վարձատրությունը սակագնով՝ {amd(fee)} ({(fee / v * 100).quantize(Decimal("0.01"))}%)' if fee is not None and v else ''))
+    bad = 0
+    rec = sorted((b for b in bank if b.source == key and b.amount > 0), key=lambda b: b.at)
+    days = sorted({b.day for b in rec})
+    for j, s in enumerate(days[1:], start=1):
+        a0, z0 = days[j - 1], s - timedelta(days=1)
+        if a0 < first or z0 > last:
+            continue
+        R = sum((b.amount for b in rec if b.day == s), ZERO)
+        G = sum((p.gross for p in rows if a0 <= p.day <= z0), ZERO)
+        kept = G - R
+        ok = G and 0 <= kept <= G * Decimal('0.05')
+        bad += not ok
+        print(f'- {"✅" if ok else "🔴"} {s:%d.%m}-ի փոխանցում {amd(R)}՝ {a0:%d.%m}–{z0:%d.%m}-ի {amd(G)} վճարումներից, '
+              f'Telcell-ը պահել է {amd(kept)}' + (f' ({(kept / G * 100).quantize(Decimal("0.01"))}%)' if G else ''))
+    if bank and not rec:
+        print('- ⛔ Տրված քաղվածքներում Telcell-ից մուտք չկա (փոխանցումները գնում են հիմնական հաշվին)։')
+    print()
+    return bad
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--config', required=True)
     ap.add_argument('--act', action='append', required=True)
     ap.add_argument('--bank', action='append', default=[])
     ap.add_argument('--fleet-file', action='append', default=[])
+    ap.add_argument('--telcell-report', action='extend', nargs='+', default=[], help="Telcell's daily Excel reports")
     ap.add_argument('--tolerance', default='1')
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
@@ -139,7 +199,18 @@ def main(argv=None):
             want = collected - fee
             chk(abs(credited - want) <= tol, f'Վարորդներին պետք է նստեր {amd(want)} (հավաքագրված − միջնորդավճար), Fleet-ում՝ {amd(credited)}'
                 + ('' if abs(credited - want) <= tol else f' (տարբերություն {amd(credited - want, sign=True)})'))
+            sent = g(6, 1)
+            if sent:
+                debited = sum((-t.amount for t in fleet if t.kind == 'payout' and t.amount < 0 and t.park in pc['parks']
+                               and m0 <= t.day < nxt), ZERO) - sum((t.amount for t in fleet if (t.kind == 'payout_refund' or (
+                                   t.kind == 'payout' and t.amount > 0)) and t.park in pc['parks'] and m0 <= t.day < nxt), ZERO)
+                # drivers may not receive more than was taken from their balances
+                chk(sent <= debited + tol, f'Idram OUT-ից (PrimeBridge) վարորդներին ուղարկվել է {amd(sent)}, '
+                    f'Fleet-ում ելքերով հանվել է {amd(debited)}'
+                    + ('' if sent <= debited + tol else f' → {amd(sent - debited)} ուղարկվել է առանց հաշվից հանելու'))
         print('\n'.join(lines) + '\n')
+    if a.telcell_report:
+        bad += telcell_month(cfg, a.telcell_report, bank, notes, tol)
     for lvl, msg in notes:
         print(f'- {"🔴" if lvl == "crit" else "🟠"} {msg}')
     print('Եթե կա 🔴, Idram-ին պետք է գրել ակտը ստանալուց 5 աշխատանքային օրվա ընթացքում, այլապես այն համարվում է համաձայնեցված։'

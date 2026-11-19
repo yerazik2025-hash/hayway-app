@@ -78,24 +78,45 @@ def match(c):
 
         assign([(0, abs(t.at - p.at), i, t, mode_of(t, p, False))
                 for i, p in enumerate(rows) if p.ref and len(p.ref) >= 4 for t in by_tok.get(p.ref, [])])
+        # then, until nothing changes: (a) the only Fleet top-up of the right amount within a few minutes that fits
+        # only this payment (top-ups through Yandex "payment systems" land within seconds); (b) learn the account
+        # codes of matched payments; (c) same driver (id / phone / learned code) + amount within the time window
+        near = timedelta(minutes=float(c.cfg['provider_reports'].get('time_match_minutes', 15)))
         codes = defaultdict(set)                       # account code -> {(park, driver)}
         for (park, code), did in c.data.driver_codes.items():
             codes[code].add((park, did))
-        for i, (t, _) in m.items():
-            if rows[i].account:
-                codes[rows[i].account].add((t.park, t.driver_id))
-        pairs = []
-        for i, p in enumerate(rows):
-            if i in m:
-                continue
-            ids = _identities(c, p, parks) | {k for k in codes.get(p.account, ()) if k[0] in parks}
-            for k in ids:
-                for t in by_drv.get(k, []):
-                    if id(t) not in used and abs(t.at - p.at) <= win:
-                        mode = mode_of(t, p, True)
-                        if mode:
-                            pairs.append((1, abs(t.at - p.at), i, t, mode))
-        assign(pairs)
+        while True:
+            before = len(m)
+            cand = defaultdict(list)
+            for i, p in enumerate(rows):
+                if i in m:
+                    continue
+                for t in tops:
+                    if id(t) not in used and abs(t.at - p.at) <= near and mode_of(t, p, True):
+                        cand[i].append(t)
+            fits = defaultdict(int)
+            for lst in cand.values():
+                for t in lst:
+                    fits[id(t)] += 1
+            assign([(2, abs(lst[0].at - rows[i].at), i, lst[0], mode_of(lst[0], rows[i], True))
+                    for i, lst in cand.items() if len(lst) == 1 and fits[id(lst[0])] == 1])
+            for i, (t, _) in m.items():
+                if rows[i].account:
+                    codes[rows[i].account].add((t.park, t.driver_id))
+            pairs = []
+            for i, p in enumerate(rows):
+                if i in m:
+                    continue
+                ids = _identities(c, p, parks) | {k for k in codes.get(p.account, ()) if k[0] in parks}
+                for k in ids:
+                    for t in by_drv.get(k, []):
+                        if id(t) not in used and abs(t.at - p.at) <= win:
+                            mode = mode_of(t, p, True)
+                            if mode:
+                                pairs.append((1, abs(t.at - p.at), i, t, mode))
+            assign(pairs)
+            if len(m) == before:
+                break
         c.pr[prov] = {'match': m, 'used': used, 'tops': tops, 'parks': parks, 'codes': codes}
 
 

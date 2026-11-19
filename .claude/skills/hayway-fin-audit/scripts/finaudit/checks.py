@@ -122,7 +122,9 @@ def check_inputs(c: Ctx):
         c.add('skip', 'bank_short', f'Բանկի քաղվածքը չի հասնում {dmy(c.day)}-ին',
               f'Քաղվածքը՝ մինչև {dmy(d.bank_until) if d.bank_until else "—"}։ Օրվա փոխանցումները չեն ստուգվել։')
     if d.pb is None:
-        c.add('skip', 'no_pb', 'PrimeBridge-ի ելքերը չկան', 'Վարորդներին արված փոխանցումները PrimeBridge-ի հետ չեն համեմատվել։')
+        c.add('skip' if cfg['primebridge'].get('required', True) else 'info', 'no_pb', 'PrimeBridge-ի ելքերը չկան',
+              'Վարորդներին արված փոխանցումները հատ առ հատ չեն համեմատվել'
+              + ('' if cfg['primebridge'].get('required', True) else ' (ամսական ընդհանուրը ստուգվում է Idram-ի ակտով՝ monthly_act.py)') + '։')
     elif not c.pb_ok:
         c.add('skip', 'pb_short', f'PrimeBridge-ի տվյալները չեն հասնում {dmy(c.day)}-ին', '')
 
