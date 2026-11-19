@@ -851,3 +851,18 @@ class RealFormats(unittest.TestCase):
             ProviderPayment('idram', at(D, 10), Decimal(500), Decimal(10), Decimal(490), ref='55550002', account='424242')]}
         f, _ = checks.run(d, cfg, D)
         self.assertNotIn('idram_not_credited', codes(f))        # second payment matched via the learned code 424242 -> d4
+
+
+class Accounts(unittest.TestCase):
+    def test_required_account_missing_is_incomplete(self):
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), bank={'accounts': {'111': {'name': 'Հիմնական', 'required': True},
+                                                                          '222': {'name': 'Delivery'}}})
+        d = build(clean=True)
+        for b in d.bank:
+            b.account = '222'
+        f, _ = checks.run(d, cfg, D)
+        self.assertIn('bank_account_missing', codes(f, 'skip'))
+        for b in d.bank:
+            b.account = '111'
+        f, _ = checks.run(d, cfg, D)
+        self.assertNotIn('bank_account_missing', codes(f))

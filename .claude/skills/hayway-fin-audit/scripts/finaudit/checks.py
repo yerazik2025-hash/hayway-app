@@ -111,7 +111,14 @@ def check_inputs(c: Ctx):
     if d.bank is None:
         c.add('skip', 'no_bank', 'Բիզնես հաշվի քաղվածքը չկա',
               'Yandex, Idram, Telcell, EasyPay փոխանցումները չեն ստուգվել։')
-    elif not c.bank_ok:
+    else:
+        # accounts whose statement must be present (e.g. the main taxi account): side accounts alone are not enough
+        loaded = {b.account for b in d.bank} | set(d.bank_opening)
+        for acc, a in (cfg['bank'].get('accounts') or {}).items():
+            if a.get('required') and acc not in loaded:
+                c.add('skip', 'bank_account_missing', f'Չկա «{a.get("name", acc)}» ({acc}) հաշվի քաղվածքը',
+                      'Այս հաշվին եկող փոխանցումները չեն ստուգվել։ Արտահանիր քաղվածքը IDBanking-ից կամ Idram հավելվածից։')
+    if d.bank is not None and not c.bank_ok:
         c.add('skip', 'bank_short', f'Բանկի քաղվածքը չի հասնում {dmy(c.day)}-ին',
               f'Քաղվածքը՝ մինչև {dmy(d.bank_until) if d.bank_until else "—"}։ Օրվա փոխանցումները չեն ստուգվել։')
     if d.pb is None:

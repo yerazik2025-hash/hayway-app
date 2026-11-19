@@ -29,6 +29,7 @@
              "cover": {"type": "since_previous_receipt", "lag_days": 1}},
   "primebridge": {"fee_payer": "driver", "match_window_hours": 48, "fee_column_required": true},
   "bank": {
+    "accounts": {},
     "classify": [
       {"source": "yandex", "counterparty": "yandex|яндекс|յանդեքս"},
       {"source": "idram", "counterparty": "idram|идрам|իդրամ"},
