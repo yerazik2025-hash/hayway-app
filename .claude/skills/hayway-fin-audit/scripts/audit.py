@@ -16,6 +16,7 @@ Default --date is yesterday (Yerevan). Exit code: 0 = ran, 2 = critical problems
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -142,6 +143,14 @@ def main(argv=None):
         (out / 'report.md').write_text(md, encoding='utf-8')
         (out / 'summary.txt').write_text(txt, encoding='utf-8')
         (out / 'report.json').write_text(report.to_json(findings, summary, a.date), encoding='utf-8')
+        for x in summary.get('letters') or []:
+            ld = out / 'letters'
+            ld.mkdir(exist_ok=True)
+            (ld / f'{x["payer"]}.md').write_text(x['body'], encoding='utf-8')
+            with open(ld / f'{x["payer"]}.csv', 'w', newline='', encoding='utf-8-sig') as fh:
+                w = csv.DictWriter(fh, fieldnames=x['columns'])
+                w.writeheader()
+                w.writerows(x['rows'])
         print(f'written: {out}')
     print(txt)
     _, n = report.status(findings)

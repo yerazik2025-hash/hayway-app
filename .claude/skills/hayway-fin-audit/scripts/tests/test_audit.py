@@ -489,3 +489,73 @@ class Regression(unittest.TestCase):
         f, _ = self.run_(d)
         self.assertNotIn('telcell_none', codes(f))
         self.assertIn('telcell_short_history', codes(f, 'skip'))
+
+
+class Letters(unittest.TestCase):
+    """Drafts to payers when money is missing (Garik 19.11: 'if Idram sends less, a letter must be written')."""
+
+    def setUp(self):
+        self.cfg, _ = test_config(Path(tempfile.mkdtemp()))
+
+    def letters(self, d, cfg=None, day=D):
+        _, s = checks.run(d, cfg or self.cfg, day)
+        return {x['payer']: x for x in s['letters']}
+
+    def test_scenario_letters(self):
+        lt = self.letters(build())
+        self.assertEqual(sorted(lt), ['easypay', 'idram'])          # PrimeBridge issues are internal: no letter
+        i = lt['idram']
+        self.assertIn('60 ֏', i['subject'])
+        self.assertIn('13.11.2026–15.11.2026', i['body'])
+        self.assertIn('միջնորդավճարը գանձվում է վճարողից', i['body'])
+        self.assertEqual(len(i['rows']), 3)
+        self.assertEqual(sum(Decimal(r['Գումար']) for r in i['rows']), Decimal(6000))
+        e = lt['easypay']
+        self.assertIn('09.11.2026–15.11.2026', e['body'])
+        self.assertIn('10 500 ֏', e['body'])                 # due amount = attachment total, not today's top-ups
+        self.assertEqual(sum(Decimal(r['Գումար']) for r in e['rows']), Decimal(10500))
+        self.assertIn('ՀՎՀՀ', i['missing'])
+
+    def test_plain_shortfall_letter(self):
+        d = build(clean=True)
+        for b in d.bank:
+            if b.source == 'idram' and b.day == D:
+                b.amount = Decimal(4000)
+        x = self.letters(d)['idram']
+        self.assertIn('Տարբերությունը կազմում է 2 000 ֏', x['body'])
+        self.assertIn('փոխանցել 2 000 ֏ տարբերությունը', x['body'])
+
+    def test_no_letters_when_clean_or_only_warnings(self):
+        self.assertEqual(self.letters(build(clean=True)), {})
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), yandex={'formula_verified': False})
+        d = build(clean=True)
+        for b in d.bank:
+            if b.source == 'yandex' and b.day == D:
+                b.amount -= 1000
+        self.assertEqual(self.letters(d, cfg), {})                   # unverified Yandex formula: warning only, no letter
+
+    def test_company_details_fill_the_letter(self):
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), company={'name': 'Թեստ ՍՊԸ', 'tin': '00000000', 'signer': 'Տնօրեն'},
+                             providers={'idram': {'contract_fee_pct': 1.0, 'email': 'x@example.com', 'contract_no': 'N-1'}})
+        x = self.letters(build(), cfg)['idram']
+        self.assertEqual(x['missing'], [])
+        self.assertIn('Թեստ ՍՊԸ, ՀՎՀՀ 00000000', x['body'])
+
+    def test_cli_writes_letter_files(self):
+        tmp = Path(tempfile.mkdtemp())
+        _, cfg_path = test_config(tmp)
+        write_files(build(), tmp / 'in')
+        audit.main(['--config', str(cfg_path), '--date', D.isoformat(),
+                    '--fleet-file', f'taxi={tmp / "in/fleet_taxi.csv"}', '--fleet-file', f'delivery={tmp / "in/fleet_delivery.csv"}',
+                    '--fleet-period', f'{(D - timedelta(days=35)).isoformat()}:{(D + timedelta(days=1)).isoformat()}',
+                    '--drivers-file', str(tmp / 'in/drivers.csv'), '--bank', str(tmp / 'in/bank.csv'),
+                    '--bank-period', f'{(D - timedelta(days=20)).isoformat()}:{D.isoformat()}',
+                    '--pb', str(tmp / 'in/pb.csv'), '--out', str(tmp / 'out')])
+        ld = tmp / 'out' / D.isoformat() / 'letters'
+        self.assertEqual(sorted(p.name for p in ld.iterdir()), ['easypay.csv', 'easypay.md', 'idram.csv', 'idram.md'])
+
+    def test_fleet_day_summary(self):
+        f, _ = checks.run(build(), self.cfg, D)
+        rows = {r['Հոդված']: r for r in find(f, 'fleet_day').rows}
+        self.assertEqual(rows['Լիցքավորում · Idram']['Տաքսի'], '+17 000 ֏ (2)')
+        self.assertEqual(rows['Ելքեր (PrimeBridge)']['Առաքում'], '−2 000 ֏ (1)')

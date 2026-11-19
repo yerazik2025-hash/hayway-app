@@ -9,6 +9,7 @@
     "list_limit": 50
   },
   "lookback_days": 35,
+  "company": {"name": "", "tin": "", "signer": "", "phone": "", "email": ""},
   "parks": {
     "taxi": {"name": "Տաքսի", "env_prefix": "FLEET_TAXI"},
     "delivery": {"name": "Առաքում", "env_prefix": "FLEET_DELIVERY"}
@@ -16,14 +17,14 @@
   "categories_verified": false,
   "categories": {},
   "providers": {
-    "idram": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն օր", "max_gap_days": 3,
+    "idram": {"legal_name": "", "email": "", "contract_no": "", "contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն օր", "max_gap_days": 3,
               "expect_weekdays": [0, 1, 2, 3, 4], "cover": {"type": "since_previous_receipt", "lag_days": 1}},
-    "telcell": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "10 օրը մեկ", "max_gap_days": 12,
+    "telcell": {"legal_name": "", "email": "", "contract_no": "", "contract_fee_pct": null, "fee_payer": "driver", "schedule": "10 օրը մեկ", "max_gap_days": 12,
                 "cover": {"type": "since_previous_receipt", "lag_days": 1}},
-    "easypay": {"contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն երկուշաբթի", "weekday": 0, "max_gap_days": 7,
+    "easypay": {"legal_name": "", "email": "", "contract_no": "", "contract_fee_pct": null, "fee_payer": "driver", "schedule": "ամեն երկուշաբթի", "weekday": 0, "max_gap_days": 7,
                 "cover": {"type": "since_previous_receipt", "lag_days": 1}}
   },
-  "yandex": {"formula_verified": false, "schedule": "ամեն օր", "max_gap_days": 3, "expect_weekdays": [0, 1, 2, 3, 4],
+  "yandex": {"legal_name": "", "email": "", "contract_no": "", "formula_verified": false, "schedule": "ամեն օր", "max_gap_days": 3, "expect_weekdays": [0, 1, 2, 3, 4],
              "cover": {"type": "since_previous_receipt", "lag_days": 1}},
   "primebridge": {"fee_payer": "driver", "match_window_hours": 48, "fee_column_required": true},
   "bank": {

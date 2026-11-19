@@ -27,6 +27,8 @@ DEFAULTS = {
         'list_limit': 50,
     },
     'lookback_days': 35,
+    # for drafted letters (fill in config.json; empty values become [placeholders] in the draft)
+    'company': {'name': '', 'tin': '', 'signer': '', 'phone': '', 'email': ''},
     'parks': {
         'taxi': {'name': 'Տաքսի', 'env_prefix': 'FLEET_TAXI'},
         'delivery': {'name': 'Առաքում', 'env_prefix': 'FLEET_DELIVERY'},

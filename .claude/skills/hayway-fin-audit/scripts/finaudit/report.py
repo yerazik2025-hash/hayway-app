@@ -57,6 +57,15 @@ def markdown(findings, summary, day: date, cfg) -> str:
             if t:
                 L += ['', t]
             L.append('')
+    lt = (summary or {}).get('letters') or []
+    if lt:
+        L += ['## ✉️ Նամակների նախագծեր (ՉԵՆ ուղարկվել)', '',
+              'Տերը կարդում է, լրացնում է բացերը և ինքն է որոշում՝ ուղարկել, թե ոչ։', '']
+        for x in lt:
+            L.append(f'**{x["to"]}** — {x["subject"]}  ')
+            L.append(f'Ֆայլը՝ `letters/{x["payer"]}.md`, կից ցուցակը՝ `letters/{x["payer"]}.csv` ({len(x["rows"])} տող)'
+                     + (f'. լրացնել՝ {", ".join(x["missing"])}' if x['missing'] else ''))
+            L.append('')
     L += ['---', f'Կանոններ՝ մեծ լիցքավորում ≥ {amd(cfg["thresholds"]["large_topup_amd"])} · '
           f'ելք լիցքավորումից ≥ {amd(cfg["thresholds"]["withdrawal_from_topup_min_amd"])} · '
           f'համընկնման թույլատրելի շեղում ≤ {amd(cfg["thresholds"]["settlement_tolerance_amd"])} · '
@@ -74,6 +83,8 @@ def short(findings, summary, day: date, limit=12) -> str:
         L.append(f'{ICON[f.level]} {f.title}')
     if len(imp) > limit:
         L.append(f'… և ևս {len(imp) - limit}')
+    for x in summary.get('letters') or []:
+        L.append(f'✉️ Նամակի նախագիծ՝ {x["to"]} ({x["subject"]})')
     tp = summary.get('topups')
     if tp:
         tot = sum(Decimal(v['sum']) for v in tp.values())
@@ -90,6 +101,8 @@ def to_json(findings, summary, day: date) -> str:
         if isinstance(o, Decimal):
             return str(o)
         raise TypeError(type(o))
+    summary = {k: v for k, v in summary.items() if k != 'letters'} | {
+        'letters': [{k: v for k, v in x.items() if k != 'rows'} for x in summary.get('letters') or []]}
     return json.dumps({
         'day': day.isoformat(), 'status': head, 'counts': n, 'summary': summary,
         'findings': [{'level': f.level, 'code': f.code, 'title': f.title, 'detail': f.detail,

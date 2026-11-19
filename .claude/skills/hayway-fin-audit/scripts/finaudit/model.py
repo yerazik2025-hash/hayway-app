@@ -108,6 +108,7 @@ class Finding:
     rows: list = field(default_factory=list)
     columns: list = field(default_factory=list)
     park: str = ''
+    data: dict = field(default_factory=dict)      # structured facts (used to draft letters)
 
 
 @dataclass
