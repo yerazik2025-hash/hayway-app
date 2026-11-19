@@ -1,0 +1,7 @@
+# Real configuration, data and reports never go into git: this repository is public.
+config.json
+data/
+reports/
+*.xlsx
+*.csv
+__pycache__/
