@@ -36,13 +36,13 @@ DEFAULTS = {
     'categories_verified': False,
     'categories': {},
     'providers': {
-        'idram': {'name': 'Idram', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
+        'idram': {'type': 'idram', 'name': 'Idram', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
                   'schedule': 'ամեն օր', 'max_gap_days': 3, 'expect_weekdays': [0, 1, 2, 3, 4],
                   'cover': {'type': 'since_previous_receipt', 'lag_days': 1}},
-        'telcell': {'name': 'Telcell', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
+        'telcell': {'type': 'telcell', 'name': 'Telcell', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
                     'schedule': '10 օրը մեկ', 'max_gap_days': 12,
                     'cover': {'type': 'since_previous_receipt', 'lag_days': 1}},
-        'easypay': {'name': 'EasyPay', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
+        'easypay': {'type': 'easypay', 'name': 'EasyPay', 'parks': ['taxi', 'delivery'], 'fee_payer': 'driver', 'contract_fee_pct': None,
                     'schedule': 'ամեն երկուշաբթի', 'weekday': 0, 'max_gap_days': 7,
                     'cover': {'type': 'since_previous_receipt', 'lag_days': 1}},
     },
@@ -64,9 +64,11 @@ DEFAULTS = {
         # Idram / Telcell / EasyPay payment reports (their e-mails). Set the real column names once a sample is seen.
         'provider_report': {'columns': {
             'at': ['date', 'datetime', 'created_at', 'time', 'Ամսաթիվ', 'Ամսաթիվ/ժամ', 'Дата', 'Дата платежа', 'Дата и время'],
-            'ref': ['id', 'ref', 'payment_id', 'transaction_id', 'Համար', 'Գործարքի համար', 'Номер', 'Номер платежа', 'ID транзакции'],
+            'ref': ['id', 'ref', 'payment_id', 'transaction_id', 'Համար', 'Գործարք', 'Գործարքի համար', 'Номер', 'Номер платежа',
+                    'ID транзакции', 'ID платежа'],
             'phone': ['phone', 'payer', 'Հեռախոս', 'Վճարող', 'Телефон', 'Плательщик'],
-            'account': ['account', 'driver', 'Հաշիվ', 'Վարորդ', 'Լիցքավորվող հաշիվ', 'Лицевой счет', 'Аккаунт', 'Водитель'],
+            'account': ['account', 'driver', 'Բաժանորդ', 'Հաշիվ', 'Վարորդ', 'Լիցքավորվող հաշիվ', 'Реквизиты', 'Лицевой счет',
+                        'Аккаунт', 'Водитель'],
             'driver_id': ['driver_id', 'driver_profile_id', 'Yandex ID'],
             'gross': ['amount', 'gross', 'Գումար', 'Վճարված գումար', 'Сумма', 'Сумма платежа'],
             'fee': ['fee', 'commission', 'Միջնորդավճար', 'Комиссия'],
@@ -140,6 +142,19 @@ def load_config(path=None) -> dict:
         if not p.exists():
             raise ConfigError(f'config not found: {p}')
         _merge(cfg, json.loads(p.read_text(encoding='utf-8')))
+    # providers: "idram": null removes a default; a new key (e.g. "idram_delivery": {"type": "idram",
+    # "parks": ["delivery"]}) is one more contract of that type and inherits that type's defaults
+    prov = {}
+    for key, pv in cfg['providers'].items():
+        if not pv:
+            continue
+        typ = pv.get('type', key)
+        base = copy.deepcopy(DEFAULTS['providers'].get(typ, {}))
+        _merge(base, pv)
+        base['type'] = typ
+        base.setdefault('name', typ)
+        prov[key] = base
+    cfg['providers'] = prov
     validate(cfg)
     return cfg
 
@@ -154,8 +169,8 @@ def validate(cfg: dict) -> None:
         if c.get('party', '') not in PARTIES:
             errs.append(f'category {cid}: unknown party {c.get("party")!r}')
     for key, pv in cfg['providers'].items():
-        if key not in PROVIDERS:
-            errs.append(f'provider {key}: only {PROVIDERS} are supported')
+        if pv.get('type', key) not in PROVIDERS:
+            errs.append(f'provider {key}: type must be one of {PROVIDERS}')
         if pv.get('fee_payer') not in ('driver', 'park'):
             errs.append(f'provider {key}: fee_payer must be driver|park')
         if pv.get('cover', {}).get('type') not in ('since_previous_receipt', 'previous_days', 'previous_week'):

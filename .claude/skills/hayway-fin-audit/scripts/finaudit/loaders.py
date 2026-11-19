@@ -9,6 +9,7 @@ import csv
 import io
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 from .model import BankTx, Driver, FleetTx, PBPayout, ProviderPayment
@@ -152,7 +153,17 @@ def classify_bank(tx: BankTx, cfg) -> str:
     return ''
 
 
-def load_bank_file(path, cfg, notes):
+def load_bank_file(path, cfg, notes, meta=None):
+    """CSV/XLSX statement, or an IDBank PDF statement (verified against its own totals)."""
+    meta = {} if meta is None else meta
+    if Path(path).suffix.lower() == '.pdf':
+        from . import idbank
+        rows, m = idbank.load_pdf(path)
+        meta.update(m)
+        for r in rows:
+            r.account = m.get('account') or Path(path).stem
+            r.source = classify_bank(r, cfg)
+        return rows
     cols = dict(cfg['files']['bank']['columns'])
     cols.setdefault('direction', ['direction', 'type', 'Տեսակ', 'Тип', 'D/C', 'Дт/Кт'])
     rows, have = read_table(path, cols)
@@ -179,7 +190,7 @@ def load_bank_file(path, cfg, notes):
                 amt = (cr or 0) - abs(dr or 0)
             tx = BankTx(at=parse_dt(r['at']), amount=amt, counterparty=_s(r.get('counterparty')),
                         purpose=_s(r.get('purpose')), ref=_s(r.get('ref')),
-                        balance=money_or_none(r.get('balance')), row=r['_row'])
+                        balance=money_or_none(r.get('balance')), row=r['_row'], account=Path(path).stem)
             tx.source = classify_bank(tx, cfg)
             out.append(tx)
         except ValueError as e:
@@ -238,9 +249,12 @@ def load_provider_report(path, provider, cfg, notes):
     rows, have = read_table(path, spec['columns'])
     if 'at' not in have or not ({'gross', 'net'} & set(have)) or not ({'phone', 'account', 'driver_id', 'ref'} & set(have)):
         raise ValueError(f'{Path(path).name}: need date, amount and phone/account/payment number columns; found {have}')
-    if 'fee' not in have and not {'gross', 'net'} <= set(have):
-        notes.append(('warn', f'{provider} հաշվետվությունում միջնորդավճարի սյունակ չկա. համարվել է, որ վարորդին պետք է '
-                              f'նստեր {"ամբողջ" if "gross" in have else "զուտ"} գումարը։'))
+    pc = cfg['providers'][provider]
+    rate = pc.get('contract_fee_pct')
+    derive = 'fee' not in have and not {'gross', 'net'} <= set(have) and 'gross' in have and rate is not None
+    if 'fee' not in have and not {'gross', 'net'} <= set(have) and not derive:
+        notes.append(('warn', f'{pc["name"]} հաշվետվությունում միջնորդավճարի սյունակ չկա, պայմանագրի % էլ չկա config-ում. '
+                              f'համարվել է, որ վարորդին պետք է նստեր {"ամբողջ" if "gross" in have else "զուտ"} գումարը։'))
     out = []
     for r in rows:
         try:
@@ -248,6 +262,8 @@ def load_provider_report(path, provider, cfg, notes):
             g, f, n = (abs(x) if x is not None else None for x in (g, f, n))
             if g is None and n is None:
                 raise ValueError('no amount')
+            if derive:                    # e.g. Telcell's daily report has only the paid amount
+                f = (g * Decimal(str(rate)) / 100).quantize(Decimal('0.01'))
             if n is None:
                 n = g - (f or 0)
             if g is None:
@@ -264,6 +280,20 @@ def load_provider_report(path, provider, cfg, notes):
                 claim=bool(st) and bool(re.search(spec['status_not_credited'], st, re.I))))
         except ValueError as e:
             notes.append(('crit', f'{provider} հաշվետվություն {Path(path).name}, տող {r["_row"]}: չկարդացվեց ({e})։'))
+    return out
+
+
+def load_driver_codes(path, cfg, notes):
+    """code -> Fleet driver: the account number drivers type at Idram/Telcell/EasyPay."""
+    rows, have = read_table(path, {'code': ['code', 'account', 'Բաժանորդ', 'Реквизиты', 'կոդ'],
+                                   'driver_id': ['driver_id', 'driver_profile_id', 'id'], 'park': ['park']})
+    if not {'code', 'driver_id'} <= set(have):
+        raise ValueError(f'{Path(path).name}: need code and driver_id columns')
+    out = {}
+    for r in rows:
+        parks = [_s(r.get('park'))] if _s(r.get('park')) else list(cfg['parks'])
+        for pk in parks:
+            out[(pk, _s(r['code']))] = _s(r['driver_id'])
     return out
 
 

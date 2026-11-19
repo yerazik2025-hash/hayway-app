@@ -27,8 +27,9 @@ def _blank(v, what, missing):
 def _rows(c, payer, ptype, a: date, z: date):
     """Our side of the period: every payment (provider) or every day total (Yandex)."""
     if ptype == 'provider':
-        parks = set(c.cfg['providers'][payer]['parks'])
-        tx = sorted((t for t in c.data.fleet if t.kind == 'topup' and t.provider == payer and t.park in parks
+        pc = c.cfg['providers'][payer]
+        parks = set(pc['parks'])
+        tx = sorted((t for t in c.data.fleet if t.kind == 'topup' and t.provider == pc['type'] and t.park in parks
                      and a <= t.day <= z), key=lambda t: t.at)
         return ['Ամսաթիվ', 'Ժամ', 'Գումար', 'Fleet գործարք', 'Նկարագրություն'], [
             {'Ամսաթիվ': dmy(t.at), 'Ժամ': f'{t.at:%H:%M:%S}', 'Գումար': str(t.amount), 'Fleet գործարք': t.id,
@@ -93,7 +94,7 @@ def build(c, findings):
         ptype = fs[0].data['ptype']
         pc = c.cfg['providers'][payer] if ptype == 'provider' else c.cfg['yandex']
         missing = []
-        to = pc.get('legal_name') or LEGAL_DEFAULT.get(payer, payer)
+        to = pc.get('legal_name') or LEGAL_DEFAULT.get(pc.get('type', payer), payer)
         email = _blank(pc.get('email'), f'{pc.get("name", payer)}-ի էլ. հասցե', missing)
         contract = _blank(pc.get('contract_no'), 'պայմանագրի համար', missing)
         cname = _blank(comp.get('name'), 'ընկերության անվանում', missing)

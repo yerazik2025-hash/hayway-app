@@ -38,8 +38,11 @@ def _identities(c, p, parks):
 
 
 def match(c):
-    """Pair report payments with Fleet top-ups. Strongest first: the provider's payment number
-    found in the Fleet description, then same driver + amount within the time window."""
+    """Pair report payments with Fleet top-ups, in two passes:
+    1. the provider's payment number appears in the Fleet description (strongest);
+    2. same driver + amount within the time window. The driver of a payment is its Fleet id,
+       its phone, or its account code (the 6-digit "Բաժանորդ"/"Реквизиты" the driver types at the
+       terminal): codes are learned from pass 1 and from --driver-codes."""
     c.pr = {}
     c.pr_gross = {}
     if c.data.fleet is None:
@@ -47,36 +50,53 @@ def match(c):
     tol = c.tol
     win = timedelta(hours=float(c.cfg['provider_reports'].get('match_window_hours', 6)))
     for prov, rows in c.data.provider_reports.items():
-        parks = set(c.cfg['providers'][prov]['parks'])
-        tops = [t for t in c.data.fleet if t.kind == 'topup' and t.provider == prov and t.park in parks and t.amount > 0]
+        pc = c.cfg['providers'][prov]
+        parks = set(pc['parks'])
+        tops = [t for t in c.data.fleet if t.kind == 'topup' and t.provider == pc['type'] and t.park in parks and t.amount > 0]
         by_drv, by_tok = defaultdict(list), defaultdict(list)
         for t in tops:
             by_drv[(t.park, t.driver_id)].append(t)
             for tok in set(_TOKEN.findall(t.description)) | {t.id}:
                 by_tok[tok].append(t)
+
+        def mode_of(t, p, exact_only):
+            if abs(t.amount - p.net) <= tol:
+                return 'net'
+            if abs(t.amount - p.gross) <= tol:
+                return 'gross'
+            return None if exact_only else 'diff'
+
+        m, used = {}, set()
+
+        def assign(pairs):
+            pairs.sort(key=lambda x: (x[0], x[1], x[2]))
+            for _, _, i, t, mode in pairs:
+                if i not in m and id(t) not in used:
+                    m[i] = (t, mode)
+                    used.add(id(t))
+                    c.pr_gross[id(t)] = rows[i].gross
+
+        assign([(0, abs(t.at - p.at), i, t, mode_of(t, p, False))
+                for i, p in enumerate(rows) if p.ref and len(p.ref) >= 4 for t in by_tok.get(p.ref, [])])
+        codes = defaultdict(set)                       # account code -> {(park, driver)}
+        for (park, code), did in c.data.driver_codes.items():
+            codes[code].add((park, did))
+        for i, (t, _) in m.items():
+            if rows[i].account:
+                codes[rows[i].account].add((t.park, t.driver_id))
         pairs = []
         for i, p in enumerate(rows):
-            seen = set()
-            if p.ref and len(p.ref) >= 4:
-                for t in by_tok.get(p.ref, []):
-                    seen.add(id(t))
-                    mode = 'net' if abs(t.amount - p.net) <= tol else 'gross' if abs(t.amount - p.gross) <= tol else 'diff'
-                    pairs.append((0, abs(t.at - p.at), i, t, mode))
-            for k in _identities(c, p, parks):
+            if i in m:
+                continue
+            ids = _identities(c, p, parks) | {k for k in codes.get(p.account, ()) if k[0] in parks}
+            for k in ids:
                 for t in by_drv.get(k, []):
-                    if id(t) in seen or abs(t.at - p.at) > win:
-                        continue
-                    mode = 'net' if abs(t.amount - p.net) <= tol else 'gross' if abs(t.amount - p.gross) <= tol else None
-                    if mode:
-                        pairs.append((1, abs(t.at - p.at), i, t, mode))
-        pairs.sort(key=lambda x: (x[0], x[1], x[2]))
-        m, used = {}, set()
-        for _, _, i, t, mode in pairs:
-            if i not in m and id(t) not in used:
-                m[i] = (t, mode)
-                used.add(id(t))
-                c.pr_gross[id(t)] = rows[i].gross
-        c.pr[prov] = {'match': m, 'used': used, 'tops': tops, 'parks': parks}
+                    if id(t) not in used and abs(t.at - p.at) <= win:
+                        mode = mode_of(t, p, True)
+                        if mode:
+                            pairs.append((1, abs(t.at - p.at), i, t, mode))
+        assign(pairs)
+        c.pr[prov] = {'match': m, 'used': used, 'tops': tops, 'parks': parks, 'codes': codes}
 
 
 def _in_bank(c, prov, p, rows, rep_from, rep_to):
@@ -123,8 +143,11 @@ def check(c):
                   f'Հաշվետվությունը՝ {dmy(rep_from)}–{dmy(rep_to)}։ Վճարումները հատ առ հատ չեն ստուգվել։')
         todo = [(i, p) for i, p in enumerate(rows) if (covers and p.day == c.day) or p.claim]
 
+        def ids(p):
+            return _identities(c, p, parks) | {k for k in st['codes'].get(p.account, ()) if k[0] in parks}
+
         def who(p, t=None):
-            for k in ([(t.park, t.driver_id)] if t else []) + sorted(_identities(c, p, parks)):
+            for k in ([(t.park, t.driver_id)] if t else []) + sorted(ids(p)):
                 if k in c.drivers:
                     d = c.drivers[k]
                     return d.name or d.id, d.phone or p.phone
@@ -152,7 +175,7 @@ def check(c):
                     claim_ok.append({**row, 'Fleet-ում': f'{t.at:%d.%m %H:%M}'})
                 continue
             later = None
-            for k in sorted(_identities(c, p, parks)):
+            for k in sorted(ids(p)):
                 later = next((t for t in sorted(credits.get(k, []), key=lambda t: t.at) if id(t) not in used_later
                               and t.at >= p.at and (abs(t.amount - p.net) <= tol or abs(t.amount - p.gross) <= tol)), None)
                 if later:

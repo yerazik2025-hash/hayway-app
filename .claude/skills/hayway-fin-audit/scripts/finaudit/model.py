@@ -66,6 +66,7 @@ class BankTx:
     balance: Optional[Decimal] = None
     source: str = ''                 # yandex | idram | telcell | easypay | primebridge | '' (unclassified)
     row: int = 0
+    account: str = ''                # bank account (several statements can be loaded at once)
 
     @property
     def day(self) -> date:
@@ -145,10 +146,12 @@ class Data:
     bank_from: Optional[date] = None
     bank_until: Optional[date] = None
     bank_closing: Optional[Decimal] = None   # given by hand when the statement has no balance column
+    bank_opening: dict = field(default_factory=dict)   # account -> balance at the start of its statement
     pb: Optional[list] = None                 # list[PBPayout]
     pb_from: Optional[date] = None
     pb_until: Optional[date] = None
     pb_balance: Optional[Decimal] = None
     provider_reports: dict = field(default_factory=dict)   # provider -> list[ProviderPayment]
     provider_periods: dict = field(default_factory=dict)   # provider -> (from date, to date) fully covered
+    driver_codes: dict = field(default_factory=dict)       # (park, account code) -> Fleet driver id
     notes: list = field(default_factory=list)  # loader warnings (skipped rows etc.)

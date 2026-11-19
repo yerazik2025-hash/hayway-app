@@ -59,6 +59,15 @@ FLEET_DELIVERY_PARK_ID, FLEET_DELIVERY_API_KEY, [FLEET_DELIVERY_CLIENT_ID]
 
 Արտահանիր ստուգվող օրը ± 1 օր (կեսգիշերի ելքերի համար)։
 
+## 2ա. IDBank-ի PDF քաղվածք (`statement@idbank.am` կամ IDBanking)
+
+PDF-ը հին ArmSCII-8 տառատեսակով է. `scripts/finaudit/idbank.py`-ը այն կարդում է `pdftotext -layout`-ով (poppler;
+Windows՝ `winget install oschwartz10612.Poppler`) և վերածում հայերենի։ Ժամանակահատվածը, հաշվի համարը, սկզբնական և
+վերջնական մնացորդը վերցվում են վերնագրից։ **Ամեն քաղվածք ստուգվում է իր իսկ ամփոփման հետ**. սկզբնական + մուտքեր −
+ելքեր = վերջնական, և կարդացված տողերի գումարը = տպված ընդհանուրներին։ Եթե չի համընկնում, քաղվածքը չի օգտագործվում
+(սխալ), որովհետև մեկ բաց թողնված տողը կարող է թաքցնել փոխանցում։ Մնացորդը՝ ամեն օրվա վերջում («Օրվա վերջի դրությամբ»)։
+Մի քանի հաշիվ՝ `--bank` կրկնելով. մնացորդը հաշվվում է ամեն հաշվի համար առանձին, իսկ ստուգվող օրը պետք է ծածկի ամեն քաղվածք։
+
 ## 3ա. Idram / Telcell / EasyPay-ի հաշվետվություն (`--provider-report idram=file [--provider-report-period idram=FROM:TO]`)
 
 Նրանց նամակներով եկող վճարումների ցուցակը (CSV/XLSX)։ Մեկ տող = մեկ վճարում։ Սյունակների անունները՝
@@ -73,6 +82,34 @@ FLEET_DELIVERY_PARK_ID, FLEET_DELIVERY_API_KEY, [FLEET_DELIVERY_CLIENT_ID]
 | կարգավիճակ | ոչ | «չի նստել / не зачислен / not credited…» (`status_not_credited`) → վճարողի պնդումը, ստուգվում է ցանկացած օրվա համար |
 
 Մի քանի ֆայլ՝ `--provider-report` կրկնելով։ Նույն ձևով՝ `telcell=`, `easypay=`։
+
+Իրական ձևաչափեր (2026-11).
+- **Telcell** (`info@telcell.am`, ամեն օր 05:00, `Стандартный отчёт.xlsx`)՝ `ID платежа`, `Дата и время`, `Реквизиты`
+  (վարորդի 6-նիշ կոդը), `Сумма` (վճարած), `№ чека`։ Միջնորդավճարի սյունակ չկա. զուտը հաշվվում է `contract_fee_pct`-ով։
+- **Idram «հարցում»** (`*@edram.am`)՝ `Ամսաթիվ`, `Գործարք`, `Բաժանորդ` (6-նիշ կոդ), `Գումար` → `scripts/mail_claims.py`։
+
+**Վարորդի կոդը** (`Բաժանորդ` / `Реквизиты`)՝ այն թիվը, որ վարորդը մուտքագրում է տերմինալում։ Ծրագիրը կոդը կապում է
+վարորդի հետ նախ ինքնուրույն (երբ նույն կոդով վճարումը գտնվել է Fleet-ում իր համարով), ապա `--driver-codes codes.csv`-ից
+(`code,driver_id[,park]`)։
+
+## 3բ. Մի քանի պայմանագիր նույն համակարգով (Idram-ի տաքսի և Delivery)
+
+Idram-ի հետ կա առանձին պայմանագիր տաքսու և Delivery-ի համար, և փոխանցումները գալիս են առանձին՝ նպատակում պայմանագրի համարով։
+`config.json`-ում.
+```json
+"providers": {
+  "idram": null,
+  "idram_taxi":     {"type": "idram", "name": "Idram · տաքսի",    "parks": ["taxi"],     "contract_no": "ՎՀ-…/…",   "contract_fee_pct": 2.0},
+  "idram_delivery": {"type": "idram", "name": "Idram · Delivery", "parks": ["delivery"], "contract_no": "ՎՀ-…/…-1", "contract_fee_pct": 2.0,
+                     "expect_weekdays": [], "max_gap_days": 10}
+},
+"bank": {"classify": [
+  {"source": "idram_delivery", "counterparty": "idram|իդրամ", "purpose": "Delivery|…-1"},
+  {"source": "idram_taxi",     "counterparty": "idram|իդրամ", "purpose": "ՎՀ-…/…(?![-\\d])"}
+]}
+```
+`null`-ը հանում է լռելյայն պրովայդերը։ Նոր բանալին ժառանգում է իր `type`-ի լռելյայն արժեքները։ Delivery-ին Idram-ը
+փոխանցում է միայն վճարում եղած օրերին, դրա համար `expect_weekdays: []`։
 
 ## 4. Ելք (`--out DIR`)
 

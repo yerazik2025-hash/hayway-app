@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from finaudit import checks, report  # noqa: E402
 from finaudit.config import ConfigError, load_config  # noqa: E402
 from finaudit.loaders import (classify_fleet, load_bank_file, load_drivers_file,  # noqa: E402
-                              load_fleet_file, load_pb_file, load_provider_report)
+                              load_driver_codes, load_fleet_file, load_pb_file, load_provider_report)
 from finaudit.model import Data  # noqa: E402
 from finaudit.util import YEREVAN, day_end, day_start, money, parse_day  # noqa: E402
 
@@ -90,13 +90,23 @@ def build_data(a, cfg) -> Data:
             park, path = _park_path(spec)
             d.drivers += load_drivers_file(path, cfg, d.notes, park)
     if a.bank:
-        d.bank = []
+        d.bank, periods = [], []
         for path in a.bank:
-            d.bank += load_bank_file(path, cfg, d.notes)
+            meta = {}
+            rows = load_bank_file(path, cfg, d.notes, meta)
+            d.bank += rows
+            acc = meta.get('account') or Path(path).stem
+            if 'opening' in meta:
+                d.bank_opening[acc] = meta['opening']
+            if 'period' in meta:
+                periods.append(meta['period'])
+            elif rows:
+                periods.append((min(b.day for b in rows), max(b.day for b in rows)))
         if a.bank_period:
             d.bank_from, d.bank_until = _period(a.bank_period)
-        elif d.bank:
-            d.bank_from, d.bank_until = min(b.day for b in d.bank), max(b.day for b in d.bank)
+        elif periods:
+            # several accounts: the audit day must be covered by EVERY statement
+            d.bank_from, d.bank_until = max(p[0] for p in periods), min(p[1] for p in periods)
         if a.bank_balance:
             d.bank_closing = money(a.bank_balance)
     for spec in a.provider_report or []:
@@ -105,6 +115,8 @@ def build_data(a, cfg) -> Data:
             raise ValueError(f'--provider-report {spec}: write it as idram=path (or telcell=, easypay=)')
         d.provider_reports.setdefault(prov, [])
         d.provider_reports[prov] += load_provider_report(path, prov, cfg, d.notes)
+    for path in a.driver_codes or []:
+        d.driver_codes.update(load_driver_codes(path, cfg, d.notes))
     for spec in a.provider_report_period or []:
         prov, per = _park_path(spec)
         d.provider_periods[prov] = _period(per)
@@ -134,6 +146,7 @@ def main(argv=None):
     ap.add_argument('--bank-balance', help='business account balance at the end of --date, AMD (if the statement has no balance column)')
     ap.add_argument('--provider-report', action='append', help='idram=path (or telcell=, easypay=): the provider\'s payment report, repeatable')
     ap.add_argument('--provider-report-period', action='append', help='idram=FROM:TO the report fully covers')
+    ap.add_argument('--driver-codes', action='append', help='CSV code,driver_id[,park]: account codes drivers type at terminals')
     ap.add_argument('--pb', action='append', help='PrimeBridge payouts export (csv/xlsx), repeatable')
     ap.add_argument('--pb-period', help='FROM:TO the PrimeBridge export covers')
     ap.add_argument('--pb-balance', help='PrimeBridge account balance at end of day, AMD')

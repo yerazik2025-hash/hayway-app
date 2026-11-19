@@ -707,3 +707,147 @@ class ProviderReport(unittest.TestCase):
         rows = load_provider_report(tmp, 'idram', self.cfg, notes)
         self.assertEqual([(r.net, r.claim) for r in rows], [(Decimal(980), False), (Decimal(980), True)])
         self.assertEqual(notes[0][0], 'crit')                      # 1 000 − 20 ≠ 900: not silently accepted
+
+
+# ── real-world formats (synthetic numbers, same layout as the real files) ──
+IDBANK_TEXT = """                                           ՀԱՇՎԻ ՔԱՂՎԱԾՔ N6-2026-00000001
+                                                   ՏԵՍՏ ՍՊԸ
+0010 Երևան                      Ձևավորվել է` 17.11.2026 12:17                              Հաշվի համար` 11800000000001
+E-mail: info@idbank.am                 Հաշվետու ժամանակաշրջան` 13.11.2026 - 16.11.2026 ( 4 օր )
+                                                      ԳՈՐԾԱՐՔՆԵՐԻ ԱՄՓՈՓ ՏԵՂԵԿԱՏՎՈՒԹՅՈՒՆ ( AMD )
+Սկզբնական մնացորդ                 Մուտքեր                 Ելքեր                      ար                Վերջնական մնացորդ
+(13.11.2026 դրությամբ)          (ընդհանուր)            (ընդհանուր)       որից (գործարքներ               (16.11.2026 դրությամբ)
+                                                                                   ից)
+      +10,000.00               +5,940.00               -1,000.00                   0.00      կիրառելի չէ              +14,940.00
+                                         ԳՈՐԾԱՐՔՆԵՐԻ/ԳՈՐԾԱՌՆՈՒԹՅՈՒՆՆԵՐԻ ՄԱՆՐԱՄԱՍՆ ՏԵՂԵԿԱՏՎՈՒԹՅՈՒՆ
+Ամսաթիվ       Գումար         Արժույթ    Մուտք              Ելք
+                                                                                                                  Փոխանցում /Համաձայն Պայմանագիր
+13.11.202        2,000.00    AMD      +2,000.00                                                   '00000001       HayWay Delivery ՎՀ-1/1-1 առ
+    6                                                                                                           01.01.2025/ IDRAM LLC /11800000000002
+
+                                                                                +12,000.00                    Օրվա վերջի դրությամբ հաշվի վերջնական մնացորդ
+
+                                                                                                               Փոխանցում /Համաձայն Պայմանագիր
+16.11.202        3,940.00    AMD      +3,940.00                                                   '00000001    (HayWay) ՎՀ-1/1 առ
+    6                                                                                                        01.01.2025/ IDRAM LLC /11800000000002
+                                                                                                            Փոխանցում /Համաձայն պայմանագիր P-YD -
+16.11.202        1,000.00    AMD      -1,000.00                                                   '00000003        1/ԻԶԻ ՓԵՅ ՍՊԸ
+    6                                                                                                             2/00000003/1150000000000001
+
+                                                                                +14,940.00                    Օրվա վերջի դրությամբ հաշվի վերջնական մնացորդ
+"""
+
+ACT_TEXT = """                                       ԱԿՏ
+                    ԻԴՐԱՄ ՍՊԸ և «ՏԵՍՏ ՍՊԸ» ՍՊԸ
+                        ((HayWay) ՎՀ-1/1 առ 01.01.2025) միջև
+                            փոխադարձ հաշվարկների ստուգման
+
+                                      31.10.2026
+
+ԳԱՆՁՈՒՄ ԵՎ ԵԼՔԱԳՐՈՒՄ
+№     Գործողություն                                  Հավաքագրում         Ելքագրում
+1     Սկզբնական մնացորդ ի օգուտ                          1,000.00            0.00
+2     ՏԵՍՏ ՍՊԸ-ի ID-ի համալրում                                        -     50,000.00
+3     Ընդամենը հավաքագրվել է                            100,000.00                    -
+6     Ընդամենը փոխանցվել է                               97,000.00       50,000.00
+7     Չեղարկված գործարքներ                                      0.00                 0.00
+11    Վերջնական մնացորդ առ 31.10.2026                        2,000.00            0.00
+
+ԾԱՌԱՅՈՒԹՅՈՒՆՆԵՐ
+№     Նկարագրություն                                 Գանձում             Ելք
+2     Գանձված է ծառայության արժեք                           2,000.00                 0.00
+"""
+
+
+class RealFormats(unittest.TestCase):
+    def test_armscii(self):
+        from finaudit.idbank import armscii
+        self.assertEqual(armscii('Ð²ÞìÆ ø²Ôì²Ìø'), 'ՀԱՇՎԻ ՔԱՂՎԱԾՔ')
+        self.assertEqual(armscii('ºñ¨³Ý'), 'Երևան')
+
+    def split_cfg(self):
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), providers={
+            'idram': None,
+            'idram_taxi': {'type': 'idram', 'name': 'Idram · տաքսի', 'parks': ['taxi'], 'contract_no': 'ՎՀ-1/1', 'contract_fee_pct': 2.0},
+            'idram_delivery': {'type': 'idram', 'name': 'Idram · Delivery', 'parks': ['delivery'], 'contract_no': 'ՎՀ-1/1-1',
+                               'contract_fee_pct': 2.0, 'expect_weekdays': []}},
+            bank={'classify': [{'source': 'idram_delivery', 'counterparty': 'idram', 'purpose': 'Delivery|1/1-1'},
+                               {'source': 'idram_taxi', 'counterparty': 'idram', 'purpose': 'ՎՀ-1/1(?![-\\d])'},
+                               {'source': 'easypay', 'counterparty': 'իզի\\s*փեյ'}]})
+        return cfg
+
+    def test_idbank_statement(self):
+        from finaudit.idbank import parse_statement
+        from finaudit.loaders import classify_bank
+        rows, meta = parse_statement(IDBANK_TEXT)
+        self.assertEqual(meta['period'], (date(2026, 11, 13), date(2026, 11, 16)))
+        self.assertEqual((meta['opening'], meta['closing']), (Decimal(10000), Decimal(14940)))
+        self.assertEqual([(r.day, r.amount) for r in rows],
+                         [(date(2026, 11, 13), Decimal(2000)), (date(2026, 11, 16), Decimal(3940)), (date(2026, 11, 16), Decimal(-1000))])
+        self.assertEqual([r.balance for r in rows], [Decimal(12000), None, Decimal(14940)])
+        cfg = self.split_cfg()
+        self.assertEqual([classify_bank(r, cfg) for r in rows], ['idram_delivery', 'idram_taxi', 'easypay'])
+
+    def test_idbank_statement_that_does_not_add_up_is_refused(self):
+        from finaudit.idbank import parse_statement
+        broken = IDBANK_TEXT.replace('16.11.202        3,940.00    AMD      +3,940.00', '  some text without a date')
+        with self.assertRaises(ValueError):
+            parse_statement(broken)
+
+    def test_mail_claims(self):
+        from mail_claims import extract
+        rows = extract('Ամսաթիվ Գործարք Բաժանորդ Գումար\n23/10/2026 21:40 11111111111111 123456 1,500\n'
+                       '> 24/10/2026 09:05 22222222222222 654321 490\n>\n'
+                       'Ամսաթիվ Գործարք Բաժանորդ Գումար\n26/10/2026 12:49 33333333333333\n111222\n1,000.00\n\n--\n')
+        self.assertEqual([(r['Ամսաթիվ'], r['Գործարք'], r['Բաժանորդ'], r['Գումար']) for r in rows],
+                         [('23.10.2026 21:40', '11111111111111', '123456', '1500'),
+                          ('24.10.2026 09:05', '22222222222222', '654321', '490'),
+                          ('26.10.2026 12:49', '33333333333333', '111222', '1000.00')])
+
+    def test_monthly_act(self):
+        from monthly_act import parse_act, provider_for
+        act = parse_act(ACT_TEXT)
+        self.assertEqual(act['contract'], 'ՎՀ-1/1')
+        self.assertEqual(act['main'][3][0], Decimal(100000))
+        self.assertEqual(act['services'][2][0], Decimal(2000))
+        cfg = self.split_cfg()
+        self.assertEqual(provider_for(cfg, 'ՎՀ-1/1')[0], 'idram_taxi')            # not the '-1' delivery contract
+        self.assertEqual(provider_for(cfg, 'ՎՀ-1/1-1')[0], 'idram_delivery')
+
+    def test_split_contracts_are_settled_separately(self):
+        cfg = self.split_cfg()
+        self.assertNotIn('idram', cfg['providers'])
+        d = build(clean=True)
+        for b in d.bank:
+            if b.source == 'idram':
+                b.counterparty, b.purpose = 'IDRAM LLC', '(HayWay) ՎՀ-1/1 առ 01.01.2025'
+        f, _ = checks.run(d, cfg, D)
+        self.assertIn('idram_taxi_match', codes(f, 'ok'))
+        self.assertNotIn('idram_delivery_none', codes(f))     # delivery has no Idram top-ups in the fixture
+
+    def test_telcell_fee_from_contract_rate(self):
+        import openpyxl
+        from finaudit.loaders import load_provider_report
+        tmp = Path(tempfile.mkdtemp())
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['ID платежа', 'Дата и время', 'Реквизиты', 'Сумма', '№ чека', 'ID платежа провайдера'])
+        ws.append([1234567890, '2026-11-16 10:00:00', '123456', 1000.0, '777', None])
+        wb.save(tmp / 't.xlsx')
+        cfg, _ = test_config(tmp, providers={'telcell': {'contract_fee_pct': 1.5}})
+        r = load_provider_report(tmp / 't.xlsx', 'telcell', cfg, [])[0]
+        self.assertEqual((r.ref, r.account, r.gross, r.fee, r.net), ('1234567890', '123456', Decimal(1000), Decimal(15), Decimal(985)))
+
+    def test_driver_code_learned_from_payment_number(self):
+        from fixtures import at
+        from finaudit.model import FleetTx, ProviderPayment
+        cfg, _ = test_config(Path(tempfile.mkdtemp()), providers={'idram': {'contract_fee_pct': 2.0}})
+        d = build(clean=True)
+        d.fleet += [FleetTx('taxi', 'k1', at(D - timedelta(days=3), 10), 'd4', 'topup_idram', 'topup_idram', Decimal(980),
+                            description='Idram 55550001'),
+                    FleetTx('taxi', 'k2', at(D, 10), 'd4', 'topup_idram', 'topup_idram', Decimal(490))]
+        d.provider_reports = {'idram': [
+            ProviderPayment('idram', at(D - timedelta(days=3), 10), Decimal(1000), Decimal(20), Decimal(980), ref='55550001', account='424242'),
+            ProviderPayment('idram', at(D, 10), Decimal(500), Decimal(10), Decimal(490), ref='55550002', account='424242')]}
+        f, _ = checks.run(d, cfg, D)
+        self.assertNotIn('idram_not_credited', codes(f))        # second payment matched via the learned code 424242 -> d4

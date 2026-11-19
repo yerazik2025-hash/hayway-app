@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from .config import T
 from . import letters, provider_reports
-from .loaders import classify_fleet
+from .loaders import classify_bank, classify_fleet
 from .model import Data, Finding
 from .util import WEEKDAYS_HY, ZERO, amd, day_end, day_start, dmy, hm, pct, phone_key
 
@@ -50,6 +50,10 @@ class Ctx:
 
     def park_name(self, p):
         return self.cfg['parks'].get(p, {}).get('name', p)
+
+    def prov_for(self, typ, park) -> dict:
+        """Provider contract (config) of this type that serves this park."""
+        return next((pc for pc in self.cfg['providers'].values() if pc['type'] == typ and park in pc['parks']), {})
 
     def snap_late(self, d) -> bool:
         """Balance taken after the end of the Fleet data: the opening balance cannot be derived."""
@@ -171,7 +175,7 @@ def check_topups(c: Ctx):
     def paid(t):
         if id(t) in c.pr_gross:
             return c.pr_gross[id(t)], ''
-        r = c.cfg['providers'].get(t.provider, {}).get('contract_fee_pct')
+        r = c.prov_for(t.provider, t.park).get('contract_fee_pct')
         if r:
             return (t.amount / (1 - Decimal(str(r)) / 100)).quantize(Decimal(1)), '≈'
         return t.amount, ''
@@ -549,7 +553,7 @@ def check_settlements(c: Ctx):
     for key, pc in c.cfg['providers'].items():
         parks = set(pc['parks'])
         dn, dg, dc = defaultdict(lambda: ZERO), defaultdict(lambda: ZERO), defaultdict(int)
-        for t in _txs(c, kinds={'topup', 'topup_fee'}, provider=key, parks=parks):
+        for t in _txs(c, kinds={'topup', 'topup_fee'}, provider=pc['type'], parks=parks):
             dn[t.day] += t.amount
             if t.kind == 'topup':
                 dg[t.day] += t.amount
@@ -730,19 +734,34 @@ def check_bank(c: Ctx):
         c.add('warn', 'bank_unknown_in', f'Չճանաչված մուտքեր՝ {len(unk)} ({amd(sum((b.amount for b in unk), ZERO))})',
               'Չեն համապատասխանում Yandex/Idram/Telcell/EasyPay կանոններին։ Կամ ուրիշ եկամուտ է, կամ պետք է ավելացնել կանոն։',
               rows=r, columns=list(r[0]))
-    # running-balance continuity (in the bank's own row order)
-    seq = [b for b in bank if b.balance is not None]
-    if len(seq) >= 2 and seq[0].at > seq[-1].at:
-        seq.reverse()
-    breaks = []
-    for p, q in zip(seq, seq[1:]):
-        if abs(p.balance + q.amount - q.balance) > c.tol:
-            breaks.append({'Տող': q.row, 'Ամսաթիվ': dmy(q.at), 'Նախորդ մնացորդ': amd(p.balance), 'Գործարք': amd(q.amount, sign=True),
-                           'Մնացորդ': amd(q.balance), 'Պետք էր': amd(p.balance + q.amount)})
+    # running balance per account, in the bank's own row order; balances may be per row or per day
+    breaks, closing, known = [], ZERO, True
+    accounts = defaultdict(list)
+    for b in bank:
+        accounts[b.account].append(b)
+    for acc, seq in accounts.items():
+        if len(seq) >= 2 and seq[0].at > seq[-1].at:
+            seq = seq[::-1]
+        run = c.data.bank_opening.get(acc)
+        at_day = run
+        for b in seq:
+            if run is not None:
+                run += b.amount
+            if b.balance is not None:
+                if run is not None and abs(run - b.balance) > c.tol:
+                    breaks.append({'Հաշիվ': acc, 'Տող': b.row, 'Ամսաթիվ': dmy(b.at), 'Գործարք': amd(b.amount, sign=True),
+                                   'Մնացորդ': amd(b.balance), 'Պետք էր': amd(run)})
+                run = b.balance
+            if b.day <= c.day:
+                at_day = run
+        if at_day is None:
+            known = False
+        else:
+            closing += at_day
     if breaks:
         c.add('warn', 'bank_breaks', f'Քաղվածքի մնացորդը չի կապվում {len(breaks)} տեղում',
               'Հնարավոր է՝ քաղվածքում տողեր պակասում են։', rows=breaks[:20], columns=list(breaks[0]))
-    closing = next((b.balance for b in reversed(seq) if b.day <= c.day), None)
+    closing = closing if known and accounts else None
     if c.data.bank_closing is not None:
         if closing is not None and abs(closing - c.data.bank_closing) > c.tol:
             c.add('warn', 'bank_balance_differs', f'Քաղվածքի մնացորդը ({amd(closing)}) ≠ ձեռքով տրվածին ({amd(c.data.bank_closing)})', '')
@@ -816,6 +835,8 @@ def check_fleet_day(c: Ctx):
 def run(data: Data, cfg: dict, day: date):
     if data.fleet is not None:
         classify_fleet(data.fleet, cfg)      # always against the config of this run
+    for b in data.bank or []:
+        b.source = classify_bank(b, cfg)
     c = Ctx(data, cfg, day)
     provider_reports.match(c)
     check_inputs(c)

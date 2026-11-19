@@ -1,4 +1,5 @@
 {
+  "_contracts": "Several contracts of one payment system (e.g. Idram taxi + Idram Delivery): see references/data-formats.md 3բ.",
   "_readme": "Copy to config.json (git-ignored; the repo is public). Amounts in AMD. Fill categories with scripts/fleet_setup.py and set categories_verified to true only after the owner confirms the table. See SKILL.md, references/rules.md.",
   "thresholds": {
     "large_topup_amd": 10000,
