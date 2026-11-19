@@ -99,6 +99,28 @@ class PBPayout:
 
 
 @dataclass
+class ProviderPayment:
+    """One payment from a provider's own report (Idram/Telcell/EasyPay e-mails)."""
+    provider: str
+    at: datetime
+    gross: Decimal                   # what the driver paid
+    fee: Decimal                     # provider commission
+    net: Decimal                     # what should land on the driver's Fleet balance (= gross − fee)
+    ref: str = ''                    # provider payment number
+    phone: str = ''
+    account: str = ''                # account the driver typed (Fleet driver id, phone, ...)
+    driver_id: str = ''
+    park: str = ''
+    status: str = ''
+    claim: bool = False              # the provider says: paid but NOT credited to the driver
+    row: int = 0
+
+    @property
+    def day(self) -> date:
+        return self.at.date()
+
+
+@dataclass
 class Finding:
     level: str                       # crit | warn | ok | info | skip
     code: str
@@ -127,4 +149,6 @@ class Data:
     pb_from: Optional[date] = None
     pb_until: Optional[date] = None
     pb_balance: Optional[Decimal] = None
+    provider_reports: dict = field(default_factory=dict)   # provider -> list[ProviderPayment]
+    provider_periods: dict = field(default_factory=dict)   # provider -> (from date, to date) fully covered
     notes: list = field(default_factory=list)  # loader warnings (skipped rows etc.)

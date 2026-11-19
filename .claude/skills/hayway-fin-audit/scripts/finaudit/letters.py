@@ -80,6 +80,12 @@ def build(c, findings):
         if d['ptype'] == 'yandex' and not c.cfg['yandex'].get('formula_verified'):
             continue
         d['day'] = c.day
+        same = next((g for g in by_payer[d['payer']] if g.data['kind'] in ('short', 'fee') and d['kind'] in ('short', 'fee')
+                     and (g.data['from'], g.data['to']) == (d['from'], d['to'])), None)
+        if same:
+            if d['diff'] > same.data['diff']:
+                by_payer[d['payer']][by_payer[d['payer']].index(same)] = f
+            continue
         by_payer[d['payer']].append(f)
     comp = c.cfg.get('company', {})
     out = []

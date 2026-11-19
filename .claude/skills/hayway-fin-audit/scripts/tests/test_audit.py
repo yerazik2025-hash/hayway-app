@@ -69,7 +69,8 @@ class Scenario(unittest.TestCase):
     def test_large_and_split_topups(self):
         f = find(self.f, 'topup_large')
         self.assertEqual([r['Վարորդ'] for r in f.rows], ['Կարեն Կ.'])
-        self.assertEqual(f.amount, Decimal(15000))
+        self.assertEqual(f.amount, Decimal(15152))                 # paid ≈ 15 000 credited ÷ (1 − 1%)
+        self.assertEqual(f.rows[0]['Վճարել է'], '≈15\u00a0152\u00a0֏')
         f = find(self.f, 'topup_split')
         self.assertEqual(f.rows[0]['Վարորդ'], 'Գոռ Գ.')
         self.assertEqual(f.rows[0]['Քանակ'], 3)
@@ -559,3 +560,150 @@ class Letters(unittest.TestCase):
         rows = {r['Հոդված']: r for r in find(f, 'fleet_day').rows}
         self.assertEqual(rows['Լիցքավորում · Idram']['Տաքսի'], '+17 000 ֏ (2)')
         self.assertEqual(rows['Ելքեր (PrimeBridge)']['Առաքում'], '−2 000 ֏ (1)')
+
+
+class ProviderReport(unittest.TestCase):
+    """Idram's own report, payment by payment (Garik 19.11: 1 000 paid -> 980 lands, Idram keeps 20)."""
+
+    def setUp(self):
+        self.cfg, _ = test_config(Path(tempfile.mkdtemp()), providers={'idram': {'contract_fee_pct': 2.0}})
+
+    def data(self):
+        """Clean day where Fleet credits Idram top-ups NET of a 2% commission and Idram reports gross/fee/net."""
+        from finaudit.model import ProviderPayment
+        d = build(clean=True)
+        rows = []
+        for t in d.fleet:
+            if t.category_id == 'topup_idram':
+                t.amount = Decimal(1960)                     # 2 000 paid − 40 commission
+                t.description = f'Idram payment {t.id}00'
+                rows.append(ProviderPayment('idram', t.at + timedelta(seconds=20), Decimal(2000), Decimal(40), Decimal(1960),
+                                            ref=f'{t.id}00', phone='+374 91 000009'))
+        d.provider_reports = {'idram': rows}
+        self._resync(d)
+        return d
+
+    def _resync(self, d):
+        """Bank Idram receipts = sum of net credits since the previous receipt; driver balances follow Fleet."""
+        rec = sorted({b.day for b in d.bank if b.source == 'idram'})
+        net = {}
+        for t in d.fleet:
+            if t.category_id == 'topup_idram':
+                net[t.day] = net.get(t.day, 0) + t.amount
+        for b in d.bank:
+            if b.source == 'idram':
+                prev = max((x for x in rec if x < b.day), default=None)
+                if prev:
+                    b.amount = sum((v for k, v in net.items() if prev <= k < b.day), Decimal(0))
+        _rebalance(d.bank)
+        from finaudit.loaders import classify_fleet
+        classify_fleet(d.fleet, self.cfg)
+        for x in d.drivers:
+            snap = x.balance_at
+            x.balance = (Decimal(10000) if x.id == 'd1' else 0) + sum(
+                (t.amount for t in d.fleet if (t.park, t.driver_id) == (x.park, x.id) and t.kind != 'ignore' and t.at < snap), Decimal(0))
+
+    def test_all_payments_landed(self):
+        f, _ = checks.run(self.data(), self.cfg, D)
+        self.assertEqual([x.code for x in f if x.level in ('crit', 'warn', 'skip')], [])
+        self.assertIn('idram_report_day', codes(f, 'ok'))
+        self.assertIn('idram_report_bank', codes(f, 'ok'))
+
+    def test_paid_but_not_credited_money_with_us(self):
+        from fixtures import at
+        from finaudit.model import ProviderPayment
+        d = self.data()
+        y = D - timedelta(days=2)       # Saturday: paid 5 000, never landed on the driver; money in Monday's transfer
+        d.provider_reports['idram'].append(ProviderPayment('idram', at(y, 19), Decimal(5000), Decimal(100), Decimal(4900),
+                                                           ref='LOST1', phone='+374 91 000004', status='not credited', claim=True))
+        for b in d.bank:
+            if b.source == 'idram' and b.day == D:
+                b.amount += 4900
+        _rebalance(d.bank)
+        f, _ = checks.run(d, self.cfg, D)
+        x = find(f, 'idram_not_credited')
+        self.assertEqual(x.amount, Decimal(4900))
+        self.assertEqual(x.rows[0]['Վարորդ'], 'Գոռ Գ.')
+        self.assertIn('այո՝ 16.11.2026', x.rows[0]['Մեզ հասե՞լ է'])
+        self.assertIn('idram_report_bank', codes(f, 'ok'))        # Idram paid what its report says
+        self.assertIn('ճիշտ հավասար է', find(f, 'idram_over').detail)   # bank > Fleet by exactly that payment, explained
+
+    def test_not_credited_and_not_yet_transferred(self):
+        from fixtures import at
+        from finaudit.model import ProviderPayment
+        d = self.data()
+        d.provider_reports['idram'].append(ProviderPayment('idram', at(D, 21), Decimal(3000), Decimal(60), Decimal(2940),
+                                                           ref='LOST2', phone='+374 91 000004'))
+        f, _ = checks.run(d, self.cfg, D)
+        self.assertIn('դեռ չի փոխանցվել', find(f, 'idram_not_credited').rows[0]['Մեզ հասե՞լ է'])
+
+    def test_credited_later_by_hand_is_resolved(self):
+        from fixtures import at
+        from finaudit.model import FleetTx, ProviderPayment
+        d = self.data()
+        d.provider_reports['idram'].append(ProviderPayment('idram', at(D, 9), Decimal(3000), Decimal(60), Decimal(2940),
+                                                           ref='LOST3', phone='+374 91 000004', status='not credited', claim=True))
+        d.fleet.append(FleetTx('taxi', 'm9', at(D, 18), 'd4', 'manual_bonus', 'manual_bonus', Decimal(2940), created_by='dispatcher'))
+        f, _ = checks.run(d, self.cfg, D)
+        self.assertNotIn('idram_not_credited', codes(f))
+        self.assertIn('dispatcher', find(f, 'idram_resolved').rows[0]['Հաշվեգրվել է'])
+
+    def test_claim_but_already_credited(self):
+        d = self.data()
+        p = next(p for p in d.provider_reports['idram'] if p.day == D)
+        p.status, p.claim = 'չի նստել', True
+        f, _ = checks.run(d, self.cfg, D)
+        self.assertIn('ԿՐԿԻՆ ՄԻ՛', find(f, 'idram_claim_but_credited').detail)
+
+    def test_gross_credited_means_fee_on_us(self):
+        d = self.data()
+        for t in d.fleet:
+            if t.category_id == 'topup_idram' and t.day == D:
+                t.amount = Decimal(2000)
+        f, _ = checks.run(d, self.cfg, D)
+        self.assertEqual(find(f, 'idram_report_fee_on_us').amount, Decimal(40))
+
+    def test_fleet_credit_without_payment(self):
+        from fixtures import at
+        from finaudit.model import FleetTx
+        d = self.data()
+        d.fleet.append(FleetTx('taxi', 'ghost', at(D, 13), 'd3', 'topup_idram', 'topup_idram', Decimal(7000)))
+        f, _ = checks.run(d, self.cfg, D)
+        self.assertEqual(find(f, 'idram_credit_without_payment').amount, Decimal(7000))
+
+    def test_bank_less_than_report_drafts_letter(self):
+        d = self.data()
+        for b in d.bank:
+            if b.source == 'idram' and b.day == D:
+                b.amount -= 500
+        _rebalance(d.bank)
+        f, s = checks.run(d, self.cfg, D)
+        self.assertEqual(find(f, 'idram_report_bank_short').amount, Decimal(500))
+        letters = [x for x in s['letters'] if x['payer'] == 'idram']
+        self.assertEqual(len(letters), 1)
+        self.assertEqual(letters[0]['body'].count('Տարբերությունը կազմում է'), 1)   # one paragraph, not two
+
+    def test_large_topup_uses_paid_amount(self):
+        from fixtures import at
+        from finaudit.model import FleetTx, ProviderPayment
+        d = self.data()
+        d.fleet.append(FleetTx('taxi', 'big', at(D, 15), 'd3', 'topup_idram', 'topup_idram', Decimal(9800), description='Idram BIG1'))
+        d.provider_reports['idram'].append(ProviderPayment('idram', at(D, 15), Decimal(10000), Decimal(200), Decimal(9800), ref='BIG1'))
+        f, _ = checks.run(d, self.cfg, D)
+        x = find(f, 'topup_large')
+        self.assertEqual((x.rows[0]['Վճարել է'], x.rows[0]['Նստել է']), ('10 000 ֏', '9 800 ֏'))
+
+    def test_report_loader(self):
+        import csv
+        from finaudit.loaders import load_provider_report
+        tmp = Path(tempfile.mkdtemp()) / 'idram.csv'
+        with open(tmp, 'w', newline='', encoding='utf-8') as fh:
+            csv.writer(fh, delimiter=';').writerows([
+                ['Ամսաթիվ', 'Համար', 'Հեռախոս', 'Գումար', 'Միջնորդավճար', 'Հաշվեգրված', 'Կարգավիճակ'],
+                ['16.11.2026 10:00', '777001', '091000004', '1 000,00', '20,00', '980,00', 'Հաջողված'],
+                ['16.11.2026 11:00', '777002', '091000004', '1 000,00', '20,00', '980,00', 'Չի նստել'],
+                ['16.11.2026 12:00', '777003', '091000004', '1 000,00', '20,00', '900,00', '']])
+        notes = []
+        rows = load_provider_report(tmp, 'idram', self.cfg, notes)
+        self.assertEqual([(r.net, r.claim) for r in rows], [(Decimal(980), False), (Decimal(980), True)])
+        self.assertEqual(notes[0][0], 'crit')                      # 1 000 − 20 ≠ 900: not silently accepted

@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from finaudit import checks, report  # noqa: E402
 from finaudit.config import ConfigError, load_config  # noqa: E402
 from finaudit.loaders import (classify_fleet, load_bank_file, load_drivers_file,  # noqa: E402
-                              load_fleet_file, load_pb_file)
+                              load_fleet_file, load_pb_file, load_provider_report)
 from finaudit.model import Data  # noqa: E402
 from finaudit.util import YEREVAN, day_end, day_start, money, parse_day  # noqa: E402
 
@@ -99,6 +99,15 @@ def build_data(a, cfg) -> Data:
             d.bank_from, d.bank_until = min(b.day for b in d.bank), max(b.day for b in d.bank)
         if a.bank_balance:
             d.bank_closing = money(a.bank_balance)
+    for spec in a.provider_report or []:
+        prov, path = _park_path(spec)
+        if prov not in cfg['providers']:
+            raise ValueError(f'--provider-report {spec}: write it as idram=path (or telcell=, easypay=)')
+        d.provider_reports.setdefault(prov, [])
+        d.provider_reports[prov] += load_provider_report(path, prov, cfg, d.notes)
+    for spec in a.provider_report_period or []:
+        prov, per = _park_path(spec)
+        d.provider_periods[prov] = _period(per)
     if a.pb:
         d.pb = []
         for path in a.pb:
@@ -123,6 +132,8 @@ def main(argv=None):
     ap.add_argument('--bank', action='append', help='business account statement (csv/xlsx), repeatable')
     ap.add_argument('--bank-period', help='FROM:TO the statement covers')
     ap.add_argument('--bank-balance', help='business account balance at the end of --date, AMD (if the statement has no balance column)')
+    ap.add_argument('--provider-report', action='append', help='idram=path (or telcell=, easypay=): the provider\'s payment report, repeatable')
+    ap.add_argument('--provider-report-period', action='append', help='idram=FROM:TO the report fully covers')
     ap.add_argument('--pb', action='append', help='PrimeBridge payouts export (csv/xlsx), repeatable')
     ap.add_argument('--pb-period', help='FROM:TO the PrimeBridge export covers')
     ap.add_argument('--pb-balance', help='PrimeBridge account balance at end of day, AMD')

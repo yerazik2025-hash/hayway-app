@@ -50,6 +50,7 @@ DEFAULTS = {
                'expect_weekdays': [0, 1, 2, 3, 4],
                'cover': {'type': 'since_previous_receipt', 'lag_days': 1}, 'formula_verified': False},
     'primebridge': {'fee_payer': 'driver', 'match_window_hours': 48, 'fee_column_required': True},
+    'provider_reports': {'match_window_hours': 6},
     'bank': {
         'classify': [
             {'source': 'yandex', 'counterparty': r'yandex|яндекс|յանդեքս'},
@@ -60,6 +61,21 @@ DEFAULTS = {
         ],
     },
     'files': {
+        # Idram / Telcell / EasyPay payment reports (their e-mails). Set the real column names once a sample is seen.
+        'provider_report': {'columns': {
+            'at': ['date', 'datetime', 'created_at', 'time', 'Ամսաթիվ', 'Ամսաթիվ/ժամ', 'Дата', 'Дата платежа', 'Дата и время'],
+            'ref': ['id', 'ref', 'payment_id', 'transaction_id', 'Համար', 'Գործարքի համար', 'Номер', 'Номер платежа', 'ID транзакции'],
+            'phone': ['phone', 'payer', 'Հեռախոս', 'Վճարող', 'Телефон', 'Плательщик'],
+            'account': ['account', 'driver', 'Հաշիվ', 'Վարորդ', 'Լիցքավորվող հաշիվ', 'Лицевой счет', 'Аккаунт', 'Водитель'],
+            'driver_id': ['driver_id', 'driver_profile_id', 'Yandex ID'],
+            'gross': ['amount', 'gross', 'Գումար', 'Վճարված գումար', 'Сумма', 'Сумма платежа'],
+            'fee': ['fee', 'commission', 'Միջնորդավճար', 'Комиссия'],
+            'net': ['net', 'credited', 'Հաշվեգրված', 'Զուտ գումար', 'К зачислению', 'Зачислено'],
+            'status': ['status', 'Կարգավիճակ', 'Статус'],
+            'park': ['park'],
+        },
+            'status_not_credited': r'not\s*credit|չի\s*(նստել|հաշվեգր|փոխանց|մուտք)|չնստած|չհաշվեգր|не\s*зачисл|не\s*прош|не\s*доставл|fail|error|ձախող',
+        },
         'fleet_transactions': {'columns': {
             'park': ['park'], 'id': ['id', 'transaction_id'], 'at': ['event_at', 'at', 'date'],
             'driver_id': ['driver_id', 'driver_profile_id', 'contractor_profile_id'],

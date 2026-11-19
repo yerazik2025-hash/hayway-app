@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from .config import T
-from . import letters
+from . import letters, provider_reports
 from .loaders import classify_fleet
 from .model import Data, Finding
 from .util import WEEKDAYS_HY, ZERO, amd, day_end, day_start, dmy, hm, pct, phone_key
@@ -166,23 +166,34 @@ def check_topups(c: Ctx):
     c.add('info', 'topups_day', f'Օրվա լիցքավորումները՝ {amd(total)}', f'{len(tops)} լիցքավորում',
           amount=total, rows=rows, columns=['Պարկ', 'Համակարգ', 'Քանակ', 'Գումար'] if rows else [])
 
-    singles = [t for t in tops if t.amount >= big]
+    # the threshold is on what the driver PAID: Fleet shows the amount after the provider's commission
+    # (Idram: pays 10 000, 9 800 lands). Paid = the provider report's gross, else net ÷ (1 − contract %).
+    def paid(t):
+        if id(t) in c.pr_gross:
+            return c.pr_gross[id(t)], ''
+        r = c.cfg['providers'].get(t.provider, {}).get('contract_fee_pct')
+        if r:
+            return (t.amount / (1 - Decimal(str(r)) / 100)).quantize(Decimal(1)), '≈'
+        return t.amount, ''
+
+    singles = [t for t in tops if paid(t)[0] >= big]
     if singles:
         r = []
         for t in singles:
             nm, ph = c.who(t.park, t.driver_id)
+            g, est = paid(t)
             r.append({'Պարկ': c.park_name(t.park), 'Վարորդ': nm, 'Հեռախոս': ph, 'Համակարգ': PROV_NAME.get(t.provider, t.provider),
-                      'Գումար': amd(t.amount), 'Ժամ': hm(t.at)})
+                      'Վճարել է': est + amd(g), 'Նստել է': amd(t.amount), 'Ժամ': hm(t.at)})
+        s = sum((paid(t)[0] for t in singles), ZERO)
         c.add('warn', 'topup_large', f'Մեծ լիցքավորումներ (≥ {amd(big)})՝ {len(singles)} հատ',
-              f'Ընդամենը {amd(sum((t.amount for t in singles), ZERO))}', amount=sum((t.amount for t in singles), ZERO),
-              rows=r, columns=list(r[0]))
+              f'Ընդամենը {amd(s)} (վճարած գումարով)', amount=s, rows=r, columns=list(r[0]))
     split = []
     for (p, did), lst in per_drv.items():
-        s = sum((t.amount for t in lst), ZERO)
-        if len(lst) >= 2 and s >= big and all(t.amount < big for t in lst):
+        s = sum((paid(t)[0] for t in lst), ZERO)
+        if len(lst) >= 2 and s >= big and all(paid(t)[0] < big for t in lst):
             nm, ph = c.who(p, did)
             split.append({'Պարկ': c.park_name(p), 'Վարորդ': nm, 'Հեռախոս': ph, 'Քանակ': len(lst),
-                          'Գումարներ': ' + '.join(amd(t.amount) for t in lst), 'Օրվա ընդամենը': amd(s)})
+                          'Գումարներ': ' + '.join(amd(paid(t)[0]) for t in lst), 'Օրվա ընդամենը': amd(s)})
     if split:
         c.add('warn', 'topup_split', f'Մասնատված մեծ լիցքավորումներ՝ {len(split)} վարորդ',
               f'Մի քանի փոքր լիցքավորում, որոնք մեկ օրում միասին ≥ {amd(big)} են։', rows=split, columns=list(split[0]))
@@ -487,7 +498,7 @@ def _settle(c: Ctx, key, title, daily_net, daily_gross, daily_cnt, ptype, verifi
         c.add('warn', f'{key}_over', f'{title}-ից ավել է եկել {amd(diff)}{unv}',
               f'{dmy(a)}–{dmy(z)}. Fleet-ում {amd(N)}, բանկում {amd(R)}։ '
               + ('Հնարավոր է՝ ինչ-որ վարորդի վճարում չի հաշվեգրվել Fleet-ում։ ' if ptype == 'provider' else '') + hint,
-              amount=diff)
+              amount=diff, data={**base, 'kind': 'over', 'from': a, 'to': z})
         row['Վիճակ'] = '🟠 ավել'
     return _with_next(row, nxt)
 
@@ -806,6 +817,7 @@ def run(data: Data, cfg: dict, day: date):
     if data.fleet is not None:
         classify_fleet(data.fleet, cfg)      # always against the config of this run
     c = Ctx(data, cfg, day)
+    provider_reports.match(c)
     check_inputs(c)
     check_unknown_categories(c)
     check_topups(c)
@@ -813,6 +825,7 @@ def run(data: Data, cfg: dict, day: date):
     check_manual(c)
     check_balances(c)
     check_settlements(c)
+    provider_reports.check(c)
     check_primebridge(c)
     check_bank(c)
     check_position(c)

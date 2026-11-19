@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-from .model import BankTx, Driver, FleetTx, PBPayout
+from .model import BankTx, Driver, FleetTx, PBPayout, ProviderPayment
 from .util import money, money_or_none, parse_dt
 
 
@@ -230,6 +230,41 @@ def pb_state(status: str, spec) -> str | None:
         if re.search(spec[f'status_{state}'], s, re.I):
             return state
     return None
+
+
+def load_provider_report(path, provider, cfg, notes):
+    """Idram/Telcell/EasyPay report -> ProviderPayment rows. gross − fee must equal net."""
+    spec = cfg['files']['provider_report']
+    rows, have = read_table(path, spec['columns'])
+    if 'at' not in have or not ({'gross', 'net'} & set(have)) or not ({'phone', 'account', 'driver_id', 'ref'} & set(have)):
+        raise ValueError(f'{Path(path).name}: need date, amount and phone/account/payment number columns; found {have}')
+    if 'fee' not in have and not {'gross', 'net'} <= set(have):
+        notes.append(('warn', f'{provider} հաշվետվությունում միջնորդավճարի սյունակ չկա. համարվել է, որ վարորդին պետք է '
+                              f'նստեր {"ամբողջ" if "gross" in have else "զուտ"} գումարը։'))
+    out = []
+    for r in rows:
+        try:
+            g, f, n = money_or_none(r.get('gross')), money_or_none(r.get('fee')), money_or_none(r.get('net'))
+            g, f, n = (abs(x) if x is not None else None for x in (g, f, n))
+            if g is None and n is None:
+                raise ValueError('no amount')
+            if n is None:
+                n = g - (f or 0)
+            if g is None:
+                g = n + (f or 0)
+            if f is None:
+                f = g - n
+            if abs(g - f - n) > 1:
+                raise ValueError(f'գումար − միջնորդավճար ≠ հաշվեգրված ({g} − {f} ≠ {n})')
+            st = _s(r.get('status'))
+            out.append(ProviderPayment(
+                provider=provider, at=parse_dt(r['at']), gross=g, fee=f, net=n, ref=_s(r.get('ref')),
+                phone=_s(r.get('phone')), account=_s(r.get('account')), driver_id=_s(r.get('driver_id')),
+                park=_s(r.get('park')), status=st, row=r['_row'],
+                claim=bool(st) and bool(re.search(spec['status_not_credited'], st, re.I))))
+        except ValueError as e:
+            notes.append(('crit', f'{provider} հաշվետվություն {Path(path).name}, տող {r["_row"]}: չկարդացվեց ({e})։'))
+    return out
 
 
 def classify_fleet(txs, cfg):
