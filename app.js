@@ -2084,6 +2084,7 @@ function toast(text) {
     // Միջնորդավճարներ և մաքուր եկամուտ 30 օրում (db\0018, app_fees). չհաստատված տոկոսը՝ «մոտավոր»
     const kv = (t, v, s) => cell({ t, s, v, strong: true });
     const rateS = (r) => r ? `${String(r.pct).replace('.', ',')}% ${r.verified ? '' : '<span class="tag warn">մոտավոր</span>'}` : '';
+    const drvS = (x) => x && +x.driver_paid_amd ? ` · վարորդից՝ ${short(x.driver_paid_amd)}` : '';
     const pc = fe && fe.park_payment_costs;
     // 03.11, Գարիկ. «ամենամաքուր շահույթ». բոլոր ծախսերը՝ վճարային, հարկ, ամսականներ (վարձ, աշխատավարձ…), list.am գովազդ (db\0024, app_net_income)
     const np = ni && ni.period, ex = ni && ni.expenses;
@@ -2104,9 +2105,10 @@ function toast(text) {
         ${kpi('Մաքուր', short(fe.park_net_after_costs_amd), 'եկամուտ − ծախսեր')}
       </div>`))
       + sec(`Ով ինչքան է վերցնում · ${fe.days || 30} օր`, group([
-        kv('Idram · լիցքավորում', `<span class="neg">${short(pc.idram_topups.cost_amd)}</span>`, `${rateS(pc.idram_topups.rate)} · ${short(pc.idram_topups.volume_amd)}-ից`),
-        kv('Telcell · լիցքավորում', `<span class="neg">${short(pc.telcell_topups.cost_amd)}</span>`, `${rateS(pc.telcell_topups.rate)} · ${short(pc.telcell_topups.volume_amd)}-ից`),
-        kv('EasyPay · լիցքավորում', `<span class="neg">${short(pc.easypay_topups.cost_amd)}</span>`, `${rateS(pc.easypay_topups.rate)} · ${short(pc.easypay_topups.volume_amd)}-ից`),
+        // 21.11 (db\0049). 13.11-ից Fleet-ը լիցքի %-ը պահում է վարորդից → ցույց տալ պարկի զուտ մասը և վարորդի վճարածը
+        kv('Idram · լիցքավորում', `<span class="neg">${short(pc.idram_topups.cost_amd)}</span>`, `${rateS(pc.idram_topups.rate)} · ${short(pc.idram_topups.volume_amd)}-ից${drvS(pc.idram_topups)}`),
+        kv('Telcell · լիցքավորում', `<span class="neg">${short(pc.telcell_topups.cost_amd)}</span>`, `${rateS(pc.telcell_topups.rate)} · ${short(pc.telcell_topups.volume_amd)}-ից${drvS(pc.telcell_topups)}`),
+        kv('EasyPay · լիցքավորում', `<span class="neg">${short(pc.easypay_topups.cost_amd)}</span>`, `${rateS(pc.easypay_topups.rate)} · ${short(pc.easypay_topups.volume_amd)}-ից${drvS(pc.easypay_topups)}`),
         kv('PrimeBridge · փոխանցում', `<span class="neg">${short(pc.primebridge_payouts.cost_amd)}</span>`, `${rateS(pc.primebridge_payouts.rate)} · ${short(pc.primebridge_payouts.volume_amd)}-ից`),
         kv('Yandex · վարորդից', short(+fe.yandex.fee_amd + +fe.yandex.vat_amd + +fe.yandex.other_amd), `≈${String(fe.yandex.pct_of_gross).replace('.', ',')}% պատվերներից, ԱԱՀ-ով`),
         kv('Պատենտի տուրք · վարորդից', short(fe.state_duty_amd), 'պետությանը'),
