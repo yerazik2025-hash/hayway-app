@@ -1506,6 +1506,9 @@ function toast(text) {
     face: sv(26, '<circle cx="12" cy="9" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/>'),
     big: sv(20, '<path d="M4.5 9V4.5H9M19.5 9V4.5H15M4.5 15v4.5H9M19.5 15v4.5H15"/>'),
     dl: sv(20, '<path d="M12 4.5v10.5M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>'),
+    // 21.11 (Գարիկ). «Նոր ռիլ» և «Այսօր չհրապարակել»
+    redo: sv(18, '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>'),
+    skip: sv(18, '<circle cx="12" cy="12" r="8"/><path d="m6.6 6.6 10.8 10.8"/>'),
   };
   const r4Sum = (r, k) => R4P.reduce((a, [p]) => a + (r.last && r.last[p] ? +r.last[p][k] || 0 : 0), 0);
   const r4Num = (n) => n >= 1e6 ? fmt(n / 1e6, 1) + 'M' : n >= 1e4 ? fmt(n / 1e3, 0) + 'K' : fmt(n);
@@ -1733,9 +1736,20 @@ function toast(text) {
     const list = R.reels || [], conf = R.config || {}, plan = R.plan || {}, models = R.models || [], avs = R.avatars || [], chat = R.chat || [];
     const brainOk = R.brain && Date.now() - new Date(R.brain.at) < 10 * 60e3;
     const run = R.runner;
-    const sub = brainOk || (run && Date.now() - new Date(run.at) < 2 * 864e5) ? '<span class="dot ok"></span>Ամեն օր մեկ ռիլ'
-      : run ? `<span class="dot bad"></span>Համակարգիչը անջատված է ${ago(run.at)}` : '<span class="dot wait"></span>Միանում է';
+    // 21.11. «Ամեն օր մեկ ռիլ»-ը՝ միայն երբ իսկապես միացված է (առաջ գրվում էր, թեև daily-ն անջատված էր)
+    const pcOk = brainOk || (run && Date.now() - new Date(run.at) < 2 * 864e5);
+    const sub = !pcOk ? (run ? `<span class="dot bad"></span>Համակարգիչը անջատված է ${ago(run.at)}` : '<span class="dot wait"></span>Միանում է')
+      : conf.no_credits_at && !conf.daily ? '<span class="dot bad"></span>Kling-ի կրեդիտը վերջացել է'
+      : conf.daily ? '<span class="dot ok"></span>Ամեն օր մեկ ռիլ' : '<span class="dot wait"></span>Ամենօրյան անջատված է';
     const back = n ? ['#/reels', 'Ռիլեր'] : ['#/sections', 'Բաժիններ'];
+    // 21.11 (Գարիկ, db 0051). «Նոր ռիլ» (new)՝ օրը մեկ անգամ, «Այսօր չհրապարակել» (skip)՝ այսօր նոր ռիլ չկա
+    const d0 = new Date((R.today || today()) + 'T00:00:00+04:00');
+    const isT = (x, v) => x.verdict === v && x.owner_at && new Date(x.owner_at) >= d0;
+    const newT = list.filter((x) => isT(x, 'new')).sort((a, b) => new Date(b.owner_at) - new Date(a.owner_at))[0];
+    const skipT = list.find((x) => isT(x, 'skip'));
+    // «Այսօր չհրապարակել»-ը գերակա է (ուղեղն էլ այդպես է). այսօր այլևս ոչինչ չի սարքվում
+    const newWait = !!newT && !skipT && !list.some((x) => x.plan_day && new Date(x.created_at) > new Date(newT.owner_at));
+    const yDays = (iso) => Math.round((Date.parse(R.today || today()) - Date.parse(new Date(new Date(iso).getTime() + 4 * 3600e3).toISOString().slice(0, 10))) / 864e5);
     const urls = {};
     const signAll = async (paths) => {
       paths = paths.filter(Boolean);
@@ -1744,7 +1758,9 @@ function toast(text) {
       paths.forEach((p) => { if (signedUrls[p]) urls[p] = signedUrls[p].u; });
     };
     // գլխավորը՝ ձեզ սպասողներից ամենահինը, հետո վերջին հրապարակվածը; #/reels/<n>՝ կոնկրետ ռիլը
-    const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find(r4Open) || list[0]);
+    // 21.11. բաց թողնվածը (skipped) գլխավորում չենք դնում. սպասող չկա՝ վերջին հրապարակվածը
+    const r = n ? list.find((x) => String(x.n) === String(n)) : (list.slice().reverse().find(r4Open) || list.find((x) => x.status === 'published') || list[0]);
+    const openNow = list.some(r4Open);
     if (n && !r) { location.hash = '#/reels'; return; }
     const pubs = list.filter((x) => x.status === 'published');
     // 07.11 Գարիկ. «եթե կուտակվեն… ընտրության հնարավորություն» → 2+ պատրաստ ռիլ՝ փոքր նկարների շարք, սեղմելով՝ այդ ռիլը
@@ -1756,14 +1772,24 @@ function toast(text) {
 
     // 1) օրվա ռիլը + «Հաստատել»
     let hero;
-    if (!r) hero = sec('', `<div class="card">${emptyState(I.film, 'Առաջին ռիլը պատրաստվում է', plan.days ? 'Ամսվա պլանը պատրաստ է. ռիլը կերևա այստեղ։' : 'Համակարգը կազմում է ամսվա պլանը։')}</div>`);
+    // 21.11. «Նոր ռիլ»-ից հետո, մինչև նորը պատրաստ լինի՝ սպասման քարտ; «Այսօր չհրապարակել»-ից հետո՝ նշում վերևում
+    const canNew = !!conf.daily && !newT;
+    const alt = (withNew) => `<div class="r4-alt">${withNew && canNew ? `<button type="button" class="btn gray" id="r4new">${R4I.redo}Նոր ռիլ</button>` : ''}<button type="button" class="btn gray" id="r4skip">${R4I.skip}Այսօր չհրապարակել</button></div>`;
+    const dayNote = !n && !openNow && !newWait && skipT ? sec('', '<div class="r4-sent">Այսօր ռիլ չի հրապարակվի։ Վաղը առավոտյան համակարգը կսարքի նորը։</div>') : '';
+    if (!n && !openNow && newWait) hero = `<section class="sec r4-hero"><p class="r4-when"><span>Այսօր · ${dmy(new Date().toISOString())}</span></p>
+        <div class="r4-player busy"><div class="r4-busy"><span class="spin"></span><p>Նոր ռիլն է պատրաստվում</p><p class="meta">${(new Date().getUTCHours() + 4) % 24 >= 20 ? 'Կսարքվի վաղը առավոտյան' : 'Մոտ 1 ժամ. պատրաստ լինելիս կստանաք ծանուցում'}</p></div></div></section>`;
+    else if (!r) hero = sec('', `<div class="card">${emptyState(I.film, 'Առաջին ռիլը պատրաստվում է', plan.days ? 'Ամսվա պլանը պատրաստ է. ռիլը կերևա այստեղ։' : 'Համակարգը կազմում է ամսվա պլանը։')}</div>`);
     else {
       const isToday = r.created_at && new Date(r.created_at).toDateString() === new Date().toDateString();
-      const when = r.status === 'published' ? `Հրապարակված · ${dmy(r.published_at)}` : isToday ? `Այսօր · ${dmy(r.created_at)}` : `Ռիլ #${r.n} · ${dmy(r.created_at)}`;
+      const wd = r.status === 'ready' && r.created_at ? yDays(r.created_at) : 0;
+      const when = r.status === 'published' ? `Հրապարակված · ${dmy(r.published_at)}` : r.status === 'skipped' ? `Չհրապարակված · ${dmy(r.owner_at || r.created_at)}`
+        : wd >= 1 ? `Սպասում է ձեզ · ${wd} օր` : isToday ? `Այսօր · ${dmy(r.created_at)}` : `Ռիլ #${r.n} · ${dmy(r.created_at)}`;
       let act = '';
       if (r.status === 'ready' || r.status === 'failed') act = `${r.status === 'failed' ? `<p class="r4-warn">${esc(r.note || 'Չհրապարակվեց')}. նորից փորձե՞նք։</p>` : ''}
-        <button type="button" class="r4-ok" id="r4ok"><span class="l">${R4I.ok}Հաստատել</span>${plats()}</button>`;
-      else if (r.status === 'approved' || r.status === 'publishing') act = `<div class="r4-st">${plats('wait')}<span>Հրապարակվում է</span></div>`;
+        <button type="button" class="r4-ok" id="r4ok"><span class="l">${R4I.ok}Հաստատել</span>${plats()}</button>${alt(true)}`;
+      else if (r.status === 'approved') act = `<div class="r4-st">${plats('wait')}<span>${r.note ? 'Նորից ենք փորձում' : 'Հրապարակվում է'}</span></div>${alt(false)}`;
+      else if (r.status === 'publishing') act = `<div class="r4-st">${plats('wait')}<span>Հրապարակվում է</span></div>`;
+      else if (r.status === 'skipped') act = `<div class="r4-st"><i>${R4I.skip}</i><span>${r.verdict === 'new' ? 'Փոխարինված է նորով' : 'Չհրապարակվեց՝ ձեր որոշմամբ'}</span></div>`;
       else if (r.status === 'published') act = `<div class="r4-st done">${R4P.map(([p, nm]) => r[p] ? `<a href="${esc(r[p])}" target="_blank" rel="noopener" title="${nm}">${R4I[p]}<b>${R4I.ok}</b></a>` : `<i class="off" title="${nm}">${R4I[p]}</i>`).join('')}<span>Հրապարակված է</span></div>`;
       hero = `<section class="sec r4-hero${queue.length > 1 ? ' has-q' : ''}">
         ${queue.length > 1 ? `<div class="r4-q"><p>Պատրաստ ռիլեր · ${queue.length}</p><div class="r4-qs">${queue.map((x) => `<a href="#/reels/${x.n}" class="${x.id === r.id ? 'on' : ''}" aria-label="${esc(x.title)}"${x.id === r.id ? ' aria-current="true"' : ''}>${x.poster && urls[x.poster] ? `<img src="${esc(urls[x.poster])}" alt="" loading="lazy">` : I.film}</a>`).join('')}</div></div>` : ''}
@@ -1835,7 +1861,7 @@ function toast(text) {
         ${r4Comp('r4t', true)}
         ${R.brief_n ? `<p class="meta">Համակարգը գիտի ${fmt(R.brief_n)} բան ձեր մասին</p>` : ''}
       </div>`);
-    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(hero + chg + stats + avatars + photos + choice + teach));
+    const sc = mount({ title: n ? `Ռիլ #${r.n}` : 'Ռիլեր', tab: 'sections', back, sub }, page(dayNote + hero + chg + stats + avatars + photos + choice + teach));
 
     // ── վարքը ──
     const v = document.getElementById('r4v');
@@ -1888,6 +1914,20 @@ function toast(text) {
       }, 1000);
       ok.dataset.wait = t;
     };
+    // 21.11 (Գարիկ. «կոճակ նոր ռիլ թարմացնելու… կոճակ այսօր չհրապարակել») → app_reel_feedback(new | skip), db 0051
+    const fbAlt = async (b, verdict, q, done) => {
+      if (!confirm(q)) return;
+      b.disabled = true;
+      const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: verdict, p_comment: '', p_voice: null });
+      if (error) { b.disabled = false; toast(/once a day/.test(error.message) ? 'Այսօր արդեն նոր ռիլ խնդրել եք' : 'Չստացվեց, փորձեք նորից'); return; }
+      toast(done); invalidate();
+      if (n) location.hash = '#/reels'; else render();
+    };
+    const late = (new Date().getUTCHours() + 4) % 24 >= 20;
+    const nb = document.getElementById('r4new'), kb = document.getElementById('r4skip');
+    if (nb) nb.onclick = () => fbAlt(nb, 'new', `Այս ռիլը չի հրապարակվի, և համակարգը կսարքի ուրիշը${late ? ' վաղը առավոտյան' : ' (մոտ 1 ժամ)'}։ Սա օրը մեկ անգամ է։ Շարունակե՞լ։`,
+      late ? 'Լավ. նորը՝ վաղը առավոտյան' : 'Լավ. նոր ռիլն է պատրաստվում');
+    if (kb) kb.onclick = () => fbAlt(kb, 'skip', 'Այս ռիլը չի հրապարակվի, և այսօր նոր ռիլ չի լինի։ Վաղը առավոտյան՝ հաջորդը։ Շարունակե՞լ։', 'Լավ. այսօր ռիլ չկա');
     r4Bind('r4c', async (t) => {
       const { error } = await sb.rpc('app_reel_feedback', { p_id: r.id, p_verdict: 'change', p_comment: t, p_voice: null });
       if (error) { toast('Չստացվեց, փորձեք նորից'); return false; }

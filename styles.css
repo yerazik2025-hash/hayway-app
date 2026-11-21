@@ -884,6 +884,13 @@ body.kb .wa-bar { padding-bottom: 7px; }
 .r4-st.done a b { position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 9px; background: var(--pos); color: var(--bg); display: flex; align-items: center; justify-content: center; }
 .r4-st.done a b svg { width: 12px; height: 12px; }
 .r4-warn { font-size: 14px; color: var(--warn); padding: 0 4px; }
+/* 21.11. «Նոր ռիլ» / «Այսօր չհրապարակել»՝ «Հաստատել»-ի տակ, երկրորդական, որ չմրցեն գլխավոր կոճակի հետ */
+.r4-alt { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
+.r4-alt .btn { min-height: 46px; padding: 0 16px; font-size: 15px; gap: 6px; white-space: nowrap; min-width: 0; }
+.r4-alt .btn:only-child { grid-column: 1 / -1; }
+.r4-alt .btn svg { flex: none; opacity: .75; }
+@media (max-width: 360px) { .r4-alt .btn { font-size: 14px; padding: 0 8px; } }
+.r4-st > i { display: flex; color: var(--text3); }
 .r4-sent { padding: 12px 14px; border-radius: 14px; background: var(--fill); font-size: 14.5px; color: var(--text2); line-height: 1.4; overflow-wrap: anywhere; }
 .r4-sent span { color: var(--text3); }
 /* «Ի՞նչ փոխել» ու չատի դաշտը՝ էջի ներսում, ոչ թե էկրանի ներքևում */
