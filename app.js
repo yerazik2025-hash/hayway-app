@@ -367,14 +367,14 @@ function toast(text) {
       const k = rows.map((r) => r.has).lastIndexOf(true), cur = rows[k] || {}, prev = rows[k - 1];
       lab = `Մաքուր եկամուտ · ${cur.nm || ''}`; val = num(cur.net);
       cmp = prev && prev.has ? `<span>${prev.nm}՝ ${short(prev.net)}${prev.part ? ` (${prev.part} օր)` : ''}</span>` : '';
-      sub = cur.has ? `շրջանառություն ${short(cur.commission)} − ծախսեր ${short(cur.costs)}` : '';
+      sub = cur.has ? `պարկի եկամուտ ${short(cur.commission)} − ծախսեր ${short(cur.costs)}` : '';
     } else {
       const c = D.cur || {}, p = D.prev || {}, pOk = p.days && p.cov_days === p.days && +p.net;
       const dp = pOk ? Math.round((c.net - p.net) / Math.abs(p.net) * 100) : null;
       lab = `Մաքուր եկամուտ · ${D.n === 30 ? '30' : D.n} օր`; val = num(c.net);
       cmp = (dp === null ? '' : `<span class="pill ${dp > 0 ? 'up' : dp < 0 ? 'down' : ''}">${dp > 0 ? '+' : dp < 0 ? '−' : ''}${Math.abs(dp)}%</span>`)
         + (pOk ? `<span>նախորդ ${D.n} օրը՝ ${short(p.net)}</span>` : '');
-      sub = `շրջանառություն ${short(c.commission)} − ծախսեր ${short(c.costs)}`;
+      sub = `պարկի եկամուտ ${short(c.commission)} − ծախսեր ${short(c.costs)}`;
     }
     const max = Math.max(1, ...rows.map((r) => r.has ? Math.max(+r.commission || 0, +r.net || 0) : 0));
     const bars = rows.map((r, i) => `<i class="${r.now ? 't' : ''}${r.has ? '' : ' nd'}" style="--g:${r.has ? Math.max(3, Math.round(r.commission / max * 100)) : 0}%;--h:${r.has ? Math.max(0, Math.round(r.net / max * 100)) : 0}%;--k:${i}"></i>`).join('');
@@ -390,7 +390,7 @@ function toast(text) {
           <div class="d14-h"><span>${M ? 'Ըստ ամիսների' : `Վերջին ${D.n} օրը`}</span>${M ? '' : `<b>${short(tot)}</b>`}</div>
           <div class="bars dash grow${rows.length > 20 ? ' dense' : ''}" id="${park}-bars">${bars}</div>
           ${axis}
-          <div class="lgd"><span><i></i>մաքուր եկամուտ</span><span><i class="g"></i>շրջանառություն</span></div>
+          <div class="lgd"><span><i></i>մաքուր եկամուտ</span><span><i class="g"></i>պարկի եկամուտ</span></div>
           <button type="button" class="dayh" id="${park}-day" aria-expanded="false"></button>
           <div class="dtab" id="${park}-tab" hidden></div>
         </div>` : ''}
@@ -407,7 +407,7 @@ function toast(text) {
     const dlv = park === 'delivery';
     el.innerHTML = (r.has ? ['<div class="dt-c">Ծախսերը</div>',
       cell({ t: 'Վճարային համակարգեր', s: 'Idram, Telcell, EasyPay, PrimeBridge', v: amd(num(r.pay)) }),
-      cell({ t: `Հարկ ${fmt(D.tax_pct)}%`, s: 'շրջանառությունից', v: amd(num(r.tax)) }),
+      cell({ t: `Հարկ ${fmt(D.tax_pct)}%`, s: 'պարկի եկամտից', v: amd(num(r.tax)) }),
     ].concat(dlv ? [] : [
       cell({ t: 'Գովազդ', s: 'list.am', v: amd(num(r.ads)) }),
       cell({ t: 'Ամսական ծախսեր', s: esc(fixedNames || 'վարձ, աշխատավարձ'), v: amd(num(r.fixed)) }),
@@ -453,7 +453,7 @@ function toast(text) {
       // հաշվի պես. շրջանառություն − ծախսեր = մաքուր (Գարիկ 03.11. «կոկիկ, հեշտ կարդացվող»)
       const ln = (t, v, cls = '') => `<span class="dh-r ${cls}"><span>${t}</span>${v}</span>`;
       out.innerHTML = `<span class="dh-h"><span class="dh-t">${r.title}</span><span class="dh-m">Մանրամասն${I.chev}</span></span>` + (r.has
-        ? ln('Շրջանառություն', `<span>${amd(num(r.commission))}</span>`) + ln('Ծախսեր', `<span>−${amd(num(r.costs))}</span>`)
+        ? ln('Պարկի եկամուտ', `<span>${amd(num(r.commission))}</span>`) + ln('Ծախսեր', `<span>−${amd(num(r.costs))}</span>`)
           + ln('Մաքուր եկամուտ', `<b class="${+r.net < 0 ? 'neg' : 'pos'}">${r.est ? '≈' + NB : ''}${amd(num(r.net))}</b>`, 'n')
         : ln('Պատվերներ', `<span>${fmt(r.orders)}</span>`) + ln('Պատվերների գումարը', `<span>${short(r.gmv)}</span>`)
           + ln('Մաքուր եկամուտ', '<b class="mut3">տվյալ չկա</b>', 'n'));
@@ -716,7 +716,7 @@ function toast(text) {
         ${fresh ? kpi('Հիմա աշխատում են', fmt(h.online.total), `${fmt(h.online.on_order)}-ը պատվերի վրա`, '#/drivers/active')
                 : kpi('Այսօր աշխատել են', fmt(todayRow.active || 0), 'վարորդ', '#/drivers/active')}
         ${kpi('Պատվերներ', fmt(W7.orders), vsWeek(W7.orders, P7.orders))}
-        ${kpi('Ընդհանուր գումար', short(W7.gmv), vsWeek(W7.gmv, P7.gmv), '#/finance')}
+        ${kpi('Պատվերների գումար', short(W7.gmv), vsWeek(W7.gmv, P7.gmv), '#/finance')}
         ${kpi('Նորեկներ · 30 օր', fmt(h.month.new), '', '#/growth')}
       </div>`, { foot: estNote(notes, 15) })}
       ${sec('Նպատակ՝ 1000 վարորդ', `<a class="card" href="#/drivers/active">
@@ -2099,7 +2099,7 @@ function toast(text) {
         ...(ex.items || []).map((it) => kv(esc(it.name), `<span class="neg">${short(it.amd_period)}</span>`, `ամսական ${short(it.amd_month)}`)),
         kv('Գովազդ · list.am', `<span class="neg">${short(np.ads)}</span>`, 'list.am'),
       ]))
-      : sec('Մաքուր եկամուտ · 30 օր', `<div class="kpis">
+      : sec('Եկամուտ և վճարային ծախսեր · 30 օր', `<div class="kpis">
         ${kpi('Պարկի եկամուտ', short(fe.park_commission_amd), `${String(fe.park_commission_pct).replace('.', ',')}% պատվերներից`)}
         ${kpi('Վճարային ծախսեր', short(pc.total_amd), `${String(fe.costs_pct_of_park_commission).replace('.', ',')}% եկամտից`)}
         ${kpi('Մաքուր', short(fe.park_net_after_costs_amd), 'եկամուտ − ծախսեր')}
@@ -2125,16 +2125,16 @@ function toast(text) {
     const tops = (f.topups_by_provider || []), topsSum = tops.reduce((s, t) => s + (+t.sum || 0), 0);
     mount({ title: 'Ֆինանսներ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot ok"></span>Ֆինանսիստ' }, page(`
       ${sec('Վերջին 7 օր', `<div class="kpis">
-        ${kpi('Շրջանառություն', short(w.gmv), delta(w.gmv, p.gmv))}
+        ${kpi('Պատվերների գումար', short(w.gmv), delta(w.gmv, p.gmv))}
         ${kpi('Պարկի եկամուտ', short(w.commission), delta(w.commission, p.commission))}
       </div>`, { foot: estNote(notes, 15) })}
       ${feeSec}
       ${manSec}
       ${sec('Եկամուտ ըստ օրերի', `<div class="card">${barChart('ch-comm', fd, 'commission', (v) => amd(Math.round(v)), '')}</div>`)}
       ${sec('Վերջին 30 օր', group([
-        kv('Շրջանառություն', short(m.gmv)),
+        kv('Պատվերների գումար', short(m.gmv)),
         kv('Կանխիկ · Քարտ · Կորպ.', `${pct(m.cash, m.gmv)} · ${pct(m.cashless, m.gmv)} · ${pct(m.corporate, m.gmv)}%`),
-        kv('Պարկի կոմիսիա', short(m.commission), `${(m.gmv ? m.commission / m.gmv * 100 : 0).toFixed(2).replace('.', ',')}% շրջանառությունից`),
+        kv('Պարկի եկամուտ', short(m.commission), `${(m.gmv ? m.commission / m.gmv * 100 : 0).toFixed(2).replace('.', ',')}% պատվերների գումարից`),
         kv('Վճարումներ վարորդներին', short(m.payouts)),
         kv('Լիցքավորումներ', short(m.topups)),
         kv('Մեկ ակտիվ վարորդից', amd(Math.round(m.active ? m.commission / m.active : 0))),
@@ -2155,19 +2155,24 @@ function toast(text) {
     const rules = t.rules || [];
     const maxD = Math.max(1, ...rules.map((r) => r.drivers));
     const gmv = t.month_gmv || 0, cur = t.month_commission || 0;
+    // 21.11. հաշվիչը փոխում է միայն վճարող պայմանների %-ը (առաջին շաբաթվա 0%-ը, զեղչերը՝ ինչպես կան).
+    // ամսական = իրականը × (վճարող խմբերի գումար × նոր %) / (նույն գումար × իրենց %) → իրական %-ի վրա տարբերությունը 0 է
+    const paid = rules.filter((r) => +r.pct > 0);
+    const base = paid.reduce((s, r) => s + +r.gmv_30d * +r.pct, 0), gPaid = paid.reduce((s, r) => s + +r.gmv_30d, 0);
+    const curPct = gPaid ? Math.round(base / gPaid * 4) / 4 : 2.5;
     const rows = rules.map((r) => cell({ t: `<b>${r.pct === null ? '—' : String(r.pct).replace('.', ',') + '%'}</b> · ${esc(r.name.trim())}`, s: `${r.active_30d} ակտիվ · ${short(r.gmv_30d)} 30 օրում${r.is_default ? ' · նորեկների համար' : ''}`, v: fmt(r.drivers), strong: true, extra: `<div class="mbar"><span style="width:${pct(r.drivers, maxD)}%"></span></div>` }));
     mount({ title: 'Պայմաններ', tab: 'sections', back: ['#/sections', 'Բաժիններ'], sub: '<span class="dot ok"></span>Պայմանների խորհրդատու' }, page(`
       ${sec(`Կոմիսիայի խմբեր`, group(rows.length ? rows : ['<p class="none">Տվյալ չկա</p>']))}
       ${sec('Ինչ կլինի, եթե…', `<div class="card">
-        <p class="meta">Կոմիսիան բոլոր վարորդների համար</p>
-        <div class="stepper"><button id="dec" aria-label="Պակասեցնել">−</button><span class="n" id="pv">2,50%</span><button id="inc" aria-label="Ավելացնել">+</button></div>
+        <p class="meta">Կոմիսիան բոլոր վճարող վարորդների համար (առաջին շաբաթվա 0%-ը չի փոխվում)</p>
+        <div class="stepper"><button id="dec" aria-label="Պակասեցնել">−</button><span class="n" id="pv">${curPct.toFixed(2).replace('.', ',')}%</span><button id="inc" aria-label="Ավելացնել">+</button></div>
         <div class="kv"><span>Ամսական կոմիսիա</span><b id="mv"></b></div>
         <p class="delta" id="dv" style="font-size:15px"></p>
-        <p class="meta">Հիմա՝ ${short(cur)} ամսական։</p>
+        <p class="meta">Հիմա՝ ${short(cur)} ամսական (վերջին 30 լրիվ օրը)${gPaid ? `, վճարողների միջինը՝ ${(base / gPaid).toFixed(2).replace('.', ',')}%` : ''}։</p>
       </div>`)}
     `));
-    let pv = 2.5;
-    const upd = () => { const mv = gmv * pv / 100, d = mv - cur; document.getElementById('pv').textContent = pv.toFixed(2).replace('.', ',') + '%'; document.getElementById('mv').textContent = short(mv); const dv = document.getElementById('dv'); dv.textContent = (d >= 0 ? '+' : '−') + short(Math.abs(d)) + ' իրականի համեմատ'; dv.className = 'delta ' + (d >= 0 ? 'pos' : 'neg'); };
+    let pv = curPct;
+    const upd = () => { const mv = base ? cur * gPaid * pv / base : gmv * pv / 100, d = mv - cur; document.getElementById('pv').textContent = pv.toFixed(2).replace('.', ',') + '%'; document.getElementById('mv').textContent = short(mv); const dv = document.getElementById('dv'); dv.textContent = (d >= 0 ? '+' : '−') + short(Math.abs(d)) + ' իրականի համեմատ'; dv.className = 'delta ' + (d >= 0 ? 'pos' : 'neg'); };
     document.getElementById('dec').onclick = () => { pv = Math.max(0, +(pv - 0.25).toFixed(2)); upd(); };
     document.getElementById('inc').onclick = () => { pv = Math.min(5, +(pv + 0.25).toFixed(2)); upd(); };
     upd();
